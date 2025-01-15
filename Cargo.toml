@@ -1,0 +1,11 @@
+[package]
+name = "Morast"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+macroquad = "0.4.13"
+
+[build-dependencies]
+bindgen = "0.71.0"
+cc = "1.2.9"
