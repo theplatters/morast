@@ -1,0 +1,10 @@
+(def cost 1)
+(def card-image "../../assets/image.jpg")
+(def movement [[1 0] [0 1] [0 -1] [1 0]])
+(def attack [[0 0]])
+
+(defn on-draw [context] nil)
+(defn on-play [context] nil)
+(defn on-ability [context] nil)
+(defn on-turn_begin [context] nil)
+(defn on-end [context] nil)
