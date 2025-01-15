@@ -1,6 +1,4 @@
-use janet_handler::init::init;
-
-mod janet_handler;
+mod engine;
 fn main() {
-    init();
+    engine::janet_handler::init::init();
 }
