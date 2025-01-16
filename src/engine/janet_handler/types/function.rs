@@ -1,50 +1,62 @@
-use std::ptr::{from_mut, from_ref};
-
-use crate::engine::janet_handler::bindings::{
-    janet_pcall, janet_resolve, janet_unwrap_function, Janet, JanetFunction, JanetSignal,
-    JanetTable,
+use crate::engine::janet_handler::{
+    bindings::{
+        janet_checktype, janet_pcall, janet_resolve, janet_type, janet_unwrap_function,
+        janet_wrap_nil, Janet, JanetFunction, JanetSignal, JANET_TYPE_JANET_FUNCTION,
+    },
+    controller::Environment,
 };
 
-use super::table::Table;
-
 pub struct Function {
-    janet_fun: JanetFunction,
+    janet_fun: *mut JanetFunction,
 }
 
 impl Function {
-    fn eval(&self, argv: &[Janet]) -> Result<Janet, u32> {
-        let mut out: Janet = Janet {
-            pointer: std::ptr::null_mut(),
-        };
-        let signal: JanetSignal;
-        unsafe {
-            signal = janet_pcall(
-                std::ptr::from_ref(&self.janet_fun) as *mut JanetFunction,
-                argv.len() as i32,
-                argv.as_ptr(),
-                std::ptr::from_mut(&mut out),
-                std::ptr::null_mut(),
-            );
-        }
-        if signal != 0 {
-            return Err(signal);
-        }
-        Ok(out)
+    pub fn new(janet_fun: *mut JanetFunction) -> Self {
+        Self { janet_fun }
     }
 
-    fn get_method(env: &Table, method_name: &str, namespace: &str) -> *const JanetFunction {
-        let together = format!("{namespace}{method_name}").into_bytes();
-        let mut out: Janet = Janet {
-            pointer: std::ptr::null_mut(),
+    pub fn eval<T: super::janetenum::JanetItem>(&self, argv: &[T]) -> Result<Janet, u32> {
+        let wrapped: Vec<Janet> = argv.iter().map(|x| x.to_janet()).collect();
+        let signal: JanetSignal;
+        unsafe {
+            let mut out: Janet = janet_wrap_nil();
+            signal = janet_pcall(
+                self.janet_fun as *mut _,
+                argv.len() as i32,
+                wrapped.as_ptr(),
+                &mut out as *mut _,
+                std::ptr::null_mut(),
+            );
+
+            if signal != 0 {
+                return Err(signal);
+            }
+
+            Ok(out)
+        }
+    }
+
+    pub fn get_method(env: &Environment, method_name: &str, namespace: &str) -> Option<Function> {
+        let together = format!("{namespace}/{method_name}");
+        let c_function_name = match std::ffi::CString::new(together) {
+            Ok(it) => it,
+            Err(_) => return None,
         };
 
         unsafe {
+            let mut out: Janet = janet_wrap_nil();
             janet_resolve(
-                std::ptr::from_ref(env) as *mut JanetTable,
-                std::ptr::from_ref(&together) as *const u8,
-                std::ptr::from_mut(&mut out),
+                env.env_ptr(),
+                crate::engine::janet_handler::bindings::janet_csymbol(c_function_name.as_ptr()),
+                &mut out as *mut Janet,
             );
-            janet_unwrap_function(out)
+
+            if janet_checktype(out, JANET_TYPE_JANET_FUNCTION) == 0 {
+                return None;
+            }
+            Some(Function {
+                janet_fun: janet_unwrap_function(out),
+            })
         }
     }
 }

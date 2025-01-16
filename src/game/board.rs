@@ -5,7 +5,9 @@ struct Index {
     y: usize,
 }
 
-pub struct Tile {}
+pub struct Tile {
+    ontile: Vec<super::card::Card>,
+}
 
 pub struct Board {
     tiles: HashMap<Index, Tile>,

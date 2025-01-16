@@ -6,3 +6,5 @@ pub struct Card {
     draw_action: Function,
     discard_action: Function,
 }
+
+impl crate::engine::janet_handler::types::janetenum::ToVoidPointer for Card {}

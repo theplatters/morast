@@ -19,21 +19,35 @@ pub fn init() -> Environment {
         _env = janet_core_env(std::ptr::null_mut());
         _lookup = janet_env_lookup(_env);
         Environment {
-            env: Table { t: *_env },
-            lookup: Table { t: *_lookup },
+            env: Table { raw: _env },
+            lookup: Table { raw: _lookup },
         }
     }
 }
 
-pub fn do_string(env: &Environment, string: &str) {
+impl Environment {
+    pub fn env_ptr(&self) -> *mut JanetTable {
+        self.env.raw
+    }
+}
+
+pub fn do_string(env: &Environment, string: &str) -> Janet {
+    let mut out: Janet = Janet {
+        pointer: std::ptr::null_mut(),
+    };
     unsafe {
         janet_dostring(
-            env.env.get_raw_pointer() as *mut JanetTable,
-            string.as_ptr() as *const i8,
-            "main".as_ptr() as *const i8,
-            std::ptr::null_mut(),
+            env.env_ptr(),
+            std::ffi::CString::new(string)
+                .expect("CString::new failed")
+                .as_ptr(),
+            std::ffi::CString::new("main")
+                .expect("CString::new failed")
+                .as_ptr(),
+            &mut out as *mut Janet,
         );
     }
+    out
 }
 
 pub fn deinit() {
@@ -42,4 +56,22 @@ pub fn deinit() {
     }
 }
 
-pub fn read_script(filename: &str) {}
+pub fn read_script(env: &Environment, filename: &str) -> Result<Janet, Box<dyn std::error::Error>> {
+    let script = std::fs::read_to_string(filename)?;
+    let mut out: Janet = Janet {
+        pointer: std::ptr::null_mut(),
+    };
+    unsafe {
+        janet_dostring(
+            env.env_ptr(),
+            std::ffi::CString::new(script)
+                .expect("CString::new failed")
+                .as_ptr(),
+            std::ffi::CString::new(filename)
+                .expect("CString::new failed")
+                .as_ptr(),
+            &mut out as *mut Janet,
+        );
+    }
+    Ok(out)
+}
