@@ -1,7 +1,7 @@
 use std::ffi::{c_void, CStr};
 
 use crate::engine::janet_handler::bindings::{
-    janet_type, janet_unwrap_boolean, janet_unwrap_function, janet_unwrap_string, janet_wrap_integer, janet_wrap_number, janet_wrap_pointer, JANET_TYPE_JANET_ARRAY, JANET_TYPE_JANET_BOOLEAN, JANET_TYPE_JANET_FUNCTION, JANET_TYPE_JANET_NIL, JANET_TYPE_JANET_NUMBER, JANET_TYPE_JANET_STRING, JANET_TYPE_JANET_TABLE, JANET_TYPE_JANET_TUPLE
+    janet_type, janet_unwrap_boolean, janet_unwrap_function, janet_unwrap_string, janet_unwrap_tuple, janet_wrap_integer, janet_wrap_number, janet_wrap_pointer, JANET_TYPE_JANET_ARRAY, JANET_TYPE_JANET_BOOLEAN, JANET_TYPE_JANET_FUNCTION, JANET_TYPE_JANET_NIL, JANET_TYPE_JANET_NUMBER, JANET_TYPE_JANET_STRING, JANET_TYPE_JANET_TABLE, JANET_TYPE_JANET_TUPLE
 };
 
 use super::function::Function;
@@ -17,7 +17,8 @@ enum JanetEnum {
     _Bool(bool),
     _String(String),
     _Struct(Box<dyn JanetItem>),
-    _Function(Function)
+    _Function(Function),
+    _Null,
 }
 
 impl<T> JanetItem for T
@@ -53,10 +54,9 @@ impl JanetEnum {
                         Ok(v) =>   JanetEnum::_String(String::from(v)),
                         Err(e) => panic!("whwhhwh")
                     }
-                JANET_TYPE_JANET_TUPLE =>
-                JANET_TYPE_JANET_TABLE =>
-                JANET_TYPE_JANET_NIL => 
-                JANET_TYPE_JANET_NUMBER =>
+                JANET_TYPE_JANET_TUPLE => janet_unwrap_tuple(item),
+                JANET_TYPE_JANET_NIL => JanetEnum::_Null,
+                JANET_TYPE_JANET_NUMBER => 
             }
         }
     }
