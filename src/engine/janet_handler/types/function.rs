@@ -6,6 +6,8 @@ use crate::engine::janet_handler::{
     controller::Environment,
 };
 
+use super::janetenum::{JanetEnum, JanetItem};
+
 pub struct Function {
     janet_fun: *mut JanetFunction,
 }
@@ -15,7 +17,10 @@ impl Function {
         Self { janet_fun }
     }
 
-    pub fn eval<T: super::janetenum::JanetItem>(&self, argv: &[T]) -> Result<Janet, u32> {
+    pub fn eval<T>(&self, argv: &[Box<dyn JanetItem>]) -> Result<JanetEnum, u32>
+    where
+        T: JanetItem + 'static,
+    {
         let wrapped: Vec<Janet> = argv.iter().map(|x| x.to_janet()).collect();
         let signal: JanetSignal;
         unsafe {
@@ -32,12 +37,19 @@ impl Function {
                 return Err(signal);
             }
 
-            Ok(out)
+            Ok(super::janetenum::JanetEnum::from::<T>(out))
         }
     }
 
-    pub fn get_method(env: &Environment, method_name: &str, namespace: &str) -> Option<Function> {
-        let together = format!("{namespace}/{method_name}");
+    pub fn get_method(
+        env: &Environment,
+        method_name: &str,
+        namespace: Option<&str>,
+    ) -> Option<Function> {
+        let together = match namespace {
+            None => method_name.to_string(),
+            Some(n) => format!("{n}/{method_name}"),
+        };
         let c_function_name = match std::ffi::CString::new(together) {
             Ok(it) => it,
             Err(_) => return None,
