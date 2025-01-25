@@ -1,16 +1,12 @@
-use core::panic;
 use std::ffi::{c_void, CStr};
-
-use macroquad::Error;
 
 use crate::engine::janet_handler::bindings::{
     janet_array_pop, janet_is_int, janet_type, janet_unwrap_array, janet_unwrap_boolean,
     janet_unwrap_function, janet_unwrap_integer, janet_unwrap_number, janet_unwrap_pointer,
-    janet_unwrap_string, janet_unwrap_tuple, janet_unwrap_u64, janet_wrap_integer,
-    janet_wrap_number, janet_wrap_pointer, Janet, JanetArray, JANET_TYPE_JANET_ARRAY,
-    JANET_TYPE_JANET_BOOLEAN, JANET_TYPE_JANET_FUNCTION, JANET_TYPE_JANET_NIL,
-    JANET_TYPE_JANET_NUMBER, JANET_TYPE_JANET_POINTER, JANET_TYPE_JANET_STRING,
-    JANET_TYPE_JANET_TABLE, JANET_TYPE_JANET_TUPLE,
+    janet_unwrap_string, janet_unwrap_u64, janet_wrap_integer, janet_wrap_number,
+    janet_wrap_pointer, JanetArray, JANET_TYPE_JANET_ARRAY, JANET_TYPE_JANET_BOOLEAN,
+    JANET_TYPE_JANET_FUNCTION, JANET_TYPE_JANET_NIL, JANET_TYPE_JANET_NUMBER,
+    JANET_TYPE_JANET_POINTER, JANET_TYPE_JANET_STRING,
 };
 
 use super::function::Function;
@@ -90,7 +86,7 @@ impl JanetEnum {
                 JANET_TYPE_JANET_STRING => {
                     match CStr::from_ptr(janet_unwrap_string(item) as *const i8).to_str() {
                         Ok(v) => Ok(JanetEnum::_String(String::from(v))),
-                        Err(e) => Err("Casting to String failed"),
+                        Err(_) => Err("Casting to String failed"),
                     }
                 }
                 JANET_TYPE_JANET_NIL => Ok(JanetEnum::_Null),

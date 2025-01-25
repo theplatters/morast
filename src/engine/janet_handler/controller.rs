@@ -1,13 +1,12 @@
 use std::{ffi::CString, str::FromStr};
 
-use super::bindings::{
-    janet_cfuns_prefix, janet_core_env, janet_deinit, janet_dostring, janet_env_lookup, janet_init,
-    Janet, JanetReg, JanetTable,
+use super::{
+    bindings::{
+        janet_cfuns_prefix, janet_core_env, janet_deinit, janet_dostring, janet_env_lookup,
+        janet_init, Janet, JanetReg, JanetTable,
+    },
+    types::{cfunction::JanetRawCFunction, janetenum::JanetEnum, table::Table},
 };
-use super::types::janetenum::{JanetEnum, JanetItem};
-use super::types::table::Table;
-
-pub type JanetRawCFunction = unsafe extern "C" fn(i32, *mut Janet) -> Janet;
 
 pub struct Environment {
     pub env: Table,
@@ -97,8 +96,8 @@ impl Environment {
             janet_deinit();
         }
     }
-    pub fn read_script(&self, filename: &str) -> Result<JanetEnum, Box<dyn std::error::Error>> {
-        let script = std::fs::read_to_string(filename)?;
+    pub fn read_script(&self, filename: &str) -> Result<JanetEnum, &str> {
+        let script = std::fs::read_to_string(filename).map_err(|_| "Couldn't read file")?;
         let mut out: Janet = Janet {
             pointer: std::ptr::null_mut(),
         };
@@ -106,14 +105,14 @@ impl Environment {
             janet_dostring(
                 self.env_ptr(),
                 std::ffi::CString::new(script)
-                    .expect("CString::new failed")
+                    .map_err(|_| "CString::new failed")?
                     .as_ptr(),
                 std::ffi::CString::new(filename)
-                    .expect("CString::new failed")
+                    .map_err(|_| "CString::new failed")?
                     .as_ptr(),
                 &mut out as *mut Janet,
             );
         }
-        Ok(JanetEnum::from::<dyn JanetItem>(out))
+        JanetEnum::from::<i32>(out)
     }
 }

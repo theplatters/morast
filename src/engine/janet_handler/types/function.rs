@@ -8,6 +8,7 @@ use crate::engine::janet_handler::{
 
 use super::janetenum::{JanetEnum, JanetItem};
 
+#[derive(Clone)]
 pub struct Function {
     janet_fun: *mut JanetFunction,
 }
@@ -17,7 +18,7 @@ impl Function {
         Self { janet_fun }
     }
 
-    pub fn eval<T>(&self, argv: &[Box<dyn JanetItem>]) -> Result<JanetEnum, u32>
+    pub fn eval<T>(&self, argv: &[Box<dyn JanetItem>]) -> Result<JanetEnum, &str>
     where
         T: JanetItem + 'static,
     {
@@ -34,10 +35,10 @@ impl Function {
             );
 
             if signal != 0 {
-                return Err(signal);
+                return Err("Got signal {}");
             }
 
-            Ok(super::janetenum::JanetEnum::from::<T>(out))
+            super::janetenum::JanetEnum::from::<T>(out)
         }
     }
 
@@ -72,3 +73,6 @@ impl Function {
         }
     }
 }
+
+unsafe impl Send for Function {}
+unsafe impl Sync for Function {}
