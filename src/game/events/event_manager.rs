@@ -5,12 +5,12 @@ use super::{
     event_handler::EventHandler,
 };
 
-pub struct EventManager {
-    subscribers: HashMap<EventType, Vec<Box<dyn EventHandler>>>,
+pub struct EventManager<'a> {
+    subscribers: HashMap<EventType, Vec<&'a mut dyn EventHandler>>,
     event_queue: VecDeque<Event>,
 }
 
-impl EventManager {
+impl<'a> EventManager<'a> {
     pub fn new() -> Self {
         EventManager {
             subscribers: HashMap::new(),
@@ -18,7 +18,7 @@ impl EventManager {
         }
     }
 
-    pub fn subscribe(&mut self, event_type: EventType, handler: Box<dyn EventHandler>) {
+    pub fn subscribe(&mut self, event_type: EventType, handler: &'a mut dyn EventHandler) {
         self.subscribers
             .entry(event_type)
             .or_default()

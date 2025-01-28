@@ -1,11 +1,4 @@
-use std::collections::HashMap;
-
-use super::{
-    board::Board,
-    deck::Deck,
-    events::{event::Event, event_handler::EventHandler, event_manager::EventManager},
-    hand::Hand,
-};
+use super::{board::Board, events::event_manager::EventManager, player::Player};
 
 pub enum GameStates {
     Draw,
@@ -14,14 +7,30 @@ pub enum GameStates {
     End,
 }
 
-pub struct Context {
-    pub decks: HashMap<u16, Deck>,
-    pub hands: HashMap<u16, Hand>,
-    pub discard_piles: HashMap<u16, Deck>,
+pub struct GameContext<'a> {
+    pub players: Vec<Player>,
     pub board: Board,
     pub game_state: GameStates,
     pub turn_player: u16,
-    pub event_manager: EventManager,
+    pub event_manager: EventManager<'a>,
 }
 
-impl crate::engine::janet_handler::types::janetenum::ToVoidPointer for Context {}
+impl<'a> GameContext<'a> {
+    pub fn new(
+        players: Vec<Player>,
+        board: Board,
+        game_state: GameStates,
+        turn_player: u16,
+        event_manager: EventManager<'a>,
+    ) -> Self {
+        Self {
+            players,
+            board,
+            game_state,
+            turn_player,
+            event_manager,
+        }
+    }
+}
+
+impl crate::engine::janet_handler::types::janetenum::ToVoidPointer for GameContext<'_> {}

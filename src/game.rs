@@ -4,3 +4,5 @@ pub mod context;
 pub mod deck;
 pub mod events;
 pub mod hand;
+pub mod player;
+
