@@ -1,7 +1,17 @@
+use macroquad::prelude::*;
+
 mod engine;
 mod game;
-fn main() {
-    let env = engine::janet_handler::controller::init();
-    engine::janet_handler::controller::do_string(&env, "(print `hello, world!`)");
-    engine::janet_handler::controller::deinit();
+#[macroquad::main("BasicShapes")]
+async fn main() {
+    loop {
+        clear_background(RED);
+
+        draw_line(40.0, 40.0, 100.0, 200.0, 15.0, BLUE);
+        draw_rectangle(screen_width() / 2.0 - 60.0, 100.0, 120.0, 60.0, GREEN);
+        draw_circle(screen_width() - 30.0, screen_height() - 30.0, 15.0, YELLOW);
+        draw_text("HELLO", 120.0, 120.0, 80.0, DARKGRAY);
+
+        next_frame().await
+    }
 }
