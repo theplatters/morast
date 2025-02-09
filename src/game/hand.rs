@@ -1,23 +1,23 @@
 use crate::game::events::actions::CardAction;
 
 use super::{
-    card::Card,
-    deck::Deck,
-    events::{event::Event, event_handler::EventHandler, event_manager::EventManager},
+    card::card_holder::CardHolder,
+    events::{event::Event, event_handler::EventHandler},
+    player::PlayerID,
 };
 
+#[derive(Debug)]
 pub struct Hand {
-    pub player: u16,
-    pub cards: Vec<Card>,
+    pub player: PlayerID,
+    pub cards: CardHolder,
 }
 
 impl Hand {
-    pub fn add_card(&mut self, card: Card) {
-        self.cards.push(card);
-    }
-
-    pub fn remove_card(&mut self) -> Option<Card> {
-        self.cards.pop()
+    pub fn new(player: PlayerID) -> Self {
+        Self {
+            player,
+            cards: CardHolder::new(),
+        }
     }
 }
 
@@ -27,12 +27,12 @@ impl EventHandler for Hand {
         match event {
             Event::SendCardToHand(action) => {
                 if action.player == self.player {
-                    self.add_card(action.card.to_owned());
+                    self.cards.add_card(action.card.to_owned());
                 }
                 vec![]
             }
             Event::DiscardCard(player) if *player == self.player => {
-                if let Some(card) = self.remove_card() {
+                if let Some(card) = self.cards.remove_card() {
                     vec![Event::SendCardToDiscard(CardAction {
                         card,
                         player: *player,
@@ -41,13 +41,7 @@ impl EventHandler for Hand {
                     vec![Event::HandEmpty(*player)]
                 }
             }
-            Event::DiscardCard(_)
-            | Event::DrawCard(_)
-            | Event::SendCardToDiscard(_)
-            | Event::CardDrawn(_)
-            | Event::DeckEmpty(_)
-            | Event::CardDiscarded(_)
-            | Event::HandEmpty(_) => Vec::new(),
+            _ => Vec::new(),
         }
     }
 }

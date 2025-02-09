@@ -1,6 +1,12 @@
-use super::{board::Board, events::event_manager::EventManager, player::Player};
+use super::{
+    board::Board,
+    card::card_registry::CardRegistry,
+    events::event_manager::EventManager,
+    player::{Player, PlayerID},
+};
 
 pub enum GameStates {
+    Init,
     Draw,
     Play,
     Move,
@@ -11,24 +17,20 @@ pub struct GameContext<'a> {
     pub players: Vec<Player>,
     pub board: Board,
     pub game_state: GameStates,
-    pub turn_player: u16,
+    pub turn_player: PlayerID,
     pub event_manager: EventManager<'a>,
+    pub card_registry: CardRegistry,
 }
 
-impl<'a> GameContext<'a> {
-    pub fn new(
-        players: Vec<Player>,
-        board: Board,
-        game_state: GameStates,
-        turn_player: u16,
-        event_manager: EventManager<'a>,
-    ) -> Self {
+impl GameContext<'_> {
+    pub fn new(players: Vec<Player>) -> Self {
         Self {
             players,
-            board,
-            game_state,
-            turn_player,
-            event_manager,
+            board: Board::new(),
+            game_state: GameStates::Init,
+            turn_player: PlayerID::new(0),
+            event_manager: EventManager::new(),
+            card_registry: CardRegistry::new(),
         }
     }
 }

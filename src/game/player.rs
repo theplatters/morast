@@ -1,9 +1,52 @@
-use super::{deck::Deck, hand::Hand};
+use super::{
+    deck::Deck,
+    events::{actions::GoldAction, event::Event, event_handler::EventHandler},
+    hand::Hand,
+};
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+pub struct PlayerID(u16);
+impl PlayerID {
+    // Existing methods
+    pub fn new(id: u16) -> Self {
+        Self(id)
+    }
+
+    pub fn get(&self) -> u16 {
+        self.0
+    }
+
+    // New next method with overflow protection
+    pub fn next(&self) -> Self {
+        // Choose one of these implementations:
+
+        // 1. Wrapping arithmetic (cycles back to 0 after u16::MAX)
+        Self(self.0.wrapping_add(1))
+    }
+}
+
+#[derive(Debug)]
 pub struct Player {
-    id: u16,
-    money: u64,
+    id: PlayerID,
+    money: i32,
     deck: Deck,
     hand: Hand,
     discard_pile: Deck,
+}
+
+impl EventHandler for Player {
+    fn handle_event(
+        &mut self,
+        event: &super::events::event::Event,
+    ) -> Vec<super::events::event::Event> {
+        match event {
+            Event::GetGold(GoldAction { player, amount }) => {
+                if *player == self.id {
+                    self.money += amount;
+                }
+                Vec::new()
+            }
+            _ => Vec::new(),
+        }
+    }
 }

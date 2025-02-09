@@ -8,7 +8,7 @@ use crate::engine::janet_handler::{
 
 use super::janetenum::{JanetEnum, JanetItem};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Function {
     janet_fun: *mut JanetFunction,
 }

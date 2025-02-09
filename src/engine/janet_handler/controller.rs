@@ -1,11 +1,19 @@
-use std::{ffi::CString, str::FromStr};
+use std::{
+    ffi::{CString, NulError},
+    str::FromStr,
+};
 
 use super::{
+    api::{cfun_discard, cfun_draw, cfun_getgold},
     bindings::{
         janet_cfuns_prefix, janet_core_env, janet_deinit, janet_dostring, janet_env_lookup,
         janet_init, Janet, JanetReg, JanetTable,
     },
-    types::{cfunction::JanetRawCFunction, janetenum::JanetEnum, table::Table},
+    types::{
+        cfunction::{CFunction, JanetRawCFunction},
+        janetenum::JanetEnum,
+        table::Table,
+    },
 };
 
 pub struct Environment {
@@ -14,18 +22,46 @@ pub struct Environment {
 }
 
 impl Environment {
-    pub fn init() -> Environment {
+    pub fn new() -> Environment {
         let mut _env = std::ptr::null_mut();
         let mut _lookup = std::ptr::null_mut();
         unsafe {
             janet_init();
             _env = janet_core_env(std::ptr::null_mut());
             _lookup = janet_env_lookup(_env);
-            Environment {
+            let env = Environment {
                 env: Table { raw: _env },
                 lookup: Table { raw: _lookup },
-            }
+            };
+            env.register_core_functions();
+            env
         }
+    }
+
+    fn register_core_functions(&self) {
+        self.register(
+            "draw",
+            cfun_draw,
+            "Draws a card for the current player",
+            Some("std"),
+        )
+        .expect("Could not register draw function");
+
+        self.register(
+            "discard",
+            cfun_discard,
+            "Discards a card from the hand",
+            Some("std"),
+        )
+        .expect("Could not register discard function");
+
+        self.register(
+            "get-gold",
+            cfun_getgold,
+            "Get's the amount of gold",
+            Some("std"),
+        )
+        .expect("Could not register get-gold function");
     }
 
     pub fn env_ptr(&self) -> *mut JanetTable {
@@ -38,10 +74,9 @@ impl Environment {
         cfun: JanetRawCFunction,
         docs: &str,
         namespace: Option<&str>,
-    ) {
-        let function_name =
-            CString::from_str(name).expect("Couldn't create function name C_String");
-        let documentation = CString::from_str(docs).expect("Couldn't create docs C_String");
+    ) -> Result<(), NulError> {
+        let function_name = CString::from_str(name)?;
+        let documentation = CString::from_str(docs)?;
         let funs_null_terminated = [
             JanetReg {
                 name: function_name.as_ptr(),
@@ -55,9 +90,8 @@ impl Environment {
             },
         ];
         unsafe {
-            if namespace.is_some() {
-                let namespace_cstr =
-                    CString::new(namespace.unwrap()).expect("Couldn't create namespace C_String");
+            if let Some(name) = namespace {
+                let namespace_cstr = CString::new(name)?;
                 janet_cfuns_prefix(
                     self.env_ptr(),
                     namespace_cstr.as_ptr(),
@@ -71,25 +105,22 @@ impl Environment {
                 );
             }
         }
+        Ok(())
     }
 
-    pub fn do_string(&self, string: &str) -> Janet {
+    pub fn do_string(&self, string: &str) -> Result<Janet, NulError> {
         let mut out: Janet = Janet {
             pointer: std::ptr::null_mut(),
         };
         unsafe {
             janet_dostring(
                 self.env_ptr(),
-                std::ffi::CString::new(string)
-                    .expect("CString::new failed")
-                    .as_ptr(),
-                std::ffi::CString::new("main")
-                    .expect("CString::new failed")
-                    .as_ptr(),
+                std::ffi::CString::new(string)?.as_ptr(),
+                std::ffi::CString::new("main")?.as_ptr(),
                 &mut out as *mut Janet,
             );
         }
-        out
+        Ok(out)
     }
     pub fn deinit() {
         unsafe {

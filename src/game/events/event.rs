@@ -1,14 +1,17 @@
-use super::actions::CardAction;
+use crate::game::player::PlayerID;
+
+use super::actions::{CardAction, GoldAction};
 
 pub enum Event {
-    DrawCard(u16),
-    DiscardCard(u16),
+    DrawCard(PlayerID),
+    DiscardCard(PlayerID),
     SendCardToHand(CardAction),
     SendCardToDiscard(CardAction),
-    CardDrawn(u16),
-    DeckEmpty(u16),
-    CardDiscarded(u16),
-    HandEmpty(u16),
+    CardDrawn(PlayerID),
+    DeckEmpty(PlayerID),
+    CardDiscarded(PlayerID),
+    HandEmpty(PlayerID),
+    GetGold(GoldAction),
 }
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
@@ -21,6 +24,7 @@ pub enum EventType {
     DeckEmpty,
     CardDiscarded,
     HandEmpty,
+    GetGold,
 }
 
 impl Event {
@@ -34,6 +38,7 @@ impl Event {
             Event::DeckEmpty(_) => EventType::DeckEmpty,
             Event::CardDiscarded(_) => EventType::CardDiscarded,
             Event::HandEmpty(_) => EventType::HandEmpty,
+            Event::GetGold(_) => EventType::GetGold,
         }
     }
 }

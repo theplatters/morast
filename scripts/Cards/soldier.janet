@@ -1,5 +1,5 @@
 (def cost 1)
-(def card-image "../../assets/image.jpg")
+(def card-image "../assets/image.jpg")
 (def movement [[1 0] [0 1] [0 -1] [1 0]])
 (def attack [[0 0]])
 

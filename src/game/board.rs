@@ -4,12 +4,22 @@ use macroquad::math::U16Vec2;
 
 use super::events::{event::Event, event_handler::EventHandler};
 
+#[derive(Debug)]
 pub struct Tile {
     ontile: Vec<super::card::Card>,
 }
 
+#[derive(Debug)]
 pub struct Board {
     tiles: HashMap<U16Vec2, Tile>,
+}
+
+impl Board {
+    pub fn new() -> Self {
+        Self {
+            tiles: HashMap::new(),
+        }
+    }
 }
 
 impl EventHandler for Board {
@@ -23,6 +33,7 @@ impl EventHandler for Board {
             Event::DeckEmpty(_) => todo!(),
             Event::CardDiscarded(_) => todo!(),
             Event::HandEmpty(_) => todo!(),
+            _ => todo!(),
         };
     }
 }
