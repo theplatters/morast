@@ -5,17 +5,21 @@ use crate::game::{
     player::PlayerID,
 };
 
+#[derive(Debug, Clone, Copy)]
 pub struct CardAction {
     pub card: CardID,
     pub player: PlayerID,
 }
 
-pub struct PlaceOnBoardAction<'a> {
-    pub cost: u16,
-    pub card: &'a CardID,
+#[derive(Debug, Clone, Copy)]
+pub struct PlaceOnBoardAction {
+    pub cost: i32,
+    pub player: PlayerID,
+    pub card: CardID,
     pub index: U16Vec2,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct GoldAction {
     pub player: PlayerID,
     pub amount: i32,

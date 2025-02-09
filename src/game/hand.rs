@@ -29,7 +29,7 @@ impl EventHandler for Hand {
                 if action.player == self.player {
                     self.cards.add_card(action.card.to_owned());
                 }
-                vec![]
+                vec![Event::CardDrawn(self.player)]
             }
             Event::DiscardCard(player) if *player == self.player => {
                 if let Some(card) = self.cards.remove_card() {

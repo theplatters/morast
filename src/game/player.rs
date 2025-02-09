@@ -18,9 +18,6 @@ impl PlayerID {
 
     // New next method with overflow protection
     pub fn next(&self) -> Self {
-        // Choose one of these implementations:
-
-        // 1. Wrapping arithmetic (cycles back to 0 after u16::MAX)
         Self(self.0.wrapping_add(1))
     }
 }
@@ -34,6 +31,18 @@ pub struct Player {
     discard_pile: Deck,
 }
 
+impl Player {
+    pub fn new(id: PlayerID) -> Self {
+        Self {
+            id,
+            money: 0,
+            deck: Deck::new(id),
+            hand: Hand::new(id),
+            discard_pile: Deck::new(id),
+        }
+    }
+}
+
 impl EventHandler for Player {
     fn handle_event(
         &mut self,
@@ -45,6 +54,16 @@ impl EventHandler for Player {
                     self.money += amount;
                 }
                 Vec::new()
+            }
+            Event::RequestPlace(place_on_board_action)
+                if place_on_board_action.player == self.id =>
+            {
+                if place_on_board_action.cost > self.money {
+                    vec![Event::PlaceRequestDenied]
+                } else {
+                    self.money -= place_on_board_action.cost;
+                    vec![Event::PlaceCard(*place_on_board_action)]
+                }
             }
             _ => Vec::new(),
         }
