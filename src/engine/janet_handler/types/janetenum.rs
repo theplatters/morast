@@ -1,19 +1,27 @@
-use std::ffi::{c_void, CStr};
+use std::{
+    ffi::{c_void, CStr},
+    fmt::Debug,
+};
 
-use crate::engine::janet_handler::bindings::{
-    janet_array_pop, janet_is_int, janet_type, janet_unwrap_array, janet_unwrap_boolean,
-    janet_unwrap_function, janet_unwrap_integer, janet_unwrap_number, janet_unwrap_pointer,
-    janet_unwrap_string, janet_unwrap_u64, janet_wrap_integer, janet_wrap_number,
-    janet_wrap_pointer, JanetArray, JANET_TYPE_JANET_ARRAY, JANET_TYPE_JANET_BOOLEAN,
-    JANET_TYPE_JANET_FUNCTION, JANET_TYPE_JANET_NIL, JANET_TYPE_JANET_NUMBER,
-    JANET_TYPE_JANET_POINTER, JANET_TYPE_JANET_STRING,
+use crate::engine::janet_handler::{
+    bindings::{
+        janet_array_pop, janet_checktype, janet_csymbol, janet_is_int, janet_resolve, janet_symbol,
+        janet_table_get, janet_type, janet_unwrap_array, janet_unwrap_boolean,
+        janet_unwrap_function, janet_unwrap_integer, janet_unwrap_number, janet_unwrap_pointer,
+        janet_unwrap_string, janet_unwrap_u64, janet_wrap_integer, janet_wrap_nil,
+        janet_wrap_number, janet_wrap_pointer, janet_wrap_symbol, Janet, JanetArray,
+        JANET_TYPE_JANET_ARRAY, JANET_TYPE_JANET_BOOLEAN, JANET_TYPE_JANET_FUNCTION,
+        JANET_TYPE_JANET_NIL, JANET_TYPE_JANET_NUMBER, JANET_TYPE_JANET_POINTER,
+        JANET_TYPE_JANET_STRING,
+    },
+    controller::Environment,
 };
 
 use super::function::Function;
 
 pub trait ToVoidPointer {}
 pub trait JanetItem {
-    fn to_janet(&self) -> crate::engine::janet_handler::bindings::Janet;
+    fn to_janet(&self) -> Janet;
 }
 
 pub enum JanetEnum {
@@ -65,9 +73,45 @@ impl JanetEnum {
         }
         Ok(arr_vec)
     }
-    pub fn from<T>(
-        item: crate::engine::janet_handler::bindings::Janet,
-    ) -> Result<JanetEnum, &'static str>
+
+    pub fn get<T>(
+        env: &Environment,
+        method_name: &str,
+        namespace: Option<&str>,
+    ) -> Option<JanetEnum>
+    where
+        T: JanetItem + 'static,
+    {
+        let together = match namespace {
+            None => method_name.to_string(),
+            Some(n) => format!("{n}/{method_name}"),
+        };
+        let c_function_name = match std::ffi::CString::new(together) {
+            Ok(it) => it,
+            Err(_) => return None,
+        };
+
+        unsafe {
+            let mut out: Janet = janet_wrap_nil();
+            janet_resolve(
+                env.env_ptr(),
+                crate::engine::janet_handler::bindings::janet_csymbol(c_function_name.as_ptr()),
+                &mut out as *mut Janet,
+            );
+
+            println!("{:?}", janet_type(out));
+            if janet_checktype(out, JANET_TYPE_JANET_NIL) != 0 {
+                println!("AFHLVBSAIKLDJBVLJKB");
+                return None;
+            }
+            match Self::from::<T>(out) {
+                Ok(v) => Some(v),
+                Err(e) => panic!("{}", e),
+            }
+        }
+    }
+
+    pub fn from<T>(item: Janet) -> Result<JanetEnum, &'static str>
     where
         T: JanetItem + 'static,
     {
@@ -91,9 +135,9 @@ impl JanetEnum {
                 }
                 JANET_TYPE_JANET_NIL => Ok(JanetEnum::_Null),
                 JANET_TYPE_JANET_NUMBER => {
-                    if janet_is_int(item) == 1 {
+                    if janet_is_int(item) == 0 {
                         Ok(JanetEnum::_Int(janet_unwrap_integer(item)))
-                    } else if janet_is_int(item) == 2 {
+                    } else if janet_is_int(item) == 1 {
                         Ok(JanetEnum::_UInt(janet_unwrap_u64(item)))
                     } else {
                         Ok(JanetEnum::_Float(janet_unwrap_number(item)))

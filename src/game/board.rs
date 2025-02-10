@@ -3,12 +3,8 @@ use std::collections::HashMap;
 use macroquad::math::U16Vec2;
 
 use super::{
-    card::{card_holder::CardHolder, card_registry::CardID, Card},
-    events::{
-        actions::{CardAction, PlaceOnBoardAction},
-        event::Event,
-        event_handler::EventHandler,
-    },
+    card::{card_holder::CardHolder, card_registry::CardID},
+    events::{actions::PlaceOnBoardAction, event::Event, event_handler::EventHandler},
 };
 
 #[derive(Debug)]

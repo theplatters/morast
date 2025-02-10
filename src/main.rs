@@ -16,12 +16,20 @@ fn window_config() -> Conf {
 
 #[macroquad::main(window_config)]
 async fn main() {
+    use std::time::Instant;
+    let now = Instant::now();
+
     let env = Environment::new();
     env.read_script("scripts/loader.janet")
         .expect("Could not find file");
-    let Some(soldier) = read_card(&env, "soldier") else {
-        panic!("Soldier not found");
-    };
+    let soldier = read_card(&env, "soldier").unwrap_or_else(|er| panic!("{:?}", er));
+    let bowmen = read_card(&env, "bowmen").unwrap_or_else(|er| panic!("{:?}", er));
+    let tower = read_card(&env, "tower").unwrap_or_else(|er| panic!("{:?}", er));
 
     print!("{:?}", soldier);
+    print!("{:?}", bowmen);
+    print!("{:?}", tower);
+
+    let elapsed = now.elapsed();
+    println!("Elapsed: {:.2?}", elapsed);
 }

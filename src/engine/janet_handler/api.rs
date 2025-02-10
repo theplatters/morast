@@ -1,6 +1,6 @@
 use crate::game::{
-    context::GameContext,
     events::{actions::GoldAction, event::Event},
+    game_context::GameContext,
 };
 
 use super::bindings::{
