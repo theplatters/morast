@@ -1,17 +1,27 @@
+use engine::janet_handler::controller::Environment;
+use game::card::card_reader::read_card;
 use macroquad::prelude::*;
 
 mod engine;
 mod game;
-#[macroquad::main("BasicShapes")]
-async fn main() {
-    loop {
-        clear_background(RED);
 
-        draw_line(40.0, 40.0, 100.0, 200.0, 15.0, BLUE);
-        draw_rectangle(screen_width() / 2.0 - 60.0, 100.0, 120.0, 60.0, GREEN);
-        draw_circle(screen_width() - 30.0, screen_height() - 30.0, 15.0, YELLOW);
-        draw_text("HELLO", 120.0, 120.0, 80.0, DARKGRAY);
-
-        next_frame().await
+fn window_config() -> Conf {
+    Conf {
+        window_title: "Honeycomb Pattern".to_owned(),
+        window_width: 800,
+        window_height: 800,
+        ..Default::default()
     }
+}
+
+#[macroquad::main(window_config)]
+async fn main() {
+    let env = Environment::new();
+    env.read_script("scripts/loader.janet")
+        .expect("Could not find file");
+    let Some(soldier) = read_card(&env, "soldier") else {
+        panic!("Soldier not found");
+    };
+
+    print!("{:?}", soldier);
 }

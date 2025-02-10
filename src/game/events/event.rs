@@ -1,3 +1,5 @@
+use macroquad::math::U16Vec2;
+
 use crate::game::player::PlayerID;
 
 use super::actions::{CardAction, GoldAction, PlaceOnBoardAction};
@@ -16,6 +18,8 @@ pub enum Event {
     PlaceCard(PlaceOnBoardAction),
     RequestPlace(PlaceOnBoardAction),
     PlaceRequestDenied,
+    InvalidTile(U16Vec2),
+    CardPlaced(PlaceOnBoardAction),
 }
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
@@ -32,6 +36,8 @@ pub enum EventType {
     PlaceCard,
     RequestPlace,
     PlaceRequestDenied,
+    InvalidTile,
+    CardPlaced,
 }
 
 impl Event {
@@ -49,6 +55,8 @@ impl Event {
             Event::PlaceCard(_) => EventType::PlaceCard,
             Event::RequestPlace(_) => EventType::RequestPlace,
             Event::PlaceRequestDenied => EventType::PlaceRequestDenied,
+            Event::InvalidTile(_) => EventType::InvalidTile,
+            Event::CardPlaced(_) => EventType::CardPlaced,
         }
     }
 }

@@ -5,6 +5,7 @@
 
 (defn on-draw [context] nil)
 (defn on-play [context] nil)
+(defn on-discard [context] nil)
 (defn on-ability [context] nil)
 (defn on-turn_begin [context] nil)
-(defn on-end [context] nil)
+(defn on-turn-end [context] nil)
