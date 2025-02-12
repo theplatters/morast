@@ -32,4 +32,15 @@ async fn main() {
 
     let elapsed = now.elapsed();
     println!("Elapsed: {:.2?}", elapsed);
+    loop {
+        clear_background(RED);
+
+        draw_line(400.0, 500.0, 100.0, 200.0, 15.0, BLUE);
+        draw_circle(100.0, 300.0, 100.0, BLUE);
+        draw_circle(100.0, 400.0, 100.0, BLUE);
+
+        draw_text("Hello, Raudichris!", 20.0, 20.0, 30.0, DARKGRAY);
+
+        next_frame().await
+    }
 }
