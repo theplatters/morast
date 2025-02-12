@@ -16,7 +16,7 @@ pub struct Game<'a> {
     pub scheduler: GameScheduler<'a>,
 }
 
-impl<'a> Game<_> {
+impl Game<'_> {
     pub fn turn_player_id(&self) -> PlayerID {
         self.context.turn_player_id()
     }
@@ -26,4 +26,4 @@ impl<'a> Game<_> {
     }
 }
 
-impl<'a> crate::engine::janet_handler::types::janetenum::ToVoidPointer for Game<'a> {}
+impl crate::engine::janet_handler::types::janetenum::ToVoidPointer for Game<'_> {}
