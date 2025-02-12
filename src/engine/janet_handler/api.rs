@@ -1,36 +1,40 @@
 use crate::game::{
     events::{actions::GoldAction, event::Event},
     game_context::GameContext,
+    player::PlayerID,
 };
 
 use super::bindings::{
-    janet_fixarity, janet_getinteger64, janet_getpointer, janet_wrap_nil, Janet,
+    janet_fixarity, janet_getinteger64, janet_getpointer, janet_getuinteger16, janet_wrap_integer,
+    janet_wrap_nil, janet_wrap_u64, Janet,
 };
 
 pub unsafe extern "C" fn cfun_draw(argc: i32, argv: *mut Janet) -> Janet {
-    janet_fixarity(argc, 2);
+    janet_fixarity(argc, 3);
     let context = (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()
         .expect("Couldn't cast reference");
     let num_cards = janet_getinteger64(argv, 1);
+    let player = janet_getuinteger16(argv, 2);
     (0..num_cards).for_each(|_| {
         context
             .event_manager
-            .publish(Event::DrawCard(context.turn_player))
+            .publish(Event::DrawCard(PlayerID::new(player)))
     });
     janet_wrap_nil()
 }
 
 pub unsafe extern "C" fn cfun_discard(argc: i32, argv: *mut Janet) -> Janet {
-    janet_fixarity(argc, 2);
+    janet_fixarity(argc, 3);
     let context = (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()
         .expect("Couldn't cast reference");
     let num_cards = janet_getinteger64(argv, 1);
+    let player = janet_getuinteger16(argv, 2);
     (0..num_cards).for_each(|_| {
         context
             .event_manager
-            .publish(Event::DiscardCard(context.turn_player))
+            .publish(Event::DiscardCard(PlayerID::new(player)))
     });
     janet_wrap_nil()
 }
@@ -41,9 +45,26 @@ pub unsafe extern "C" fn cfun_getgold(argc: i32, argv: *mut Janet) -> Janet {
         .as_mut()
         .expect("Couldn't cast reference");
     let amount = janet_getinteger64(argv, 1);
+    let player = janet_getuinteger16(argv, 2);
     context.event_manager.publish(Event::GetGold(GoldAction {
-        player: context.turn_player,
+        player: PlayerID::new(player),
         amount: amount as i32,
     }));
     janet_wrap_nil()
+}
+
+pub unsafe extern "C" fn cfun_turn_player(argc: i32, argv: *mut Janet) -> Janet {
+    janet_fixarity(argc, 1);
+    let context = (janet_getpointer(argv, 0) as *mut GameContext)
+        .as_mut()
+        .expect("Couldn't cast reference");
+    janet_wrap_u64(context.turn_player().get() as u64)
+}
+
+pub unsafe extern "C" fn cfun_other_player(argc: i32, argv: *mut Janet) -> Janet {
+    janet_fixarity(argc, 1);
+    let context = (janet_getpointer(argv, 0) as *mut GameContext)
+        .as_mut()
+        .expect("Couldn't cast reference");
+    janet_wrap_u64(context.other_player().get() as u64)
 }
