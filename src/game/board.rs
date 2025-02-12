@@ -3,18 +3,25 @@ use std::collections::HashMap;
 use macroquad::math::U16Vec2;
 
 use super::{
-    card::{card_holder::CardHolder, card_registry::CardID},
+    card::card_id::CardID,
     events::{actions::PlaceOnBoardAction, event::Event, event_handler::EventHandler},
+    player::PlayerID,
 };
+
+#[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
+pub struct CardOnBoard {
+    card_id: CardID,
+    player_id: PlayerID,
+}
 
 #[derive(Debug)]
 pub struct Tile {
-    ontile: CardHolder,
+    ontile: Vec<CardOnBoard>,
 }
 
 impl Tile {
-    pub fn place(&mut self, card: CardID) {
-        self.ontile.add_card(card);
+    pub fn place(&mut self, card: CardOnBoard) {
+        self.ontile.push(card);
     }
 }
 
@@ -25,9 +32,8 @@ pub struct Board {
 
 impl Board {
     pub fn new() -> Self {
-        Self {
-            tiles: HashMap::new(),
-        }
+        let mut tiles = HashMap::new();
+        Self { tiles }
     }
 
     pub fn place(
@@ -43,7 +49,10 @@ impl Board {
             return Event::InvalidTile(index);
         };
 
-        tile.place(card);
+        tile.place(CardOnBoard {
+            card_id: card,
+            player_id: player,
+        });
         Event::CardPlaced(PlaceOnBoardAction {
             card,
             index,

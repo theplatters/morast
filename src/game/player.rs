@@ -24,7 +24,7 @@ impl PlayerID {
 
 #[derive(Debug)]
 pub struct Player {
-    id: PlayerID,
+    pub id: PlayerID,
     money: i32,
     deck: Deck,
     hand: Hand,

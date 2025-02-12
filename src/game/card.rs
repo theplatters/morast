@@ -2,6 +2,7 @@ use macroquad::math::{I16Vec2, U16Vec2};
 
 use crate::engine::janet_handler::types::function::Function;
 pub mod card_holder;
+pub mod card_id;
 pub mod card_reader;
 pub mod card_registry;
 

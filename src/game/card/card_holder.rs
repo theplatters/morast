@@ -1,4 +1,4 @@
-use super::card_registry::CardID;
+use super::card_id::CardID;
 
 #[derive(Debug)]
 pub struct CardHolder {
