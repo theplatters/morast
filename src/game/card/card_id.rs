@@ -12,9 +12,6 @@ impl CardID {
 
     // New next method with overflow protection
     pub fn next(&self) -> Self {
-        // Choose one of these implementations:
-
-        // 1. Wrapping arithmetic (cycles back to 0 after u16::MAX)
         Self(self.0 + 1)
     }
 }
