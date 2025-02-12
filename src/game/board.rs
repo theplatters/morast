@@ -20,6 +20,10 @@ pub struct Tile {
 }
 
 impl Tile {
+    pub fn new() -> Self {
+        Self { ontile: Vec::new() }
+    }
+
     pub fn place(&mut self, card: CardOnBoard) {
         self.ontile.push(card);
     }
@@ -33,6 +37,13 @@ pub struct Board {
 impl Board {
     pub fn new() -> Self {
         let mut tiles = HashMap::new();
+
+        for x in 0..=64 {
+            for y in 0..=64 {
+                let position = U16Vec2::new(x, y);
+                tiles.insert(position, Tile::new());
+            }
+        }
         Self { tiles }
     }
 
