@@ -99,7 +99,6 @@ impl JanetEnum {
                 &mut out as *mut Janet,
             );
 
-            println!("{:?}", janet_type(out));
             if janet_checktype(out, JANET_TYPE_JANET_NIL) != 0 {
                 println!("AFHLVBSAIKLDJBVLJKB");
                 return None;

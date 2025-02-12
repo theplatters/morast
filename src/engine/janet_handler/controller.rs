@@ -4,16 +4,15 @@ use std::{
 };
 
 use super::{
-    api::{cfun_discard, cfun_draw, cfun_getgold, cfun_other_player, cfun_turn_player},
+    api::{
+        cfun_cross, cfun_discard, cfun_draw, cfun_getgold, cfun_other_player, cfun_plus,
+        cfun_turn_player,
+    },
     bindings::{
         janet_cfuns_prefix, janet_core_env, janet_deinit, janet_dostring, janet_env_lookup,
         janet_init, Janet, JanetReg, JanetTable,
     },
-    types::{
-        cfunction::{CFunction, JanetRawCFunction},
-        janetenum::JanetEnum,
-        table::Table,
-    },
+    types::{cfunction::JanetRawCFunction, janetenum::JanetEnum, table::Table},
 };
 
 pub struct Environment {
@@ -64,6 +63,16 @@ impl Environment {
                 "other-player",
                 cfun_other_player as JanetRawCFunction,
                 "Get's the other player",
+            ),
+            (
+                "plus",
+                cfun_plus as JanetRawCFunction,
+                "Generates a Plus of size n",
+            ),
+            (
+                "cross",
+                cfun_cross as JanetRawCFunction,
+                "Generates a Cross of size n",
             ),
         ];
 

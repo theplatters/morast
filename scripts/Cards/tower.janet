@@ -3,14 +3,8 @@
 
 (def movement @[])
 
-(def attack @[@[1 0] 
-              @[0 1] 
-              @[0 -1] 
-              @[1 0] 
-              @[1 1] 
-              @[1 -1] 
-              @[-1 -1] 
-              @[-1 1]])
+(def attack (array/join (std/cross 1 ) (std/cross 2) (std/plus 2) (std/plus 1)))
+
 
 (def attack-strength 3)
 (def defense 2)

@@ -70,10 +70,24 @@ pub unsafe extern "C" fn cfun_other_player(argc: i32, argv: *mut Janet) -> Janet
     janet_wrap_u64(context.other_player().get() as u64)
 }
 
+pub unsafe extern "C" fn cfun_plus(argc: i32, argv: *mut Janet) -> Janet {
+    janet_fixarity(argc, 1);
+    let size = janet_getinteger64(argv, 0) as i32;
+    let plus: [[i32; 2]; 4] = [[-size, 0], [0, -size], [0, size], [size, 0]];
+    let arr = janet_array(4);
+    plus.iter().for_each(|el| {
+        let r = janet_array(2);
+        janet_array_push(r, janet_wrap_integer(el[0]));
+        janet_array_push(r, janet_wrap_integer(el[1]));
+        janet_array_push(arr, janet_wrap_array(r));
+    });
+    janet_wrap_array(arr)
+}
+
 pub unsafe extern "C" fn cfun_cross(argc: i32, argv: *mut Janet) -> Janet {
     janet_fixarity(argc, 1);
     let size = janet_getinteger64(argv, 0) as i32;
-    let cross: [[i32; 2]; 4] = [[size * -1, 0], [0, -1 * size], [0, 1 * size], [1 * size, 0]];
+    let cross: [[i32; 2]; 4] = [[-size, -size], [size, -size], [-size, size], [size, size]];
     let arr = janet_array(4);
     cross.iter().for_each(|el| {
         let r = janet_array(2);
@@ -81,5 +95,5 @@ pub unsafe extern "C" fn cfun_cross(argc: i32, argv: *mut Janet) -> Janet {
         janet_array_push(r, janet_wrap_integer(el[1]));
         janet_array_push(arr, janet_wrap_array(r));
     });
-    janet_wrap_nil()
+    janet_wrap_array(arr)
 }
