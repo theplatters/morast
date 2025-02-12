@@ -1,9 +1,6 @@
-use macroquad::math::{U16Vec2, Vec2};
+use macroquad::math::U16Vec2;
 
-use crate::game::{
-    card::{card_registry::CardID, Card},
-    player::PlayerID,
-};
+use crate::game::{card::card_id::CardID, player::PlayerID};
 
 #[derive(Debug, Clone, Copy)]
 pub struct CardAction {
