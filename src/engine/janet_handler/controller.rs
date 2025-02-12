@@ -4,7 +4,7 @@ use std::{
 };
 
 use super::{
-    api::{cfun_discard, cfun_draw, cfun_getgold},
+    api::{cfun_discard, cfun_draw, cfun_getgold, cfun_other_player, cfun_turn_player},
     bindings::{
         janet_cfuns_prefix, janet_core_env, janet_deinit, janet_dostring, janet_env_lookup,
         janet_init, Janet, JanetReg, JanetTable,
@@ -39,29 +39,38 @@ impl Environment {
     }
 
     fn register_core_functions(&self) {
-        self.register(
-            "draw",
-            cfun_draw,
-            "Draws a card for the current player",
-            Some("std"),
-        )
-        .expect("Could not register draw function");
+        let functions = [
+            (
+                "draw",
+                cfun_draw as JanetRawCFunction,
+                "Draws a card for the current player",
+            ),
+            (
+                "discard",
+                cfun_discard as JanetRawCFunction,
+                "Discards a card from the hand",
+            ),
+            (
+                "get-gold",
+                cfun_getgold as JanetRawCFunction,
+                "Get's the amount of gold",
+            ),
+            (
+                "turn-player",
+                cfun_turn_player as JanetRawCFunction,
+                "Get's the current player",
+            ),
+            (
+                "other-player",
+                cfun_other_player as JanetRawCFunction,
+                "Get's the other player",
+            ),
+        ];
 
-        self.register(
-            "discard",
-            cfun_discard,
-            "Discards a card from the hand",
-            Some("std"),
-        )
-        .expect("Could not register discard function");
-
-        self.register(
-            "get-gold",
-            cfun_getgold,
-            "Get's the amount of gold",
-            Some("std"),
-        )
-        .expect("Could not register get-gold function");
+        for (name, fun, desc) in functions {
+            self.register(name, fun, desc, Some("std"))
+                .unwrap_or_else(|_| panic!("Could not register {} function", name));
+        }
     }
 
     pub fn env_ptr(&self) -> *mut JanetTable {
