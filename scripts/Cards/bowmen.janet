@@ -4,21 +4,14 @@
               @[0 1] 
               @[0 -1] 
               @[1 0] 
-              @[1 1] 
-              @[1 -1] 
-              @[-1 -1] 
-              @[-1 1]])
+              ])
 
 (def attack @[@[1 0] 
               @[0 1] 
               @[0 -1] 
-              @[1 0] 
-              @[1 1] 
-              @[1 -1] 
-              @[-1 -1] 
-              @[-1 1]])
+              @[1 0]])
 
-(def attack-strength 3)
+(def attack-strength 4)
 (def defense 2)
 
 (defn on-draw [context] nil)
