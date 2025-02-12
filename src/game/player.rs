@@ -1,4 +1,9 @@
+use std::cmp;
+
+use macroquad::math::clamp;
+
 use super::{
+    card::card_id::CardID,
     deck::Deck,
     events::{actions::GoldAction, event::Event, event_handler::EventHandler},
     hand::Hand,
@@ -26,8 +31,8 @@ impl PlayerID {
 pub struct Player {
     pub id: PlayerID,
     money: i32,
-    deck: Deck,
-    hand: Hand,
+    deck: Vec<CardID>,
+    hand: Vec<CardID>,
     discard_pile: Deck,
 }
 
@@ -36,10 +41,28 @@ impl Player {
         Self {
             id,
             money: 0,
-            deck: Deck::new(id),
-            hand: Hand::new(id),
+            deck: Vec::new(),
+            hand: Vec::new(),
             discard_pile: Deck::new(id),
         }
+    }
+
+    pub fn add_to_hand(&mut self, card: CardID) {
+        self.hand.push(card)
+    }
+
+    pub fn add_to_deck_top(&mut self, card: CardID) {
+        self.hand.push(card)
+    }
+    pub fn draw_from_deck(&mut self) -> Option<CardID> {
+        self.deck.pop()
+    }
+
+    pub fn discard_card(&mut self) {
+        self.hand.pop();
+    }
+    pub fn get_gold(&mut self, amount: i32) {
+        self.money = cmp::max(self.money + amount, 0)
     }
 }
 
