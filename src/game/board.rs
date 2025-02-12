@@ -6,28 +6,8 @@ use super::{
     card::card_id::CardID,
     events::{actions::PlaceOnBoardAction, event::Event, event_handler::EventHandler},
     player::PlayerID,
+    tile::{CardOnBoard, Tile},
 };
-
-#[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
-pub struct CardOnBoard {
-    card_id: CardID,
-    player_id: PlayerID,
-}
-
-#[derive(Debug)]
-pub struct Tile {
-    ontile: Vec<CardOnBoard>,
-}
-
-impl Tile {
-    pub fn new() -> Self {
-        Self { ontile: Vec::new() }
-    }
-
-    pub fn place(&mut self, card: CardOnBoard) {
-        self.ontile.push(card);
-    }
-}
 
 #[derive(Debug)]
 pub struct Board {
@@ -60,10 +40,7 @@ impl Board {
             return Event::InvalidTile(index);
         };
 
-        tile.place(CardOnBoard {
-            card_id: card,
-            player_id: player,
-        });
+        tile.place(CardOnBoard::new(card, player));
         Event::CardPlaced(PlaceOnBoardAction {
             card,
             index,

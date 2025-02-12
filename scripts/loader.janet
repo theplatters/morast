@@ -4,5 +4,3 @@
 (defn strip-extension [file] (string "./" (string/replace ".janet"  "" file)))
 (each file (os/dir card-path) (import* (strip-extension file)) (printf "loaded %s" file))
 (print "Loaded")
-(def plus (array/join (std/plus 2) (std/cross 1) (std/plus 3)))
-(each coord plus (each e coord (print e)))
