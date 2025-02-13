@@ -1,8 +1,6 @@
-use super::{
-    deck::Deck,
-    events::{actions::GoldAction, event::Event, event_handler::EventHandler},
-    hand::Hand,
-};
+use std::cmp;
+
+use super::card::card_id::CardID;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct PlayerID(u16);
@@ -26,9 +24,9 @@ impl PlayerID {
 pub struct Player {
     pub id: PlayerID,
     money: i32,
-    deck: Deck,
-    hand: Hand,
-    discard_pile: Deck,
+    deck: Vec<CardID>,
+    hand: Vec<CardID>,
+    discard_pile: Vec<CardID>,
 }
 
 impl Player {
@@ -36,36 +34,27 @@ impl Player {
         Self {
             id,
             money: 0,
-            deck: Deck::new(id),
-            hand: Hand::new(id),
-            discard_pile: Deck::new(id),
+            deck: Vec::new(),
+            hand: Vec::new(),
+            discard_pile: Vec::new(),
         }
     }
-}
 
-impl EventHandler for Player {
-    fn handle_event(
-        &mut self,
-        event: &super::events::event::Event,
-    ) -> Vec<super::events::event::Event> {
-        match event {
-            Event::GetGold(GoldAction { player, amount }) => {
-                if *player == self.id {
-                    self.money += amount;
-                }
-                Vec::new()
-            }
-            Event::RequestPlace(place_on_board_action)
-                if place_on_board_action.player == self.id =>
-            {
-                if place_on_board_action.cost > self.money {
-                    vec![Event::PlaceRequestDenied]
-                } else {
-                    self.money -= place_on_board_action.cost;
-                    vec![Event::PlaceCard(*place_on_board_action)]
-                }
-            }
-            _ => Vec::new(),
-        }
+    pub fn add_to_hand(&mut self, card: CardID) {
+        self.hand.push(card)
+    }
+
+    pub fn add_to_deck_top(&mut self, card: CardID) {
+        self.hand.push(card)
+    }
+    pub fn draw_from_deck(&mut self) -> Option<CardID> {
+        self.deck.pop()
+    }
+
+    pub fn discard_card(&mut self) {
+        self.hand.pop();
+    }
+    pub fn get_gold(&mut self, amount: i32) {
+        self.money = cmp::max(self.money + amount, 0)
     }
 }

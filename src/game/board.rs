@@ -1,33 +1,16 @@
 use std::collections::HashMap;
 
+use card_on_board::CardOnBoard;
 use macroquad::math::U16Vec2;
+use place_error::PlaceError;
+use tile::Tile;
 
-use super::{
-    card::card_id::CardID,
-    events::{actions::PlaceOnBoardAction, event::Event, event_handler::EventHandler},
-    player::PlayerID,
-};
+use super::{card::card_id::CardID, player::PlayerID};
 
-#[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
-pub struct CardOnBoard {
-    card_id: CardID,
-    player_id: PlayerID,
-}
-
-#[derive(Debug)]
-pub struct Tile {
-    ontile: Vec<CardOnBoard>,
-}
-
-impl Tile {
-    pub fn new() -> Self {
-        Self { ontile: Vec::new() }
-    }
-
-    pub fn place(&mut self, card: CardOnBoard) {
-        self.ontile.push(card);
-    }
-}
+mod card_on_board;
+mod effect;
+mod place_error;
+mod tile;
 
 #[derive(Debug)]
 pub struct Board {
@@ -49,35 +32,20 @@ impl Board {
 
     pub fn place(
         &mut self,
-        &PlaceOnBoardAction {
-            card,
-            index,
-            cost,
-            player,
-        }: &PlaceOnBoardAction,
-    ) -> Event {
+        card_id: CardID,
+        player_id: PlayerID,
+        index: U16Vec2,
+    ) -> Result<(), PlaceError> {
         let Some(tile) = self.tiles.get_mut(&index) else {
-            return Event::InvalidTile(index);
+            return Err(PlaceError::IndexError);
         };
 
-        tile.place(CardOnBoard {
-            card_id: card,
-            player_id: player,
-        });
-        Event::CardPlaced(PlaceOnBoardAction {
-            card,
-            index,
-            cost,
-            player,
-        })
-    }
-}
-
-impl EventHandler for Board {
-    fn handle_event(&mut self, event: &Event) -> Vec<Event> {
-        match event {
-            Event::PlaceCard(card_action) => vec![self.place(card_action)],
-            _ => Vec::new(),
+        if tile.is_occupied() {
+            return Err(PlaceError::TileOccupiedError);
         }
+
+        tile.place(CardOnBoard::new(card_id, player_id));
+
+        Ok(())
     }
 }

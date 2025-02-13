@@ -6,6 +6,7 @@ version = 4
 name = "Morast"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bindgen",
  "cc",
  "macroquad",
@@ -37,6 +38,12 @@ checksum = "8e60d3430d3a69478ad0993f19238d2df97c507009a52b3c10addcd7f6bcb916"
 dependencies = [
  "memchr",
 ]
+
+[[package]]
+name = "anyhow"
+version = "1.0.95"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34ac096ce696dc2fcabef30516bb13c0a68a11d30131d3df6f04711467681b04"
 
 [[package]]
 name = "autocfg"
