@@ -6,7 +6,6 @@ pub mod board;
 pub mod card;
 pub mod events;
 pub mod game_context;
-pub mod hand;
 mod phases;
 pub mod player;
 

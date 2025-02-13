@@ -1,14 +1,12 @@
 use super::{
     board::Board,
     card::card_registry::CardRegistry,
-    phases::Phase,
     player::{Player, PlayerID},
 };
 
 pub struct GameContext {
     pub players: [Player; 2],
     pub board: Board,
-    pub game_state: Phase,
     turn_player: PlayerID,
     pub card_registry: CardRegistry,
 }
@@ -18,7 +16,6 @@ impl GameContext {
         Self {
             players,
             board: Board::new(),
-            game_state: Phase::Start,
             turn_player: PlayerID::new(0),
             card_registry: CardRegistry::new(),
         }
