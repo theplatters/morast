@@ -17,5 +17,4 @@ pub struct Card {
     discard_action: Function,
 }
 
-unsafe impl Send for Card {}
 impl crate::engine::janet_handler::types::janetenum::ToVoidPointer for Card {}
