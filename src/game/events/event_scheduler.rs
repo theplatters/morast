@@ -1,4 +1,4 @@
-use std::collections::{BinaryHeap, VecDeque};
+use std::collections::BinaryHeap;
 
 use crate::game::{game_context::GameContext, phases::Phase};
 
@@ -9,9 +9,35 @@ struct EventTiming {
     insertion_order: u32,
 }
 
+struct Event {
+    priority: u32,
+    action: Box<dyn FnOnce(&mut GameContext)>,
+}
+
+impl PartialOrd for Event {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(&other))
+    }
+}
+
+impl Ord for Event {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.priority.cmp(&other.priority)
+    }
+}
+
+impl PartialEq for Event {
+    fn eq(&self, other: &Self) -> bool {
+        self.priority == other.priority
+    }
+}
+
+impl Eq for Event {}
+
+//TODO: Rework this
 struct ScheduledEvent {
     timing: EventTiming,
-    action: Box<dyn FnOnce(&mut GameContext)>,
+    event: Event,
 }
 
 impl PartialOrd for ScheduledEvent {
@@ -40,8 +66,8 @@ pub struct GameScheduler<'a> {
     current_phase: Phase,
     next_insertion: u32,
     future_events: BinaryHeap<ScheduledEvent>,
-    immediate_events: VecDeque<Box<dyn FnOnce(&mut GameContext)>>,
-    deferred_events: VecDeque<Box<dyn FnOnce(&mut GameContext)>>,
+    immediate_events: BinaryHeap<Event>,
+    deferred_events: BinaryHeap<Event>,
 }
 
 impl<'a> GameScheduler<'a> {
@@ -52,8 +78,8 @@ impl<'a> GameScheduler<'a> {
             current_phase: Phase::Start,
             next_insertion: 0,
             future_events: BinaryHeap::new(),
-            immediate_events: VecDeque::new(),
-            deferred_events: VecDeque::new(),
+            immediate_events: BinaryHeap::new(),
+            deferred_events: BinaryHeap::new(),
         }
     }
 
@@ -61,6 +87,7 @@ impl<'a> GameScheduler<'a> {
     pub fn schedule_at_start(
         &mut self,
         turns_ahead: u32,
+        priority: u32,
         action: impl FnOnce(&mut GameContext) + 'static,
     ) {
         let timing = EventTiming {
@@ -71,7 +98,10 @@ impl<'a> GameScheduler<'a> {
         self.next_insertion += 1;
         self.future_events.push(ScheduledEvent {
             timing,
-            action: Box::new(action),
+            event: Event {
+                priority,
+                action: Box::new(action),
+            },
         });
     }
 
@@ -79,6 +109,7 @@ impl<'a> GameScheduler<'a> {
     pub fn schedule_at_end(
         &mut self,
         turns_including: u32,
+        priority: u32,
         action: impl FnOnce(&mut GameContext) + 'static,
     ) {
         let timing = EventTiming {
@@ -89,25 +120,38 @@ impl<'a> GameScheduler<'a> {
         self.next_insertion += 1;
         self.future_events.push(ScheduledEvent {
             timing,
-            action: Box::new(action),
+            event: Event {
+                priority,
+                action: Box::new(action),
+            },
         });
     }
 
     // Schedule to execute now (after current batch of events)
-    pub fn schedule_now(&mut self, action: impl FnOnce(&mut GameContext) + 'static) {
-        self.immediate_events.push_back(Box::new(action));
+    pub fn schedule_now(&mut self, action: impl FnOnce(&mut GameContext) + 'static, priority: u32) {
+        self.immediate_events.push(Event {
+            priority,
+            action: Box::new(action),
+        });
     }
 
     // Schedule to execute after all currently scheduled events
-    pub fn schedule_after_current(&mut self, action: impl FnOnce(&mut GameContext) + 'static) {
-        self.deferred_events.push_back(Box::new(action));
+    pub fn schedule_after_current(
+        &mut self,
+        action: impl FnOnce(&mut GameContext) + 'static,
+        priority: u32,
+    ) {
+        self.deferred_events.push(Event {
+            priority,
+            action: Box::new(action),
+        });
     }
 
     // Advance the game state (call this when progressing phases/turns)
     pub fn process_events(&mut self) {
         // Process all deferred events from previous cycle first
-        while let Some(action) = self.deferred_events.pop_front() {
-            action(self.context);
+        while let Some(event) = self.deferred_events.pop() {
+            (event.action)(self.context);
         }
 
         // Process current phase events
@@ -117,16 +161,17 @@ impl<'a> GameScheduler<'a> {
                     && event.timing.phase < self.current_phase)
             {
                 // Remove and execute outdated events
+
                 let event = self.future_events.pop().unwrap();
-                (event.action)(self.context);
+                (event.event.action)(self.context);
             } else {
                 break;
             }
         }
 
         // Process immediate events
-        while let Some(action) = self.immediate_events.pop_front() {
-            action(self.context);
+        while let Some(event) = self.immediate_events.pop() {
+            (event.action)(self.context);
         }
     }
 

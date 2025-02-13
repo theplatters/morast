@@ -1,10 +1,4 @@
-use crate::game::{
-    self,
-    events::{actions::GoldAction, event::Event},
-    game_context::GameContext,
-    player::PlayerID,
-    Game,
-};
+use crate::game::{player::PlayerID, Game};
 
 use super::bindings::{
     janet_array, janet_array_push, janet_fixarity, janet_getinteger64, janet_getpointer,
@@ -19,8 +13,10 @@ pub unsafe extern "C" fn cfun_draw(argc: i32, argv: *mut Janet) -> Janet {
         .expect("Couldn't cast reference");
     let num_cards = janet_getuinteger16(argv, 1);
     let player_id = janet_getuinteger16(argv, 2);
-    game.scheduler
-        .schedule_now(move |context| context.draw_cards(PlayerID::new(player_id), num_cards));
+    game.scheduler.schedule_now(
+        move |context| context.draw_cards(PlayerID::new(player_id), num_cards),
+        1,
+    );
     janet_wrap_nil()
 }
 
@@ -32,8 +28,10 @@ pub unsafe extern "C" fn cfun_discard(argc: i32, argv: *mut Janet) -> Janet {
     let num_cards = janet_getuinteger16(argv, 1);
     let player_id = janet_getuinteger16(argv, 2);
 
-    game.scheduler
-        .schedule_now(move |context| context.discard_cards(PlayerID::new(player_id), num_cards));
+    game.scheduler.schedule_now(
+        move |context| context.discard_cards(PlayerID::new(player_id), num_cards),
+        1,
+    );
     janet_wrap_nil()
 }
 
@@ -45,8 +43,10 @@ pub unsafe extern "C" fn cfun_getgold(argc: i32, argv: *mut Janet) -> Janet {
     let amount = janet_getinteger64(argv, 1);
     let player_id = janet_getuinteger16(argv, 2);
 
-    game.scheduler
-        .schedule_now(move |context| context.get_gold(PlayerID::new(player_id), amount));
+    game.scheduler.schedule_now(
+        move |context| context.get_gold(PlayerID::new(player_id), amount),
+        1,
+    );
     janet_wrap_nil()
 }
 
