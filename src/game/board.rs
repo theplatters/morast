@@ -4,7 +4,7 @@ use macroquad::math::U16Vec2;
 
 use super::{
     card::card_id::CardID,
-    events::{actions::PlaceOnBoardAction, event::Event, event_handler::EventHandler},
+    events::{actions::PlaceOnBoardAction, event::Event},
     player::PlayerID,
 };
 
@@ -70,14 +70,5 @@ impl Board {
             cost,
             player,
         })
-    }
-}
-
-impl EventHandler for Board {
-    fn handle_event(&mut self, event: &Event) -> Vec<Event> {
-        match event {
-            Event::PlaceCard(card_action) => vec![self.place(card_action)],
-            _ => Vec::new(),
-        }
     }
 }

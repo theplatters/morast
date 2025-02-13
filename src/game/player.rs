@@ -1,13 +1,6 @@
 use std::cmp;
 
-use macroquad::math::clamp;
-
-use super::{
-    card::card_id::CardID,
-    deck::Deck,
-    events::{actions::GoldAction, event::Event, event_handler::EventHandler},
-    hand::Hand,
-};
+use super::card::card_id::CardID;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct PlayerID(u16);
@@ -33,7 +26,7 @@ pub struct Player {
     money: i32,
     deck: Vec<CardID>,
     hand: Vec<CardID>,
-    discard_pile: Deck,
+    discard_pile: Vec<CardID>,
 }
 
 impl Player {
@@ -43,7 +36,7 @@ impl Player {
             money: 0,
             deck: Vec::new(),
             hand: Vec::new(),
-            discard_pile: Deck::new(id),
+            discard_pile: Vec::new(),
         }
     }
 
@@ -63,32 +56,5 @@ impl Player {
     }
     pub fn get_gold(&mut self, amount: i32) {
         self.money = cmp::max(self.money + amount, 0)
-    }
-}
-
-impl EventHandler for Player {
-    fn handle_event(
-        &mut self,
-        event: &super::events::event::Event,
-    ) -> Vec<super::events::event::Event> {
-        match event {
-            Event::GetGold(GoldAction { player, amount }) => {
-                if *player == self.id {
-                    self.money += amount;
-                }
-                Vec::new()
-            }
-            Event::RequestPlace(place_on_board_action)
-                if place_on_board_action.player == self.id =>
-            {
-                if place_on_board_action.cost > self.money {
-                    vec![Event::PlaceRequestDenied]
-                } else {
-                    self.money -= place_on_board_action.cost;
-                    vec![Event::PlaceCard(*place_on_board_action)]
-                }
-            }
-            _ => Vec::new(),
-        }
     }
 }

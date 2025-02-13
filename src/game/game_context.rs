@@ -1,7 +1,6 @@
 use super::{
     board::Board,
     card::card_registry::CardRegistry,
-    events::event_manager::EventManager,
     phases::Phase,
     player::{Player, PlayerID},
 };
