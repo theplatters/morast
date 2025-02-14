@@ -62,7 +62,7 @@ impl Eq for ScheduledEvent {}
 
 pub struct GameScheduler<'a> {
     context: &'a mut GameContext,
-    current_turn: u32,
+    pub current_turn: u32,
     current_phase: Phase,
     next_insertion: u32,
     future_events: BinaryHeap<ScheduledEvent>,

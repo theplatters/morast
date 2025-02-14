@@ -54,7 +54,11 @@ impl Player {
     pub fn discard_card(&mut self) {
         self.hand.pop();
     }
-    pub fn get_gold(&mut self, amount: i32) {
+    pub fn set_gold(&mut self, amount: i32) {
         self.money = cmp::max(self.money + amount, 0)
+    }
+
+    pub fn get_gold(&self) -> i32 {
+        self.money
     }
 }
