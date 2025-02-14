@@ -1,4 +1,4 @@
-use engine::janet_handler::controller::Environment;
+use engine::{asset_loader::AssetLoader, janet_handler::controller::Environment};
 use game::card::card_reader::read_card;
 use macroquad::prelude::*;
 
@@ -16,15 +16,19 @@ fn window_config() -> Conf {
 
 #[macroquad::main(window_config)]
 async fn main() {
+    let path = std::env::current_dir().unwrap();
+    println!("The current directory is {}", path.display());
     use std::time::Instant;
     let now = Instant::now();
-
+    let mut asset_loader = AssetLoader::new("");
     let env = Environment::new();
     env.read_script("scripts/loader.janet")
         .expect("Could not find file");
-    let soldier = read_card(&env, "soldier").unwrap_or_else(|er| panic!("{:?}", er));
-    let bowmen = read_card(&env, "bowmen").unwrap_or_else(|er| panic!("{:?}", er));
-    let tower = read_card(&env, "tower").unwrap_or_else(|er| panic!("{:?}", er));
+    let soldier =
+        read_card(&env, "soldier", &mut asset_loader).unwrap_or_else(|er| panic!("{:?}", er));
+    let bowmen =
+        read_card(&env, "bowmen", &mut asset_loader).unwrap_or_else(|er| panic!("{:?}", er));
+    let tower = read_card(&env, "tower", &mut asset_loader).unwrap_or_else(|er| panic!("{:?}", er));
 
     print!("{:?}", soldier);
     print!("{:?}", bowmen);

@@ -1,9 +1,13 @@
 use macroquad::math::I16Vec2;
 
 use crate::{
-    engine::janet_handler::{
-        controller::Environment,
-        types::{function::Function, janetenum::JanetEnum},
+    engine::{
+        asset_loader::AssetLoader,
+        janet_handler::{
+            bindings::Janet,
+            controller::Environment,
+            types::{function::Function, janetenum::JanetEnum},
+        },
     },
     game::game_context::GameContext,
 };
@@ -39,7 +43,11 @@ fn convert_to_u16_vec(env: &Environment, attribute: &str, name: &str) -> Option<
     Some(result)
 }
 
-pub fn read_card(env: &Environment, name: &str) -> Result<Card, &'static str> {
+pub fn read_card(
+    env: &Environment,
+    name: &str,
+    asset_loader: &mut AssetLoader,
+) -> Result<Card, &'static str> {
     let draw_action =
         Function::get_method(env, "on-draw", Some(name)).ok_or("on-draw not found")?;
     let play_action =
@@ -49,6 +57,13 @@ pub fn read_card(env: &Environment, name: &str) -> Result<Card, &'static str> {
 
     let attack = convert_to_u16_vec(env, "attack", name).ok_or("attack not found")?;
     let movement = convert_to_u16_vec(env, "movement", name).ok_or("movement not found")?;
+    let JanetEnum::_String(asset_string) =
+        JanetEnum::get::<GameContext>(env, "card-image", Some(name))
+            .ok_or("Asset path not found")?
+    else {
+        return Err("Not a String");
+    };
+    asset_loader.load_texture(asset_string.as_str(), name);
     let Some(JanetEnum::_Int(attack_strength)) =
         JanetEnum::get::<GameContext>(env, "attack-strength", Some(name))
     else {
