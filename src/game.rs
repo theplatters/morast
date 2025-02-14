@@ -22,6 +22,12 @@ impl Game<'_> {
     pub fn other_player_id(&self) -> PlayerID {
         self.context.other_player_id()
     }
+
+    pub fn advance_turn(&mut self) {
+        self.context.change_turn_player();
+        self.context.draw_cards(self.context.turn_player_id(), 2);
+        self.scheduler.advance_turn();
+    }
 }
 
 impl crate::engine::janet_handler::types::janetenum::ToVoidPointer for Game<'_> {}

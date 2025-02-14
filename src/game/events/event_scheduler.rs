@@ -1,8 +1,7 @@
 use std::collections::BinaryHeap;
 
-use crate::game::{game_context::GameContext, phases::Phase};
-
 use super::event::{Event, EventTiming, ScheduledEvent};
+use crate::game::{game_context::GameContext, phases::Phase};
 
 pub struct GameScheduler<'a> {
     context: &'a mut GameContext,
