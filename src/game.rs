@@ -9,6 +9,8 @@ pub mod game_context;
 mod phases;
 pub mod player;
 
+const NUM_CARDS_AT_START: u16 = 2;
+
 pub struct Game<'a> {
     context: GameContext,
     pub scheduler: GameScheduler<'a>,
@@ -25,7 +27,8 @@ impl Game<'_> {
 
     pub fn advance_turn(&mut self) {
         self.context.change_turn_player();
-        self.context.draw_cards(self.context.turn_player_id(), 2);
+        self.context
+            .draw_cards(self.context.turn_player_id(), NUM_CARDS_AT_START);
         self.scheduler.advance_turn();
     }
 }
