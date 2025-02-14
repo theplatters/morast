@@ -43,7 +43,7 @@ fn convert_to_u16_vec(env: &Environment, attribute: &str, name: &str) -> Option<
     Some(result)
 }
 
-pub fn read_card(
+pub async fn read_card(
     env: &Environment,
     name: &str,
     asset_loader: &mut AssetLoader,
@@ -63,7 +63,7 @@ pub fn read_card(
     else {
         return Err("Not a String");
     };
-    asset_loader.load_texture(asset_string.as_str(), name);
+    asset_loader.load_texture(asset_string.as_str(), name).await;
     let Some(JanetEnum::_Int(attack_strength)) =
         JanetEnum::get::<GameContext>(env, "attack-strength", Some(name))
     else {

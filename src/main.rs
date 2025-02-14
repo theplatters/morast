@@ -24,11 +24,15 @@ async fn main() {
     let env = Environment::new();
     env.read_script("scripts/loader.janet")
         .expect("Could not find file");
-    let soldier =
-        read_card(&env, "soldier", &mut asset_loader).unwrap_or_else(|er| panic!("{:?}", er));
-    let bowmen =
-        read_card(&env, "bowmen", &mut asset_loader).unwrap_or_else(|er| panic!("{:?}", er));
-    let tower = read_card(&env, "tower", &mut asset_loader).unwrap_or_else(|er| panic!("{:?}", er));
+    let soldier = read_card(&env, "soldier", &mut asset_loader)
+        .await
+        .unwrap_or_else(|er| panic!("{:?}", er));
+    let bowmen = read_card(&env, "bowmen", &mut asset_loader)
+        .await
+        .unwrap_or_else(|er| panic!("{:?}", er));
+    let tower = read_card(&env, "tower", &mut asset_loader)
+        .await
+        .unwrap_or_else(|er| panic!("{:?}", er));
 
     print!("{:?}", soldier);
     print!("{:?}", bowmen);
