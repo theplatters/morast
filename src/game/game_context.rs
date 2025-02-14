@@ -21,6 +21,9 @@ impl GameContext {
         }
     }
 
+    pub fn change_turn_player(&mut self) {
+        self.turn_player = self.other_player_id();
+    }
     pub fn turn_player_id(&self) -> PlayerID {
         self.turn_player
     }

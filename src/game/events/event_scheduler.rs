@@ -2,63 +2,7 @@ use std::collections::BinaryHeap;
 
 use crate::game::{game_context::GameContext, phases::Phase};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-struct EventTiming {
-    turn: u32,
-    phase: Phase,
-    insertion_order: u32,
-}
-
-struct Event {
-    priority: u32,
-    action: Box<dyn FnOnce(&mut GameContext)>,
-}
-
-impl PartialOrd for Event {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(&other))
-    }
-}
-
-impl Ord for Event {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.priority.cmp(&other.priority)
-    }
-}
-
-impl PartialEq for Event {
-    fn eq(&self, other: &Self) -> bool {
-        self.priority == other.priority
-    }
-}
-
-impl Eq for Event {}
-
-//TODO: Rework this
-struct ScheduledEvent {
-    timing: EventTiming,
-    event: Event,
-}
-
-impl PartialOrd for ScheduledEvent {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for ScheduledEvent {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.timing.cmp(&other.timing)
-    }
-}
-
-impl PartialEq for ScheduledEvent {
-    fn eq(&self, other: &Self) -> bool {
-        self.timing == other.timing
-    }
-}
-
-impl Eq for ScheduledEvent {}
+use super::event::{Event, EventTiming, ScheduledEvent};
 
 pub struct GameScheduler<'a> {
     context: &'a mut GameContext,
@@ -90,19 +34,14 @@ impl<'a> GameScheduler<'a> {
         priority: u32,
         action: impl FnOnce(&mut GameContext) + 'static,
     ) {
-        let timing = EventTiming {
-            turn: self.current_turn + turns_ahead,
-            phase: Phase::Start,
-            insertion_order: self.next_insertion,
-        };
+        let timing = EventTiming::new(
+            self.current_turn + turns_ahead,
+            Phase::Start,
+            self.next_insertion,
+        );
         self.next_insertion += 1;
-        self.future_events.push(ScheduledEvent {
-            timing,
-            event: Event {
-                priority,
-                action: Box::new(action),
-            },
-        });
+        self.future_events
+            .push(ScheduledEvent::new(timing, priority, action));
     }
 
     // Schedule at the end of the n-th turn including this turn
@@ -112,27 +51,19 @@ impl<'a> GameScheduler<'a> {
         priority: u32,
         action: impl FnOnce(&mut GameContext) + 'static,
     ) {
-        let timing = EventTiming {
-            turn: self.current_turn + turns_including - 1,
-            phase: Phase::End,
-            insertion_order: self.next_insertion,
-        };
+        let timing = EventTiming::new(
+            self.current_turn + turns_including - 1,
+            Phase::End,
+            self.next_insertion,
+        );
         self.next_insertion += 1;
-        self.future_events.push(ScheduledEvent {
-            timing,
-            event: Event {
-                priority,
-                action: Box::new(action),
-            },
-        });
+        self.future_events
+            .push(ScheduledEvent::new(timing, priority, action));
     }
 
     // Schedule to execute now (after current batch of events)
     pub fn schedule_now(&mut self, action: impl FnOnce(&mut GameContext) + 'static, priority: u32) {
-        self.immediate_events.push(Event {
-            priority,
-            action: Box::new(action),
-        });
+        self.immediate_events.push(Event::new(priority, action));
     }
 
     // Schedule to execute after all currently scheduled events
@@ -141,10 +72,7 @@ impl<'a> GameScheduler<'a> {
         action: impl FnOnce(&mut GameContext) + 'static,
         priority: u32,
     ) {
-        self.deferred_events.push(Event {
-            priority,
-            action: Box::new(action),
-        });
+        self.deferred_events.push(Event::new(priority, action));
     }
 
     // Advance the game state (call this when progressing phases/turns)

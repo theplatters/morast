@@ -1,2 +1,3 @@
-pub mod actions;
+mod actions;
+mod event;
 pub mod event_scheduler;
