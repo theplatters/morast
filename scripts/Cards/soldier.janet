@@ -1,8 +1,9 @@
 (def cost 1)
 (def card-image "../assets/image.jpg")
-(def movement (std/plus 1))
 
+(def movement (std/plus 1))
 (def attack (std/plus 1))
+
 (def attack-strength 3)
 (def defense 3)
 
