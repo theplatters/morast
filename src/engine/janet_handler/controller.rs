@@ -6,7 +6,7 @@ use std::{
 use super::{
     api::{
         cfun_add_gold_to_player, cfun_cross, cfun_discard, cfun_draw, cfun_gold_amout,
-        cfun_other_player, cfun_plus, cfun_turn_count, cfun_turn_player,
+        cfun_other_player, cfun_plus, cfun_shuffle_deck, cfun_turn_count, cfun_turn_player,
     },
     bindings::{
         janet_cfuns_prefix, janet_core_env, janet_deinit, janet_dostring, janet_env_lookup,
@@ -83,6 +83,11 @@ impl Environment {
                 "turn-count",
                 cfun_turn_count as JanetRawCFunction,
                 "Get's the current turn number",
+            ),
+            (
+                "shuffle",
+                cfun_shuffle_deck as JanetRawCFunction,
+                "Shuffles the deck of the player, returns nill if the function failed, returns true on success and false if the Player does not exisShuffles the deck of the player, returns nill if the function failed, retu true on success and false if the Player does not existt",
             ),
         ];
 

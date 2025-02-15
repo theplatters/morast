@@ -33,6 +33,12 @@ impl Game<'_> {
     pub fn get_turn_count(&self) -> u32 {
         self.scheduler.current_turn
     }
+
+    pub fn shuffe(&mut self, player_id: PlayerID) -> Option<()> {
+        let player = self.context.get_player_mut(player_id)?;
+        player.shuffle_deck();
+        Some(())
+    }
 }
 
 impl crate::engine::janet_handler::types::janetenum::ToVoidPointer for Game<'_> {}

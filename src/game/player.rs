@@ -1,5 +1,7 @@
 use std::cmp;
 
+use macroquad::rand::ChooseRandom;
+
 use super::card::card_id::CardID;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
@@ -44,6 +46,10 @@ impl Player {
         self.hand.push(card)
     }
 
+    pub fn shuffle_deck(&mut self) {
+        self.deck.shuffle();
+    }
+
     pub fn add_to_deck_top(&mut self, card: CardID) {
         self.hand.push(card)
     }
@@ -52,7 +58,11 @@ impl Player {
     }
 
     pub fn discard_card(&mut self) {
-        self.hand.pop();
+        self.hand.shuffle();
+        let Some(card) = self.hand.pop() else {
+            return;
+        };
+        self.discard_pile.push(card);
     }
     pub fn set_gold(&mut self, amount: i32) {
         self.money = cmp::max(self.money + amount, 0)

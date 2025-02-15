@@ -2,8 +2,8 @@ use crate::game::{player::PlayerID, Game};
 
 use super::bindings::{
     janet_array, janet_array_push, janet_fixarity, janet_getinteger64, janet_getpointer,
-    janet_getuinteger16, janet_wrap_array, janet_wrap_integer, janet_wrap_nil, janet_wrap_u64,
-    Janet,
+    janet_getuinteger16, janet_wrap_array, janet_wrap_boolean, janet_wrap_integer, janet_wrap_nil,
+    janet_wrap_u64, Janet,
 };
 
 pub unsafe extern "C" fn cfun_draw(argc: i32, argv: *mut Janet) -> Janet {
@@ -112,5 +112,16 @@ pub unsafe extern "C" fn cfun_turn_count(argc: i32, argv: *mut Janet) -> Janet {
         .as_mut()
         .map_or(janet_wrap_nil(), |game| {
             janet_wrap_u64(game.get_turn_count() as u64)
+        })
+}
+
+pub unsafe extern "C" fn cfun_shuffle_deck(argc: i32, argv: *mut Janet) -> Janet {
+    janet_fixarity(argc, 1);
+    let player_id = PlayerID::new(janet_getuinteger16(argv, 1));
+    (janet_getpointer(argv, 2) as *mut Game)
+        .as_mut()
+        .map_or(janet_wrap_nil(), |game| match game.shuffe(player_id) {
+            Some(_) => janet_wrap_boolean(1),
+            None => janet_wrap_boolean(0),
         })
 }
