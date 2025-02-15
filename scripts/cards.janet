@@ -1,1 +1,1 @@
-(def cards @["soldier" "tower" "bowmen"])
+(def cards @["soldier" "tower" "bowmen" "merchant"])
