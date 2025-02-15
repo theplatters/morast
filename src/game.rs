@@ -9,7 +9,7 @@ pub mod game_context;
 mod phases;
 pub mod player;
 
-const NUM_CARDS_AT_START: u32 = 2;
+const NUM_CARDS_AT_START: u16 = 2;
 
 pub struct Game<'a> {
     context: GameContext,
@@ -25,19 +25,11 @@ impl Game<'_> {
         self.context.other_player_id()
     }
 
-    pub fn get_player_gold(&self, player_id: PlayerID) -> Option<i32> {
-        let player = self.context.get_player(player_id)?;
-        Some(player.get_gold())
-    }
-
-    pub fn get_turn_count(&self) -> u32 {
-        self.scheduler.current_turn
-    }
-
-    pub fn shuffe(&mut self, player_id: PlayerID) -> Option<()> {
-        let player = self.context.get_player_mut(player_id)?;
-        player.shuffle_deck();
-        Some(())
+    pub fn advance_turn(&mut self) {
+        self.context.change_turn_player();
+        self.context
+            .draw_cards(self.context.turn_player_id(), NUM_CARDS_AT_START);
+        self.scheduler.advance_turn();
     }
 }
 
