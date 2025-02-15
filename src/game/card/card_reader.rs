@@ -63,7 +63,10 @@ pub async fn read_card(
     else {
         return Err("Not a String");
     };
-    asset_loader.load_texture(asset_string.as_str(), name).await;
+    asset_loader
+        .load_texture(asset_string.as_str(), name)
+        .await
+        .map_err(|_| "Loading texture failed")?;
     let Some(JanetEnum::_Int(attack_strength)) =
         JanetEnum::get::<GameContext>(env, "attack-strength", Some(name))
     else {
