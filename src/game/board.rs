@@ -7,9 +7,9 @@ use tile::Tile;
 
 use super::{card::card_id::CardID, player::PlayerID};
 
-mod card_on_board;
+pub mod card_on_board;
 mod effect;
-mod place_error;
+pub mod place_error;
 mod tile;
 
 #[derive(Debug)]

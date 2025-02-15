@@ -1,13 +1,16 @@
+use macroquad::math::{IVec2, U16Vec2, UVec2};
+
 use super::{
-    board::Board,
-    card::card_registry::CardRegistry,
+    board::{card_on_board::CardOnBoard, place_error::PlaceError, Board},
+    card::{card_id::CardID, card_registry::CardRegistry},
     player::{Player, PlayerID},
 };
 
 pub struct GameContext {
-    pub players: [Player; 2],
-    pub board: Board,
+    players: [Player; 2],
+    board: Board,
     turn_player: PlayerID,
+    cards_placed: Vec<CardOnBoard>,
     pub card_registry: CardRegistry,
 }
 
@@ -18,6 +21,7 @@ impl GameContext {
             board: Board::new(),
             turn_player: PlayerID::new(0),
             card_registry: CardRegistry::new(),
+            cards_placed: Vec::new(),
         }
     }
 
@@ -76,6 +80,20 @@ impl GameContext {
         let player = self.get_player_mut(player_id)?;
         player.shuffle_deck();
         Some(())
+    }
+    pub fn place(
+        &mut self,
+        card_id: CardID,
+        index: U16Vec2,
+        player_id: PlayerID,
+    ) -> Result<(), PlaceError> {
+        match self.board.place(card_id, player_id, index) {
+            Ok(_) => {
+                self.cards_placed.push(CardOnBoard::new(card_id, player_id));
+                Ok(())
+            }
+            Err(err) => Err(err),
+        }
     }
 }
 

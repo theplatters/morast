@@ -1,5 +1,5 @@
 #[derive(Debug)]
-pub(super) enum PlaceError {
+pub enum PlaceError {
     IndexError,
     TileOccupiedError,
 }
