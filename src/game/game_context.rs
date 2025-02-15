@@ -71,6 +71,12 @@ impl GameContext {
 
         player.set_gold(amount as i32);
     }
+
+    pub fn shuffe_deck(&mut self, player_id: PlayerID) -> Option<()> {
+        let player = self.get_player_mut(player_id)?;
+        player.shuffle_deck();
+        Some(())
+    }
 }
 
 impl crate::engine::janet_handler::types::janetenum::ToVoidPointer for GameContext {}
