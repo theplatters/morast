@@ -17,7 +17,7 @@ pub unsafe extern "C" fn cfun_draw(argc: i32, argv: *mut Janet) -> Janet {
         move |context| {
             context
                 .draw_cards(PlayerID::new(player_id), num_cards)
-                .unwrap()
+                .expect("Player not found")
         },
         1,
     );
@@ -36,7 +36,7 @@ pub unsafe extern "C" fn cfun_discard(argc: i32, argv: *mut Janet) -> Janet {
         move |context| {
             context
                 .discard_cards(PlayerID::new(player_id), num_cards)
-                .unwrap()
+                .expect("Player not found")
         },
         1,
     );
@@ -52,7 +52,11 @@ pub unsafe extern "C" fn cfun_add_gold_to_player(argc: i32, argv: *mut Janet) ->
     let player_id = janet_getuinteger16(argv, 2);
 
     game.scheduler.schedule_now(
-        move |context| context.set_gold(PlayerID::new(player_id), amount).unwrap(),
+        move |context| {
+            context
+                .set_gold(PlayerID::new(player_id), amount)
+                .expect("Player not found")
+        },
         1,
     );
     janet_wrap_nil()
