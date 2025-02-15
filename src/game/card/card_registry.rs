@@ -5,7 +5,11 @@ use crate::engine::{
     janet_handler::controller::Environment,
 };
 
-use super::{card_id::CardID, card_reader::read_card, Card};
+use super::{
+    card_id::CardID,
+    card_reader::{get_card_list, read_card},
+    Card,
+};
 
 #[derive(Debug)]
 pub struct CardRegistry {
