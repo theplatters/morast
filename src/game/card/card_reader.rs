@@ -4,7 +4,6 @@ use crate::{
     engine::{
         asset_loader::AssetLoader,
         janet_handler::{
-            bindings::Janet,
             controller::Environment,
             types::{function::Function, janetenum::JanetEnum},
         },
@@ -61,18 +60,24 @@ pub async fn read_card(
         JanetEnum::get::<GameContext>(env, "card-image", Some(name))
             .ok_or("Asset path not found")?
     else {
-        return Err("Not a String");
+        return Err("Asset path is not a String");
     };
-    asset_loader.load_texture(asset_string.as_str(), name).await;
+    asset_loader
+        .load_texture(asset_string.as_str(), name)
+        .await
+        .map_err(|_| "Loading texture failed")?;
+
     let Some(JanetEnum::_Int(attack_strength)) =
         JanetEnum::get::<GameContext>(env, "attack-strength", Some(name))
     else {
         return Err("attack_strength not found");
     };
+
     let Some(JanetEnum::_Int(defense)) = JanetEnum::get::<GameContext>(env, "defense", Some(name))
     else {
         return Err("defense not found");
     };
+
     Ok(Card {
         name: name.to_string(),
         draw_action,
@@ -83,4 +88,19 @@ pub async fn read_card(
         defense: defense as u16,
         movement,
     })
+}
+
+pub fn get_card_list(env: &Environment) -> Option<Vec<String>> {
+    let Some(JanetEnum::_Array(cards)) = JanetEnum::get::<GameContext>(env, "cards", Some("cards"))
+    else {
+        return None;
+    };
+
+    cards
+        .into_iter()
+        .map(|x| match x {
+            JanetEnum::_String(s) => Some(s),
+            _ => None,
+        })
+        .collect()
 }

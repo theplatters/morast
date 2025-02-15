@@ -1,5 +1,5 @@
 use engine::{asset_loader::AssetLoader, janet_handler::controller::Environment};
-use game::card::card_reader::read_card;
+use game::card::card_reader::{get_card_list, read_card};
 use macroquad::prelude::*;
 
 mod engine;
@@ -20,7 +20,7 @@ async fn main() {
     println!("The current directory is {}", path.display());
     use std::time::Instant;
     let now = Instant::now();
-    let mut asset_loader = AssetLoader::new("");
+    let mut asset_loader = AssetLoader::new(std::env::current_dir().expect("").to_str().expect(""));
     let env = Environment::new();
     env.read_script("scripts/loader.janet")
         .expect("Could not find file");
@@ -34,6 +34,7 @@ async fn main() {
         .await
         .unwrap_or_else(|er| panic!("{:?}", er));
 
+    println!("{:?}", get_card_list(&env).expect(""));
     print!("{:?}", soldier);
     print!("{:?}", bowmen);
     print!("{:?}", tower);

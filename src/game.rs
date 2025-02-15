@@ -31,6 +31,18 @@ impl Game<'_> {
             .draw_cards(self.context.turn_player_id(), NUM_CARDS_AT_START);
         self.scheduler.advance_turn();
     }
+
+    pub fn shuffe_deck(&mut self, player_id: PlayerID) -> Option<()> {
+        self.context.shuffe_deck(player_id)
+    }
+
+    pub fn get_turn_count(&mut self) -> u32 {
+        self.scheduler.current_turn
+    }
+
+    pub fn get_player_gold(&self, player_id: PlayerID) -> Option<i32> {
+        self.context.get_player(player_id).map(|p| p.get_gold())
+    }
 }
 
 impl crate::engine::janet_handler::types::janetenum::ToVoidPointer for Game<'_> {}
