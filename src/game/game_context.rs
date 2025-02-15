@@ -3,6 +3,7 @@ use macroquad::math::{IVec2, U16Vec2, UVec2};
 use super::{
     board::{card_on_board::CardOnBoard, place_error::PlaceError, Board},
     card::{card_id::CardID, card_registry::CardRegistry},
+    error::Error,
     player::{Player, PlayerID},
 };
 
@@ -47,33 +48,36 @@ impl GameContext {
         }
     }
 
-    pub fn draw_cards(&mut self, player_id: PlayerID, num_cards: u16) {
+    pub fn draw_cards(&mut self, player_id: PlayerID, num_cards: u16) -> Result<(), Error> {
         let player = self
             .get_player_mut(player_id)
-            .expect(&format!("Player Id not found: {}", player_id.get()));
+            .ok_or(Error::PlayerNotFound)?;
 
         for _ in 0..num_cards {
             if let Some(card) = player.draw_from_deck() {
                 player.add_to_hand(card);
             }
         }
+        Ok(())
     }
 
-    pub fn discard_cards(&mut self, player_id: PlayerID, num_cards: u16) {
+    pub fn discard_cards(&mut self, player_id: PlayerID, num_cards: u16) -> Result<(), Error> {
         let player = self
             .get_player_mut(player_id)
-            .expect(&format!("Player Id not found: {}", player_id.get()));
+            .ok_or(Error::PlayerNotFound)?;
         for _ in 0..num_cards {
             player.discard_card()
         }
+        Ok(())
     }
 
-    pub fn set_gold(&mut self, player_id: PlayerID, amount: i64) {
+    pub fn set_gold(&mut self, player_id: PlayerID, amount: i64) -> Result<(), Error> {
         let player = self
             .get_player_mut(player_id)
-            .expect(&format!("Player Id not found: {}", player_id.get()));
+            .ok_or(Error::PlayerNotFound)?;
 
         player.set_gold(amount as i32);
+        Ok(())
     }
 
     pub fn shuffe_deck(&mut self, player_id: PlayerID) -> Option<()> {
@@ -81,18 +85,19 @@ impl GameContext {
         player.shuffle_deck();
         Some(())
     }
+
     pub fn place(
         &mut self,
         card_id: CardID,
         index: U16Vec2,
         player_id: PlayerID,
-    ) -> Result<(), PlaceError> {
+    ) -> Result<(), Error> {
         match self.board.place(card_id, player_id, index) {
             Ok(_) => {
                 self.cards_placed.push(CardOnBoard::new(card_id, player_id));
                 Ok(())
             }
-            Err(err) => Err(err),
+            Err(err) => Err(Error::PlaceError(err)),
         }
     }
 }

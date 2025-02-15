@@ -14,7 +14,11 @@ pub unsafe extern "C" fn cfun_draw(argc: i32, argv: *mut Janet) -> Janet {
     let num_cards = janet_getuinteger16(argv, 1);
     let player_id = janet_getuinteger16(argv, 2);
     game.scheduler.schedule_now(
-        move |context| context.draw_cards(PlayerID::new(player_id), num_cards),
+        move |context| {
+            context
+                .draw_cards(PlayerID::new(player_id), num_cards)
+                .unwrap()
+        },
         1,
     );
     janet_wrap_nil()
@@ -29,7 +33,11 @@ pub unsafe extern "C" fn cfun_discard(argc: i32, argv: *mut Janet) -> Janet {
     let player_id = janet_getuinteger16(argv, 2);
 
     game.scheduler.schedule_now(
-        move |context| context.discard_cards(PlayerID::new(player_id), num_cards),
+        move |context| {
+            context
+                .discard_cards(PlayerID::new(player_id), num_cards)
+                .unwrap()
+        },
         1,
     );
     janet_wrap_nil()
@@ -44,7 +52,7 @@ pub unsafe extern "C" fn cfun_add_gold_to_player(argc: i32, argv: *mut Janet) ->
     let player_id = janet_getuinteger16(argv, 2);
 
     game.scheduler.schedule_now(
-        move |context| context.set_gold(PlayerID::new(player_id), amount),
+        move |context| context.set_gold(PlayerID::new(player_id), amount).unwrap(),
         1,
     );
     janet_wrap_nil()
