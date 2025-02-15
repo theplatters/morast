@@ -21,12 +21,18 @@ impl GameContext {
         }
     }
 
+    pub fn change_turn_player(&mut self) {
+        self.turn_player = self.other_player_id();
+    }
     pub fn turn_player_id(&self) -> PlayerID {
         self.turn_player
     }
 
-    pub fn get_player(&mut self, id: PlayerID) -> Option<&mut Player> {
+    pub fn get_player_mut(&mut self, id: PlayerID) -> Option<&mut Player> {
         self.players.iter_mut().find(|p| p.id == id)
+    }
+    pub fn get_player(&self, id: PlayerID) -> Option<&Player> {
+        self.players.iter().find(|p| p.id == id)
     }
 
     pub fn other_player_id(&self) -> PlayerID {
@@ -39,7 +45,7 @@ impl GameContext {
 
     pub fn draw_cards(&mut self, player_id: PlayerID, num_cards: u16) {
         let player = self
-            .get_player(player_id)
+            .get_player_mut(player_id)
             .expect(&format!("Player Id not found: {}", player_id.get()));
 
         for _ in 0..num_cards {
@@ -51,19 +57,19 @@ impl GameContext {
 
     pub fn discard_cards(&mut self, player_id: PlayerID, num_cards: u16) {
         let player = self
-            .get_player(player_id)
+            .get_player_mut(player_id)
             .expect(&format!("Player Id not found: {}", player_id.get()));
         for _ in 0..num_cards {
             player.discard_card()
         }
     }
 
-    pub fn get_gold(&mut self, player_id: PlayerID, amount: i64) {
+    pub fn set_gold(&mut self, player_id: PlayerID, amount: i64) {
         let player = self
-            .get_player(player_id)
+            .get_player_mut(player_id)
             .expect(&format!("Player Id not found: {}", player_id.get()));
 
-        player.get_gold(amount as i32);
+        player.set_gold(amount as i32);
     }
 }
 
