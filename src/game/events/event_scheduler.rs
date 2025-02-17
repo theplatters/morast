@@ -3,8 +3,8 @@ use std::collections::BinaryHeap;
 use super::event::{Event, EventTiming, ScheduledEvent};
 use crate::game::{game_context::GameContext, phases::Phase};
 
-pub struct GameScheduler<'a> {
-    context: &'a mut GameContext,
+#[derive(Debug)]
+pub struct GameScheduler {
     pub current_turn: u32,
     current_phase: Phase,
     next_insertion: u32,
@@ -13,10 +13,9 @@ pub struct GameScheduler<'a> {
     deferred_events: BinaryHeap<Event>,
 }
 
-impl<'a> GameScheduler<'a> {
-    pub fn new(context: &'a mut GameContext) -> Self {
+impl GameScheduler {
+    pub fn new() -> Self {
         Self {
-            context,
             current_turn: 0,
             current_phase: Phase::Start,
             next_insertion: 0,
@@ -75,10 +74,10 @@ impl<'a> GameScheduler<'a> {
     }
 
     // Advance the game state (call this when progressing phases/turns)
-    pub fn process_events(&mut self) {
+    pub fn process_events(&mut self, context: &mut GameContext) {
         // Process all deferred events from previous cycle first
         while let Some(event) = self.deferred_events.pop() {
-            (event.action)(self.context);
+            (event.action)(context);
         }
 
         // Process current phase events
@@ -90,7 +89,7 @@ impl<'a> GameScheduler<'a> {
                 // Remove and execute outdated events
 
                 let event = self.future_events.pop().unwrap();
-                (event.event.action)(self.context);
+                (event.event.action)(context);
             } else {
                 break;
             }
@@ -98,19 +97,24 @@ impl<'a> GameScheduler<'a> {
 
         // Process immediate events
         while let Some(event) = self.immediate_events.pop() {
-            (event.action)(self.context);
+            println!("Handling a future event");
+            (event.action)(context);
         }
     }
 
     // Call these when progressing through game phases
-    pub fn advance_to_phase(&mut self, phase: Phase) {
+    pub fn advance_to_phase(&mut self, phase: Phase, context: &mut GameContext) {
         self.current_phase = phase;
-        self.process_events();
+        self.process_events(context);
     }
 
-    pub fn advance_turn(&mut self) {
+    pub fn advance_turn(&mut self, context: &mut GameContext) {
         self.current_turn += 1;
         self.current_phase = Phase::Start;
-        self.process_events();
+        self.process_events(context);
+    }
+
+    pub fn get_turn_count(&mut self) -> u32 {
+        self.current_turn
     }
 }

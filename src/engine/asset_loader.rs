@@ -27,7 +27,10 @@ impl AssetLoader {
     // Load a texture and store it in the HashMap
     pub async fn load_texture(&mut self, path: &str, key: &str) -> Result<(), macroquad::Error> {
         let full_path = format!("{}/{}", self.root_path, path);
-        let texture = load_texture(&full_path).await?;
+        println!("Path: {:?}", self.root_path);
+        let texture = load_texture(&full_path)
+            .await
+            .unwrap_or_else(|err| panic!("{:?}", err));
         texture.set_filter(FilterMode::Nearest);
         self.textures.insert(key.to_string(), texture);
         Ok(())

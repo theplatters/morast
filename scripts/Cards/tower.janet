@@ -1,5 +1,5 @@
 (def cost 1)
-(def card-image "assets/image.png")
+(def card-image "assets/image3.png")
 
 (def movement @[])
 
@@ -9,9 +9,9 @@
 (def attack-strength 3)
 (def defense 2)
 
-(defn on-draw [game] nil)
-(defn on-play [game] nil)
-(defn on-discard [game] nil)
-(defn on-ability [game] nil)
-(defn on-turn_begin [game] nil)
-(defn on-turn-end [game] nil)
+(defn on-draw [game scheduler] nil)
+(defn on-play [game scheduler] nil)
+(defn on-discard [game scheduler] nil)
+(defn on-ability [game scheduler] nil)
+(defn on-turn-begin [game scheduler] nil)
+(defn on-turn-end [game scheduler] nil)

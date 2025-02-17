@@ -1,5 +1,15 @@
-use engine::{asset_loader::AssetLoader, janet_handler::controller::Environment};
-use game::card::card_reader::{get_card_list, read_card};
+use engine::{
+    asset_loader::AssetLoader,
+    janet_handler::{bindings::janet_fixarity, controller::Environment},
+};
+use game::{
+    card::{
+        card_reader::{get_card_list, read_card},
+        card_registry,
+    },
+    player::PlayerID,
+    Game,
+};
 use macroquad::prelude::*;
 
 mod engine;
@@ -18,38 +28,14 @@ fn window_config() -> Conf {
 async fn main() {
     let path = std::env::current_dir().unwrap();
     println!("The current directory is {}", path.display());
-    use std::time::Instant;
-    let now = Instant::now();
-    let mut asset_loader = AssetLoader::new(std::env::current_dir().expect("").to_str().expect(""));
-    let env = Environment::new();
-    env.read_script("scripts/loader.janet")
-        .expect("Could not find file");
-    let soldier = read_card(&env, "soldier", &mut asset_loader)
-        .await
-        .unwrap_or_else(|er| panic!("{:?}", er));
-    let bowmen = read_card(&env, "bowmen", &mut asset_loader)
-        .await
-        .unwrap_or_else(|er| panic!("{:?}", er));
-    let tower = read_card(&env, "tower", &mut asset_loader)
-        .await
-        .unwrap_or_else(|er| panic!("{:?}", er));
 
-    println!("{:?}", get_card_list(&env).expect(""));
-    print!("{:?}", soldier);
-    print!("{:?}", bowmen);
-    print!("{:?}", tower);
-
-    let elapsed = now.elapsed();
-    println!("Elapsed: {:.2?}", elapsed);
-    loop {
-        clear_background(RED);
-
-        draw_line(400.0, 500.0, 100.0, 200.0, 15.0, BLUE);
-        draw_circle(100.0, 300.0, 100.0, BLUE);
-        draw_circle(100.0, 400.0, 100.0, BLUE);
-
-        draw_text("Hello, Raudichris!", 20.0, 20.0, 30.0, DARKGRAY);
-
-        next_frame().await
-    }
+    let mut game = Game::new().await;
+    game.advance_turn();
+    game.advance_turn();
+    println!(
+        "{:?}",
+        game.context
+            .get_player_gold(PlayerID::new(0))
+            .expect("nlakdv")
+    );
 }

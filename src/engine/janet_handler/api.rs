@@ -1,4 +1,6 @@
-use crate::game::{player::PlayerID, Game};
+use crate::game::{
+    events::event_scheduler::GameScheduler, game_context::GameContext, player::PlayerID, Game,
+};
 
 use super::bindings::{
     janet_array, janet_array_push, janet_fixarity, janet_getinteger64, janet_getpointer,
@@ -7,13 +9,17 @@ use super::bindings::{
 };
 
 pub unsafe extern "C" fn cfun_draw(argc: i32, argv: *mut Janet) -> Janet {
-    janet_fixarity(argc, 3);
-    let game = (janet_getpointer(argv, 0) as *mut Game)
+    janet_fixarity(argc, 4);
+    let _context = (janet_getpointer(argv, 0) as *mut GameContext)
+        .as_mut()
+        .expect("Couldn't cast reference");
+
+    let scheduler = (janet_getpointer(argv, 1) as *mut GameScheduler)
         .as_mut()
         .expect("Couldn't cast reference");
     let num_cards = janet_getuinteger16(argv, 1);
     let player_id = janet_getuinteger16(argv, 2);
-    game.scheduler.schedule_now(
+    scheduler.schedule_now(
         move |context| {
             context
                 .draw_cards(PlayerID::new(player_id), num_cards)
@@ -25,14 +31,18 @@ pub unsafe extern "C" fn cfun_draw(argc: i32, argv: *mut Janet) -> Janet {
 }
 
 pub unsafe extern "C" fn cfun_discard(argc: i32, argv: *mut Janet) -> Janet {
-    janet_fixarity(argc, 3);
-    let game = (janet_getpointer(argv, 0) as *mut Game)
+    janet_fixarity(argc, 4);
+    let _context = (janet_getpointer(argv, 0) as *mut GameContext)
+        .as_mut()
+        .expect("Couldn't cast reference");
+
+    let scheduler = (janet_getpointer(argv, 0) as *mut GameScheduler)
         .as_mut()
         .expect("Couldn't cast reference");
     let num_cards = janet_getuinteger16(argv, 1);
     let player_id = janet_getuinteger16(argv, 2);
 
-    game.scheduler.schedule_now(
+    scheduler.schedule_now(
         move |context| {
             context
                 .discard_cards(PlayerID::new(player_id), num_cards)
@@ -44,27 +54,24 @@ pub unsafe extern "C" fn cfun_discard(argc: i32, argv: *mut Janet) -> Janet {
 }
 
 pub unsafe extern "C" fn cfun_add_gold_to_player(argc: i32, argv: *mut Janet) -> Janet {
+    println!("Called into cfun_add_gold_to_player");
     janet_fixarity(argc, 3);
-    let game = (janet_getpointer(argv, 0) as *mut Game)
+    let context = (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()
         .expect("Couldn't cast reference");
     let amount = janet_getinteger64(argv, 1);
-    let player_id = janet_getuinteger16(argv, 2);
+    let player_id = janet_getinteger64(argv, 2) as u16;
 
-    game.scheduler.schedule_now(
-        move |context| {
-            context
-                .set_gold(PlayerID::new(player_id), amount)
-                .expect("Player not found")
-        },
-        1,
-    );
+    context
+        .add_gold(PlayerID::new(player_id), amount)
+        .expect("Player not found");
+
     janet_wrap_nil()
 }
 
 pub unsafe extern "C" fn cfun_turn_player(argc: i32, argv: *mut Janet) -> Janet {
     janet_fixarity(argc, 1);
-    (janet_getpointer(argv, 0) as *mut Game)
+    (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()
         .map_or(janet_wrap_nil(), |g| {
             janet_wrap_u64(g.turn_player_id().get() as u64)
@@ -109,31 +116,47 @@ pub unsafe extern "C" fn cfun_cross(argc: i32, argv: *mut Janet) -> Janet {
 }
 
 pub unsafe extern "C" fn cfun_gold_amout(argc: i32, argv: *mut Janet) -> Janet {
+    println!("Get gold method called");
     janet_fixarity(argc, 2);
-    let game = (janet_getpointer(argv, 0) as *mut Game)
+    let game = (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()
         .expect("Couldn't cast reference");
-    let player_id = PlayerID::new(janet_getuinteger16(argv, 0));
+
+    let player_id = PlayerID::new(janet_getinteger64(argv, 1) as u16);
     game.get_player_gold(player_id)
-        .map_or(janet_wrap_nil(), |r| janet_wrap_integer(r))
+        .map_or(janet_wrap_nil(), |r| janet_wrap_integer(r as i32))
 }
 
 pub unsafe extern "C" fn cfun_turn_count(argc: i32, argv: *mut Janet) -> Janet {
     janet_fixarity(argc, 1);
-    (janet_getpointer(argv, 0) as *mut Game)
+    (janet_getpointer(argv, 0) as *mut GameScheduler)
         .as_mut()
-        .map_or(janet_wrap_nil(), |game| {
-            janet_wrap_u64(game.get_turn_count() as u64)
+        .map_or(janet_wrap_nil(), |scheduler| {
+            janet_wrap_u64(scheduler.get_turn_count() as u64)
         })
 }
 
 pub unsafe extern "C" fn cfun_shuffle_deck(argc: i32, argv: *mut Janet) -> Janet {
     janet_fixarity(argc, 1);
-    let player_id = PlayerID::new(janet_getuinteger16(argv, 1));
-    (janet_getpointer(argv, 2) as *mut Game)
+    let player_id = PlayerID::new(janet_getuinteger16(argv, 0));
+    (janet_getpointer(argv, 2) as *mut GameContext)
         .as_mut()
         .map_or(janet_wrap_nil(), |game| match game.shuffe_deck(player_id) {
             Some(_) => janet_wrap_boolean(1),
             None => janet_wrap_boolean(0),
+        })
+}
+
+pub unsafe extern "C" fn cfun_card_owner(argc: i32, argv: *mut Janet) -> Janet {
+    janet_fixarity(argc, 1);
+
+    (janet_getpointer(argv, 0) as *mut GameContext)
+        .as_mut()
+        .map_or(janet_wrap_nil(), |game| match game.current_selected_card {
+            Some(card_id) => {
+                println!("{:?}", card_id);
+                janet_wrap_u64(card_id.player_id.get() as u64)
+            }
+            None => panic!("Selected card not found"),
         })
 }

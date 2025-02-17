@@ -18,14 +18,14 @@ impl PlayerID {
 
     // New next method with overflow protection
     pub fn next(&self) -> Self {
-        Self(self.0.wrapping_add(1))
+        Self((self.0 + 1) % 2)
     }
 }
 
 #[derive(Debug)]
 pub struct Player {
     pub id: PlayerID,
-    money: i32,
+    money: i64,
     deck: Vec<CardID>,
     hand: Vec<CardID>,
     discard_pile: Vec<CardID>,
@@ -64,11 +64,11 @@ impl Player {
         };
         self.discard_pile.push(card);
     }
-    pub fn set_gold(&mut self, amount: i32) {
+    pub fn add_gold(&mut self, amount: i64) {
         self.money = cmp::max(self.money + amount, 0)
     }
 
-    pub fn get_gold(&self) -> i32 {
+    pub fn get_gold(&self) -> i64 {
         self.money
     }
 }

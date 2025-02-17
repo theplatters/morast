@@ -1,18 +1,28 @@
 use macroquad::math::{IVec2, U16Vec2, UVec2};
 
+use crate::engine::janet_handler::controller::Environment;
+
 use super::{
     board::{card_on_board::CardOnBoard, place_error::PlaceError, Board},
-    card::{card_id::CardID, card_registry::CardRegistry},
+    card::{
+        self,
+        card_id::CardID,
+        card_registry::{self, CardRegistry},
+        Card,
+    },
     error::Error,
+    events::event_scheduler::GameScheduler,
     player::{Player, PlayerID},
+    Game,
 };
 
+const NUM_CARDS_AT_START: u16 = 2;
 pub struct GameContext {
     players: [Player; 2],
     board: Board,
     turn_player: PlayerID,
     cards_placed: Vec<CardOnBoard>,
-    pub card_registry: CardRegistry,
+    pub current_selected_card: Option<CardOnBoard>,
 }
 
 impl GameContext {
@@ -21,13 +31,13 @@ impl GameContext {
             players,
             board: Board::new(),
             turn_player: PlayerID::new(0),
-            card_registry: CardRegistry::new(),
             cards_placed: Vec::new(),
+            current_selected_card: None,
         }
     }
 
     pub fn change_turn_player(&mut self) {
-        self.turn_player = self.other_player_id();
+        self.turn_player = self.turn_player.next();
     }
     pub fn turn_player_id(&self) -> PlayerID {
         self.turn_player
@@ -70,13 +80,17 @@ impl GameContext {
         }
         Ok(())
     }
+    pub fn get_player_gold(&self, player_id: PlayerID) -> Result<i64, Error> {
+        let player = self.get_player(player_id).ok_or(Error::PlayerNotFound)?;
+        Ok(player.get_gold())
+    }
 
-    pub fn set_gold(&mut self, player_id: PlayerID, amount: i64) -> Result<(), Error> {
+    pub fn add_gold(&mut self, player_id: PlayerID, amount: i64) -> Result<(), Error> {
         let player = self
             .get_player_mut(player_id)
             .ok_or(Error::PlayerNotFound)?;
 
-        player.set_gold(amount as i32);
+        player.add_gold(amount);
         Ok(())
     }
 
@@ -99,6 +113,27 @@ impl GameContext {
             }
             Err(err) => Err(Error::PlaceError(err)),
         }
+    }
+
+    pub fn proces_turn_begin(
+        &mut self,
+        scheduler: &mut GameScheduler,
+        card_registry: &CardRegistry,
+    ) {
+        println!("Processing turn beginning {}", scheduler.get_turn_count());
+        self.change_turn_player();
+        scheduler.advance_turn(self);
+        for card in &self.cards_placed.clone() {
+            println!("Processing card {:?}", card);
+            self.current_selected_card = Some(*card);
+            card_registry
+                .get(&card.card_id)
+                .expect("Card not found")
+                .on_turn_start(self, scheduler);
+        }
+        self.draw_cards(self.turn_player_id(), NUM_CARDS_AT_START);
+
+        scheduler.process_events(self);
     }
 }
 

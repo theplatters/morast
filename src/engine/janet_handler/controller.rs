@@ -5,8 +5,9 @@ use std::{
 
 use super::{
     api::{
-        cfun_add_gold_to_player, cfun_cross, cfun_discard, cfun_draw, cfun_gold_amout,
-        cfun_other_player, cfun_plus, cfun_shuffle_deck, cfun_turn_count, cfun_turn_player,
+        cfun_add_gold_to_player, cfun_card_owner, cfun_cross, cfun_discard, cfun_draw,
+        cfun_gold_amout, cfun_other_player, cfun_plus, cfun_shuffle_deck, cfun_turn_count,
+        cfun_turn_player,
     },
     bindings::{
         janet_cfuns_prefix, janet_core_env, janet_deinit, janet_dostring, janet_env_lookup,
@@ -89,6 +90,11 @@ impl Environment {
                 cfun_shuffle_deck as JanetRawCFunction,
                 "Shuffles the deck of the player, returns nill if the function failed, returns true on success and false if the Player does not exisShuffles the deck of the player, returns nill if the function failed, retu true on success and false if the Player does not existt",
             ),
+            (
+                "owner",
+                cfun_card_owner as JanetRawCFunction,
+                "Returns the owner of the card",
+            ),
         ];
 
         for (name, fun, desc) in functions {
@@ -160,8 +166,9 @@ impl Environment {
             janet_deinit();
         }
     }
-    pub fn read_script(&self, filename: &str) -> Result<JanetEnum, &str> {
-        let script = std::fs::read_to_string(filename).map_err(|_| "Couldn't read file")?;
+    pub fn read_script(&self, filename: &str) -> Result<JanetEnum, String> {
+        let script = std::fs::read_to_string(filename)
+            .map_err(|_| format!("Couldn't read file {}", filename.clone()))?;
         let mut out: Janet = Janet {
             pointer: std::ptr::null_mut(),
         };
@@ -177,6 +184,6 @@ impl Environment {
                 &mut out as *mut Janet,
             );
         }
-        JanetEnum::from::<i32>(out)
+        JanetEnum::from::<i32>(out).map_err(|e| e.to_string())
     }
 }

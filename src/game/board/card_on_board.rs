@@ -1,9 +1,9 @@
 use crate::game::{card::card_id::CardID, player::PlayerID};
 
-#[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Copy, Clone)]
 pub struct CardOnBoard {
-    card_id: CardID,
-    player_id: PlayerID,
+    pub card_id: CardID,
+    pub player_id: PlayerID,
 }
 
 impl CardOnBoard {

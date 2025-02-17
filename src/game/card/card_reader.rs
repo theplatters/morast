@@ -53,6 +53,11 @@ pub async fn read_card(
         Function::get_method(env, "on-play", Some(name)).ok_or("on-play not found")?;
     let discard_action =
         Function::get_method(env, "on-discard", Some(name)).ok_or("on-discard not found")?;
+    let turn_begin_action =
+        Function::get_method(env, "on-turn-begin", Some(name)).ok_or("on-turn-begin not found")?;
+
+    let turn_end_action =
+        Function::get_method(env, "on-turn-end", Some(name)).ok_or("on-turn-end not found")?;
 
     let attack = convert_to_u16_vec(env, "attack", name).ok_or("attack not found")?;
     let movement = convert_to_u16_vec(env, "movement", name).ok_or("movement not found")?;
@@ -62,6 +67,8 @@ pub async fn read_card(
     else {
         return Err("Asset path is not a String");
     };
+    println!("{:?}", asset_string);
+    println!("{:?}", name);
     asset_loader
         .load_texture(asset_string.as_str(), name)
         .await
@@ -83,6 +90,8 @@ pub async fn read_card(
         draw_action,
         play_action,
         discard_action,
+        turn_begin_action,
+        turn_end_action,
         attack,
         attack_strength: attack_strength as u16,
         defense: defense as u16,

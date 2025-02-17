@@ -1,6 +1,17 @@
+use card::{
+    card_id::CardID,
+    card_registry::{self, CardRegistry},
+    Card,
+};
 use events::event_scheduler::GameScheduler;
 use game_context::GameContext;
-use player::PlayerID;
+use macroquad::math::{IVec2, U16Vec2};
+use player::{Player, PlayerID};
+
+use crate::engine::{
+    asset_loader::{self, AssetLoader},
+    janet_handler::controller::Environment,
+};
 
 pub mod board;
 pub mod card;
@@ -10,14 +21,35 @@ pub mod game_context;
 mod phases;
 pub mod player;
 
-const NUM_CARDS_AT_START: u16 = 2;
-
-pub struct Game<'a> {
-    context: GameContext,
-    pub scheduler: GameScheduler<'a>,
+pub struct Game {
+    pub context: GameContext,
+    pub scheduler: GameScheduler,
+    pub card_registry: CardRegistry,
+    env: Environment,
+    asset_loader: AssetLoader,
 }
 
-impl Game<'_> {
+impl Game {
+    pub async fn new() -> Self {
+        let mut asset_loader =
+            AssetLoader::new(std::env::current_dir().expect("").to_str().expect(""));
+        let mut env = Environment::new();
+        env.read_script("scripts/loader.janet")
+            .expect("Could not find file");
+        let players = [Player::new(PlayerID::new(0)), Player::new(PlayerID::new(1))];
+        let card_registry = CardRegistry::new(&mut env, &mut asset_loader).await;
+        let mut s = Self {
+            env,
+            scheduler: GameScheduler::new(),
+            context: GameContext::new(players),
+            card_registry,
+            asset_loader,
+        };
+        s.context
+            .place(CardID::new(0), U16Vec2::new(1, 1), PlayerID::new(0))
+            .expect("Couldn't place card");
+        s
+    }
     pub fn turn_player_id(&self) -> PlayerID {
         self.context.turn_player_id()
     }
@@ -27,23 +59,9 @@ impl Game<'_> {
     }
 
     pub fn advance_turn(&mut self) {
-        self.context.change_turn_player();
         self.context
-            .draw_cards(self.context.turn_player_id(), NUM_CARDS_AT_START);
-        self.scheduler.advance_turn();
-    }
+            .proces_turn_begin(&mut self.scheduler, &self.card_registry);
 
-    pub fn shuffe_deck(&mut self, player_id: PlayerID) -> Option<()> {
-        self.context.shuffe_deck(player_id)
-    }
-
-    pub fn get_turn_count(&mut self) -> u32 {
-        self.scheduler.current_turn
-    }
-
-    pub fn get_player_gold(&self, player_id: PlayerID) -> Option<i32> {
-        self.context.get_player(player_id).map(|p| p.get_gold())
+        println!("scheduler {:?}", self.scheduler);
     }
 }
-
-impl crate::engine::janet_handler::types::janetenum::ToVoidPointer for Game<'_> {}

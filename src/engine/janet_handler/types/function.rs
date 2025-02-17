@@ -1,3 +1,5 @@
+use std::fmt::format;
+
 use crate::engine::janet_handler::{
     bindings::{
         janet_checktype, janet_pcall, janet_resolve, janet_type, janet_unwrap_function,
@@ -18,27 +20,26 @@ impl Function {
         Self { janet_fun }
     }
 
-    pub fn eval<T>(&self, argv: &[Box<dyn JanetItem>]) -> Result<JanetEnum, &str>
+    pub fn eval<T>(&self, argv: &[Janet]) -> Result<JanetEnum, String>
     where
         T: JanetItem + 'static,
     {
-        let wrapped: Vec<Janet> = argv.iter().map(|x| x.to_janet()).collect();
         let signal: JanetSignal;
         unsafe {
             let mut out: Janet = janet_wrap_nil();
             signal = janet_pcall(
                 self.janet_fun as *mut _,
                 argv.len() as i32,
-                wrapped.as_ptr(),
+                argv.as_ptr(),
                 &mut out as *mut _,
                 std::ptr::null_mut(),
             );
 
             if signal != 0 {
-                return Err("Got signal {}");
+                return Err(format!("Got signal {}", signal));
             }
 
-            super::janetenum::JanetEnum::from::<T>(out)
+            super::janetenum::JanetEnum::from::<T>(out).map_err(|e| e.to_string())
         }
     }
 
