@@ -1,4 +1,4 @@
-use std::io::Empty;
+use macroquad::math::U16Vec2;
 
 use super::{card_on_board::CardOnBoard, effect::Effect};
 
@@ -12,7 +12,7 @@ pub enum TileState {
 pub struct Tile {
     pub ontile: TileState,
     effects: Vec<Effect>,
-    attack_on_tile: [u64; 2],
+    pub attack_on_tile: U16Vec2,
 }
 
 impl Tile {
@@ -20,7 +20,7 @@ impl Tile {
         Self {
             ontile: TileState::Empty,
             effects: Vec::new(),
-            attack_on_tile: [0, 0],
+            attack_on_tile: U16Vec2::ZERO,
         }
     }
 

@@ -1,11 +1,10 @@
 use card::{
     card_id::CardID,
     card_registry::{self, CardRegistry},
-    Card,
 };
 use events::event_scheduler::GameScheduler;
 use game_context::GameContext;
-use macroquad::math::U16Vec2;
+use macroquad::math::I16Vec2;
 use player::{Player, PlayerID};
 
 use crate::engine::{asset_loader::AssetLoader, janet_handler::controller::Environment};
@@ -43,7 +42,12 @@ impl Game {
             asset_loader,
         };
         s.context
-            .place(CardID::new(0), U16Vec2::new(1, 1), PlayerID::new(0))
+            .place(
+                CardID::new(0),
+                I16Vec2::new(1, 1),
+                PlayerID::new(0),
+                &s.card_registry,
+            )
             .expect("Couldn't place card");
         s
     }

@@ -1,10 +1,13 @@
-use macroquad::math::U16Vec2;
+use macroquad::math::{I16Vec2, U16Vec2};
 
 use crate::game::phases::Phase;
 
 use super::{
     board::{card_on_board::CardOnBoard, Board},
-    card::{card_id::CardID, card_registry::CardRegistry},
+    card::{
+        card_id::CardID,
+        card_registry::{self, CardRegistry},
+    },
     error::Error,
     events::event_scheduler::GameScheduler,
     player::{Player, PlayerID},
@@ -97,10 +100,11 @@ impl GameContext {
     pub fn place(
         &mut self,
         card_id: CardID,
-        index: U16Vec2,
+        index: I16Vec2,
         player_id: PlayerID,
+        card_registry: &CardRegistry,
     ) -> Result<(), Error> {
-        match self.board.place(card_id, player_id, index) {
+        match self.board.place(card_id, player_id, index, card_registry) {
             Ok(_) => {
                 self.cards_placed.push(CardOnBoard::new(card_id, player_id));
                 Ok(())

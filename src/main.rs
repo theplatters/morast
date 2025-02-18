@@ -18,6 +18,8 @@ async fn main() {
     let path = std::env::current_dir().unwrap();
     println!("The current directory is {:#?}", path.display());
 
+    use std::time::Instant;
+    let now = Instant::now();
     let mut game = Game::new().await;
     game.end_turn();
     game.end_turn();
@@ -28,4 +30,7 @@ async fn main() {
             .get_player_gold(PlayerID::new(0))
             .expect("nlakdv")
     );
+
+    let elapsed = now.elapsed();
+    println!("Elapsed: {:.2?}", elapsed);
 }

@@ -11,10 +11,10 @@ pub mod card_registry;
 
 #[derive(Clone, Debug)]
 pub struct Card {
-    name: String,
-    movement: Vec<I16Vec2>,
-    attack: Vec<I16Vec2>,
-    attack_strength: u16,
+    pub name: String,
+    pub movement: Vec<I16Vec2>,
+    pub attack: Vec<I16Vec2>,
+    pub attack_strength: u16,
     defense: u16,
     play_action: Function,
     turn_begin_action: Function,
@@ -46,6 +46,10 @@ impl Card {
                 ])
                 .expect("Calling the function failed");
         }
+    }
+
+    pub fn get_attack_pattern(&self) -> &Vec<I16Vec2> {
+        return &self.attack;
     }
 }
 impl crate::engine::janet_handler::types::janetenum::ToVoidPointer for Card {}
