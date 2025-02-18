@@ -1,5 +1,7 @@
 use macroquad::math::U16Vec2;
 
+use crate::game::phases::Phase;
+
 use super::{
     board::{card_on_board::CardOnBoard, Board},
     card::{card_id::CardID, card_registry::CardRegistry},
@@ -107,6 +109,24 @@ impl GameContext {
         }
     }
 
+    pub fn proces_turn_end(&mut self, scheduler: &mut GameScheduler, card_registry: &CardRegistry) {
+        println!(
+            "Processing turn {:?} beginning ",
+            scheduler.get_turn_count()
+        );
+        scheduler.advance_to_phase(Phase::End, self);
+        for card in &self.cards_placed.clone() {
+            println!("Processing card {:?}", card);
+            self.current_selected_card = Some(*card);
+            card_registry
+                .get(&card.card_id)
+                .expect("Card not found")
+                .on_turn_start(self, scheduler);
+        }
+
+        scheduler.process_events(self);
+    }
+
     pub fn proces_turn_begin(
         &mut self,
         scheduler: &mut GameScheduler,
@@ -125,7 +145,7 @@ impl GameContext {
             card_registry
                 .get(&card.card_id)
                 .expect("Card not found")
-                .on_turn_start(self, scheduler);
+                .on_turn_end(self, scheduler);
         }
 
         scheduler.process_events(self);

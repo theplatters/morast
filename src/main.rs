@@ -19,8 +19,8 @@ async fn main() {
     println!("The current directory is {:#?}", path.display());
 
     let mut game = Game::new().await;
-    game.advance_turn();
-    game.advance_turn();
+    game.end_turn();
+    game.end_turn();
 
     println!(
         "{:#?}",

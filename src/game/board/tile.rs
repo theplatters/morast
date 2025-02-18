@@ -10,8 +10,9 @@ pub enum TileState {
 
 #[derive(Debug)]
 pub struct Tile {
-    ontile: TileState,
+    pub ontile: TileState,
     effects: Vec<Effect>,
+    attack_on_tile: [u64; 2],
 }
 
 impl Tile {
@@ -19,6 +20,7 @@ impl Tile {
         Self {
             ontile: TileState::Empty,
             effects: Vec::new(),
+            attack_on_tile: [0, 0],
         }
     }
 

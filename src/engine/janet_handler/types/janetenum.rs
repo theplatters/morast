@@ -1,16 +1,12 @@
-use std::{
-    ffi::{c_void, CStr},
-    fmt::Debug,
-};
+use std::ffi::{c_void, CStr};
 
 use crate::engine::janet_handler::{
     bindings::{
-        janet_array_pop, janet_checktype, janet_csymbol, janet_is_int, janet_resolve, janet_symbol,
-        janet_table_get, janet_type, janet_unwrap_array, janet_unwrap_boolean,
-        janet_unwrap_function, janet_unwrap_integer, janet_unwrap_number, janet_unwrap_pointer,
-        janet_unwrap_string, janet_unwrap_u64, janet_wrap_integer, janet_wrap_nil,
-        janet_wrap_number, janet_wrap_pointer, janet_wrap_symbol, Janet, JanetArray,
-        JANET_TYPE_JANET_ARRAY, JANET_TYPE_JANET_BOOLEAN, JANET_TYPE_JANET_FUNCTION,
+        janet_array_pop, janet_checktype, janet_is_int, janet_resolve, janet_type,
+        janet_unwrap_array, janet_unwrap_boolean, janet_unwrap_function, janet_unwrap_integer,
+        janet_unwrap_number, janet_unwrap_pointer, janet_unwrap_string, janet_unwrap_u64,
+        janet_wrap_integer, janet_wrap_nil, janet_wrap_number, janet_wrap_pointer, Janet,
+        JanetArray, JANET_TYPE_JANET_ARRAY, JANET_TYPE_JANET_BOOLEAN, JANET_TYPE_JANET_FUNCTION,
         JANET_TYPE_JANET_NIL, JANET_TYPE_JANET_NUMBER, JANET_TYPE_JANET_POINTER,
         JANET_TYPE_JANET_STRING,
     },
@@ -57,14 +53,14 @@ impl JanetItem for f64 {
 }
 
 impl JanetEnum {
-    fn unwrap_array<T>(arr: &mut JanetArray) -> Result<Vec<JanetEnum>, &'static str>
+    fn unwrap_array<T>(mut arr: JanetArray) -> Result<Vec<JanetEnum>, &'static str>
     where
         T: JanetItem + 'static,
     {
         let mut arr_vec: Vec<JanetEnum> = Vec::with_capacity(arr.count as usize);
         while arr.count != 0 {
             unsafe {
-                let item = janet_array_pop(arr);
+                let item = janet_array_pop(&mut arr as *mut _);
                 match JanetEnum::from::<T>(item) {
                     Ok(v) => arr_vec.push(v),
                     Err(e) => return Err(e),
@@ -100,7 +96,7 @@ impl JanetEnum {
             );
 
             if janet_checktype(out, JANET_TYPE_JANET_NIL) != 0 {
-                println!("AFHLVBSAIKLDJBVLJKB");
+                println!("Return type is nill");
                 return None;
             }
             match Self::from::<T>(out) {
@@ -146,7 +142,7 @@ impl JanetEnum {
                     janet_unwrap_pointer(item) as *mut T,
                 ))),
                 JANET_TYPE_JANET_ARRAY => match janet_unwrap_array(item).as_mut() {
-                    Some(it) => match JanetEnum::unwrap_array::<T>(it) {
+                    Some(it) => match JanetEnum::unwrap_array::<T>(it.clone()) {
                         Ok(v) => Ok(JanetEnum::_Array(v)),
                         Err(_) => Err("Error while creating array"),
                     },

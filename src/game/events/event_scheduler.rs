@@ -64,9 +64,7 @@ impl GameScheduler {
 
     // Schedule to execute now (after current batch of events)
     pub fn schedule_now(&mut self, action: impl FnOnce(&mut GameContext) + 'static, priority: u32) {
-        println!("Scheduling an event");
         self.immediate_events.push(Event::new(priority, action));
-        println!("GameScheduler {:?}", self);
     }
 
     // Schedule to execute after all currently scheduled events

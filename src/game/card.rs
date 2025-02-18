@@ -35,5 +35,17 @@ impl Card {
                 .expect("Calling the function failed");
         }
     }
+
+    pub fn on_turn_end(&self, game: &mut GameContext, scheduler: &mut GameScheduler) {
+        println!("Calling on_turn_end");
+        unsafe {
+            self.turn_end_action
+                .eval::<GameContext>(&[
+                    janet_wrap_pointer(game as *mut GameContext as *mut c_void),
+                    janet_wrap_pointer(scheduler as *mut GameScheduler as *mut c_void),
+                ])
+                .expect("Calling the function failed");
+        }
+    }
 }
 impl crate::engine::janet_handler::types::janetenum::ToVoidPointer for Card {}

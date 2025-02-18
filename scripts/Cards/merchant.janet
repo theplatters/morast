@@ -11,5 +11,5 @@
 (defn on-play [game scheduler] nil)
 (defn on-discard [game scheduler] nil)
 (defn on-ability [game scheduler] nil)
-(defn on-turn-begin [game scheduler] (if (= (std/owner game) (std/turn-player game)) (std/get-gold scheduler 3 (std/owner game))) (print (std/turn-player game)))
-(defn on-turn-end [game scheduler] nil)
+(defn on-turn-begin [game scheduler] (if (= (std/owner game) (std/turn-player game)) (std/get-gold scheduler 4 (std/owner game))))
+(defn on-turn-end [game scheduler] (if (= (std/owner game) (std/turn-player game)) (std/get-gold scheduler -2 (std/owner game))))

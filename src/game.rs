@@ -61,4 +61,13 @@ impl Game {
 
         println!("scheduler {:?}", self.scheduler);
     }
+
+    pub fn end_turn(&mut self) {
+        self.context
+            .proces_turn_end(&mut self.scheduler, &self.card_registry);
+
+        self.advance_turn();
+
+        println!("scheduler {:?}", self.scheduler);
+    }
 }

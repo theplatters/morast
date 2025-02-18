@@ -1,11 +1,17 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, io::Empty};
 
 use card_on_board::CardOnBoard;
 use macroquad::math::U16Vec2;
 use place_error::PlaceError;
-use tile::Tile;
+use tile::{Tile, TileState};
 
-use super::{card::card_id::CardID, player::PlayerID};
+use super::{
+    card::{
+        card_id::CardID,
+        card_registry::{self, CardRegistry},
+    },
+    player::PlayerID,
+};
 
 pub mod card_on_board;
 mod effect;
@@ -28,6 +34,19 @@ impl Board {
             }
         }
         Self { tiles }
+    }
+
+    fn update_attack_values(&mut self, card_registry: CardRegistry) {
+        for (index, tile) in self.tiles.iter() {
+            match tile.ontile {
+                TileState::Empty => continue,
+                TileState::Card(card) => {
+                    let card = card_registry
+                        .get(&card.card_id)
+                        .unwrap_or_else(|| panic!("Card not found {:?}", card.card_id));
+                }
+            }
+        }
     }
 
     pub fn place(
