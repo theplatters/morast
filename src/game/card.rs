@@ -1,10 +1,10 @@
 use std::ffi::c_void;
 
-use macroquad::math::{I16Vec2, U16Vec2};
+use macroquad::math::I16Vec2;
 
 use crate::engine::janet_handler::{bindings::janet_wrap_pointer, types::function::Function};
 
-use super::{events::event_scheduler::GameScheduler, game_context::GameContext, Game};
+use super::{events::event_scheduler::GameScheduler, game_context::GameContext};
 pub mod card_id;
 pub mod card_reader;
 pub mod card_registry;

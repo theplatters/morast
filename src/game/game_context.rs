@@ -1,4 +1,4 @@
-use macroquad::math::{I16Vec2, U16Vec2};
+use macroquad::math::I16Vec2;
 
 use crate::game::phases::Phase;
 
@@ -6,7 +6,7 @@ use super::{
     board::{card_on_board::CardOnBoard, Board},
     card::{
         card_id::CardID,
-        card_registry::{self, CardRegistry},
+        card_registry::{CardRegistry},
     },
     error::Error,
     events::event_scheduler::GameScheduler,

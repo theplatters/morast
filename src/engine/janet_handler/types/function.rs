@@ -1,8 +1,7 @@
-use std::fmt::format;
 
 use crate::engine::janet_handler::{
     bindings::{
-        janet_checktype, janet_pcall, janet_resolve, janet_type, janet_unwrap_function,
+        janet_checktype, janet_pcall, janet_resolve, janet_unwrap_function,
         janet_wrap_nil, Janet, JanetFunction, JanetSignal, JANET_TYPE_JANET_FUNCTION,
     },
     controller::Environment,

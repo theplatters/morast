@@ -1,12 +1,12 @@
-use std::{collections::HashMap, fs::read};
+use std::collections::HashMap;
 
 use crate::engine::{
-    asset_loader::{self, AssetLoader},
+    asset_loader::{AssetLoader},
     janet_handler::controller::Environment,
 };
 
 use super::{
-    card_id::{self, CardID},
+    card_id::{CardID},
     card_reader::{get_card_list, read_card},
     Card,
 };

@@ -168,7 +168,7 @@ impl Environment {
     }
     pub fn read_script(&self, filename: &str) -> Result<JanetEnum, String> {
         let script = std::fs::read_to_string(filename)
-            .map_err(|_| format!("Couldn't read file {}", filename.clone()))?;
+            .map_err(|_| format!("Couldn't read file {}", filename))?;
         let mut out: Janet = Janet {
             pointer: std::ptr::null_mut(),
         };

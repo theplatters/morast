@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io::Empty};
+use std::collections::HashMap;
 
 use card_on_board::CardOnBoard;
 use macroquad::math::{I16Vec2, U16Vec2};
@@ -8,9 +8,9 @@ use tile::{Tile, TileState};
 use super::{
     card::{
         card_id::CardID,
-        card_registry::{self, CardRegistry},
+        card_registry::{CardRegistry},
     },
-    player::{Player, PlayerID},
+    player::PlayerID,
 };
 
 pub mod card_on_board;
