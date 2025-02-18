@@ -30,7 +30,7 @@ impl Card {
             self.turn_begin_action
                 .eval::<GameContext>(&[
                     janet_wrap_pointer(game as *mut GameContext as *mut c_void),
-                    janet_wrap_pointer(game as *mut GameContext as *mut c_void),
+                    janet_wrap_pointer(scheduler as *mut GameScheduler as *mut c_void),
                 ])
                 .expect("Calling the function failed");
         }

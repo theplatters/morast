@@ -5,13 +5,10 @@ use card::{
 };
 use events::event_scheduler::GameScheduler;
 use game_context::GameContext;
-use macroquad::math::{IVec2, U16Vec2};
+use macroquad::math::U16Vec2;
 use player::{Player, PlayerID};
 
-use crate::engine::{
-    asset_loader::{self, AssetLoader},
-    janet_handler::controller::Environment,
-};
+use crate::engine::{asset_loader::AssetLoader, janet_handler::controller::Environment};
 
 pub mod board;
 pub mod card;

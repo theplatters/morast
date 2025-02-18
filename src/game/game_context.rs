@@ -1,19 +1,11 @@
-use macroquad::math::{IVec2, U16Vec2, UVec2};
-
-use crate::engine::janet_handler::controller::Environment;
+use macroquad::math::U16Vec2;
 
 use super::{
-    board::{card_on_board::CardOnBoard, place_error::PlaceError, Board},
-    card::{
-        self,
-        card_id::CardID,
-        card_registry::{self, CardRegistry},
-        Card,
-    },
+    board::{card_on_board::CardOnBoard, Board},
+    card::{card_id::CardID, card_registry::CardRegistry},
     error::Error,
     events::event_scheduler::GameScheduler,
     player::{Player, PlayerID},
-    Game,
 };
 
 const NUM_CARDS_AT_START: u16 = 2;
@@ -30,7 +22,7 @@ impl GameContext {
         Self {
             players,
             board: Board::new(),
-            turn_player: PlayerID::new(0),
+            turn_player: PlayerID::new(1),
             cards_placed: Vec::new(),
             current_selected_card: None,
         }
@@ -120,9 +112,13 @@ impl GameContext {
         scheduler: &mut GameScheduler,
         card_registry: &CardRegistry,
     ) {
-        println!("Processing turn beginning {}", scheduler.get_turn_count());
+        println!(
+            "Processing turn {:?} beginning ",
+            scheduler.get_turn_count()
+        );
         self.change_turn_player();
         scheduler.advance_turn(self);
+        self.draw_cards(self.turn_player_id(), NUM_CARDS_AT_START);
         for card in &self.cards_placed.clone() {
             println!("Processing card {:?}", card);
             self.current_selected_card = Some(*card);
@@ -131,7 +127,6 @@ impl GameContext {
                 .expect("Card not found")
                 .on_turn_start(self, scheduler);
         }
-        self.draw_cards(self.turn_player_id(), NUM_CARDS_AT_START);
 
         scheduler.process_events(self);
     }

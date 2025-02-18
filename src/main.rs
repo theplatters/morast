@@ -1,15 +1,4 @@
-use engine::{
-    asset_loader::AssetLoader,
-    janet_handler::{bindings::janet_fixarity, controller::Environment},
-};
-use game::{
-    card::{
-        card_reader::{get_card_list, read_card},
-        card_registry,
-    },
-    player::PlayerID,
-    Game,
-};
+use game::{player::PlayerID, Game};
 use macroquad::prelude::*;
 
 mod engine;
@@ -27,13 +16,14 @@ fn window_config() -> Conf {
 #[macroquad::main(window_config)]
 async fn main() {
     let path = std::env::current_dir().unwrap();
-    println!("The current directory is {}", path.display());
+    println!("The current directory is {:#?}", path.display());
 
     let mut game = Game::new().await;
     game.advance_turn();
     game.advance_turn();
+
     println!(
-        "{:?}",
+        "{:#?}",
         game.context
             .get_player_gold(PlayerID::new(0))
             .expect("nlakdv")

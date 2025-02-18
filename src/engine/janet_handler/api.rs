@@ -56,15 +56,20 @@ pub unsafe extern "C" fn cfun_discard(argc: i32, argv: *mut Janet) -> Janet {
 pub unsafe extern "C" fn cfun_add_gold_to_player(argc: i32, argv: *mut Janet) -> Janet {
     println!("Called into cfun_add_gold_to_player");
     janet_fixarity(argc, 3);
-    let context = (janet_getpointer(argv, 0) as *mut GameContext)
+    let scheduler = (janet_getpointer(argv, 0) as *mut GameScheduler)
         .as_mut()
         .expect("Couldn't cast reference");
     let amount = janet_getinteger64(argv, 1);
     let player_id = janet_getinteger64(argv, 2) as u16;
 
-    context
-        .add_gold(PlayerID::new(player_id), amount)
-        .expect("Player not found");
+    scheduler.schedule_now(
+        move |context| {
+            context
+                .add_gold(PlayerID::new(player_id), amount)
+                .expect("Player not found");
+        },
+        1,
+    );
 
     janet_wrap_nil()
 }

@@ -1,7 +1,10 @@
 use std::collections::BinaryHeap;
 
 use super::event::{Event, EventTiming, ScheduledEvent};
-use crate::game::{game_context::GameContext, phases::Phase};
+use crate::{
+    engine::janet_handler::types::janetenum::ToVoidPointer,
+    game::{game_context::GameContext, phases::Phase},
+};
 
 #[derive(Debug)]
 pub struct GameScheduler {
@@ -61,7 +64,9 @@ impl GameScheduler {
 
     // Schedule to execute now (after current batch of events)
     pub fn schedule_now(&mut self, action: impl FnOnce(&mut GameContext) + 'static, priority: u32) {
+        println!("Scheduling an event");
         self.immediate_events.push(Event::new(priority, action));
+        println!("GameScheduler {:?}", self);
     }
 
     // Schedule to execute after all currently scheduled events
@@ -75,6 +80,7 @@ impl GameScheduler {
 
     // Advance the game state (call this when progressing phases/turns)
     pub fn process_events(&mut self, context: &mut GameContext) {
+        print!("Processing events, {:?}", self);
         // Process all deferred events from previous cycle first
         while let Some(event) = self.deferred_events.pop() {
             (event.action)(context);
@@ -117,4 +123,8 @@ impl GameScheduler {
     pub fn get_turn_count(&mut self) -> u32 {
         self.current_turn
     }
+}
+
+impl ToVoidPointer for GameScheduler {
+    // add code here
 }
