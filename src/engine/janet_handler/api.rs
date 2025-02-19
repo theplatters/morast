@@ -174,5 +174,6 @@ pub unsafe extern "C" fn cfun_apply_effect(argc: i32, argv: *mut Janet) -> Janet
         .as_mut()
         .expect("Couldn't cast reference");
 
+    todo!();
     janet_wrap_nil()
 }
