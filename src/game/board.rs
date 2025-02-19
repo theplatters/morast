@@ -1,15 +1,13 @@
 use std::collections::HashMap;
 
 use card_on_board::CardOnBoard;
+use effect::Effect;
 use macroquad::math::{I16Vec2, U16Vec2};
 use place_error::PlaceError;
 use tile::{Tile, TileState};
 
 use super::{
-    card::{
-        card_id::CardID,
-        card_registry::{CardRegistry},
-    },
+    card::{card_id::CardID, card_registry::CardRegistry},
     player::PlayerID,
 };
 
@@ -21,6 +19,7 @@ mod tile;
 #[derive(Debug)]
 pub struct Board {
     tiles: HashMap<I16Vec2, Tile>,
+    next_id: i64,
 }
 
 impl Board {
@@ -33,7 +32,7 @@ impl Board {
                 tiles.insert(position, Tile::new());
             }
         }
-        Self { tiles }
+        Self { tiles, next_id: 0 }
     }
 
     fn zero_out_attack(&mut self) {
@@ -74,7 +73,7 @@ impl Board {
         player_id: PlayerID,
         index: I16Vec2,
         card_registry: &CardRegistry,
-    ) -> Result<(), PlaceError> {
+    ) -> Result<i64, PlaceError> {
         let Some(tile) = self.tiles.get_mut(&index) else {
             return Err(PlaceError::IndexError);
         };
@@ -83,8 +82,15 @@ impl Board {
             return Err(PlaceError::TileOccupiedError);
         }
 
-        tile.place(CardOnBoard::new(card_id, player_id));
+        tile.place(CardOnBoard::new(self.next_id, card_id, player_id));
+        self.next_id += 1;
         self.update_attack_values(card_registry);
+        Ok(self.next_id - 1)
+    }
+
+    pub fn add_effect(&mut self, index: I16Vec2, effect: Effect) -> Result<(), PlaceError> {
+        let tile = self.tiles.get_mut(&index).ok_or(PlaceError::IndexError)?;
+        tile.add_effect(effect);
         Ok(())
     }
 }

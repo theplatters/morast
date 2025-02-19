@@ -1,2 +1,2 @@
 #[derive(Debug)]
-pub(super) enum Effect {}
+pub enum Effect {}

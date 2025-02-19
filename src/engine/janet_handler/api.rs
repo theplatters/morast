@@ -1,3 +1,5 @@
+use log::debug;
+
 use crate::game::{
     events::event_scheduler::GameScheduler, game_context::GameContext, player::PlayerID, Game,
 };
@@ -54,7 +56,7 @@ pub unsafe extern "C" fn cfun_discard(argc: i32, argv: *mut Janet) -> Janet {
 }
 
 pub unsafe extern "C" fn cfun_add_gold_to_player(argc: i32, argv: *mut Janet) -> Janet {
-    println!("Called into cfun_add_gold_to_player");
+    debug!("Called into cfun_add_gold_to_player");
     janet_fixarity(argc, 3);
     let scheduler = (janet_getpointer(argv, 0) as *mut GameScheduler)
         .as_mut()
@@ -121,7 +123,6 @@ pub unsafe extern "C" fn cfun_cross(argc: i32, argv: *mut Janet) -> Janet {
 }
 
 pub unsafe extern "C" fn cfun_gold_amout(argc: i32, argv: *mut Janet) -> Janet {
-    println!("Get gold method called");
     janet_fixarity(argc, 2);
     let game = (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()
@@ -164,4 +165,14 @@ pub unsafe extern "C" fn cfun_card_owner(argc: i32, argv: *mut Janet) -> Janet {
             }
             None => panic!("Selected card not found"),
         })
+}
+
+pub unsafe extern "C" fn cfun_apply_effect(argc: i32, argv: *mut Janet) -> Janet {
+    janet_fixarity(argc, 5);
+
+    let game = (janet_getpointer(argv, 0) as *mut GameContext)
+        .as_mut()
+        .expect("Couldn't cast reference");
+
+    janet_wrap_nil()
 }

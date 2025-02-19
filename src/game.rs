@@ -1,9 +1,7 @@
-use card::{
-    card_id::CardID,
-    card_registry::{CardRegistry},
-};
+use card::{card_id::CardID, card_registry::CardRegistry};
 use events::event_scheduler::GameScheduler;
 use game_context::GameContext;
+use log::debug;
 use macroquad::math::I16Vec2;
 use player::{Player, PlayerID};
 
@@ -63,7 +61,7 @@ impl Game {
         self.context
             .proces_turn_begin(&mut self.scheduler, &self.card_registry);
 
-        println!("scheduler {:?}", self.scheduler);
+        debug!("scheduler {:?}", self.scheduler);
     }
 
     pub fn end_turn(&mut self) {
@@ -71,7 +69,5 @@ impl Game {
             .proces_turn_end(&mut self.scheduler, &self.card_registry);
 
         self.advance_turn();
-
-        println!("scheduler {:?}", self.scheduler);
     }
 }

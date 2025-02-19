@@ -1,5 +1,6 @@
 use std::ffi::c_void;
 
+use log::debug;
 use macroquad::math::I16Vec2;
 
 use crate::engine::janet_handler::{bindings::janet_wrap_pointer, types::function::Function};
@@ -25,7 +26,7 @@ pub struct Card {
 
 impl Card {
     pub fn on_turn_start(&self, game: &mut GameContext, scheduler: &mut GameScheduler) {
-        println!("Calling on_turn_start");
+        debug!("Calling on_turn_start");
         unsafe {
             self.turn_begin_action
                 .eval::<GameContext>(&[
@@ -37,7 +38,7 @@ impl Card {
     }
 
     pub fn on_turn_end(&self, game: &mut GameContext, scheduler: &mut GameScheduler) {
-        println!("Calling on_turn_end");
+        debug!("Calling on_turn_end");
         unsafe {
             self.turn_end_action
                 .eval::<GameContext>(&[

@@ -1,5 +1,7 @@
 use std::collections::BinaryHeap;
 
+use log::debug;
+
 use super::event::{Event, EventTiming, ScheduledEvent};
 use crate::{
     engine::janet_handler::types::janetenum::ToVoidPointer,
@@ -78,7 +80,7 @@ impl GameScheduler {
 
     // Advance the game state (call this when progressing phases/turns)
     pub fn process_events(&mut self, context: &mut GameContext) {
-        print!("Processing events, {:?}", self);
+        debug!("Processing events, {:?}", self);
         // Process all deferred events from previous cycle first
         while let Some(event) = self.deferred_events.pop() {
             (event.action)(context);

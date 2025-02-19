@@ -1,13 +1,11 @@
+use log::debug;
 use macroquad::math::I16Vec2;
 
 use crate::game::phases::Phase;
 
 use super::{
     board::{card_on_board::CardOnBoard, Board},
-    card::{
-        card_id::CardID,
-        card_registry::{CardRegistry},
-    },
+    card::{card_id::CardID, card_registry::CardRegistry},
     error::Error,
     events::event_scheduler::GameScheduler,
     player::{Player, PlayerID},
@@ -105,8 +103,9 @@ impl GameContext {
         card_registry: &CardRegistry,
     ) -> Result<(), Error> {
         match self.board.place(card_id, player_id, index, card_registry) {
-            Ok(_) => {
-                self.cards_placed.push(CardOnBoard::new(card_id, player_id));
+            Ok(id) => {
+                self.cards_placed
+                    .push(CardOnBoard::new(id, card_id, player_id));
                 Ok(())
             }
             Err(err) => Err(Error::PlaceError(err)),
@@ -114,13 +113,12 @@ impl GameContext {
     }
 
     pub fn proces_turn_end(&mut self, scheduler: &mut GameScheduler, card_registry: &CardRegistry) {
-        println!(
+        debug!(
             "Processing turn {:?} beginning ",
             scheduler.get_turn_count()
         );
         scheduler.advance_to_phase(Phase::End, self);
         for card in &self.cards_placed.clone() {
-            println!("Processing card {:?}", card);
             self.current_selected_card = Some(*card);
             card_registry
                 .get(&card.card_id)
@@ -136,13 +134,10 @@ impl GameContext {
         scheduler: &mut GameScheduler,
         card_registry: &CardRegistry,
     ) {
-        println!(
-            "Processing turn {:?} beginning ",
-            scheduler.get_turn_count()
-        );
         self.change_turn_player();
         scheduler.advance_turn(self);
-        self.draw_cards(self.turn_player_id(), NUM_CARDS_AT_START);
+        self.draw_cards(self.turn_player_id(), NUM_CARDS_AT_START)
+            .expect("The turn player could not be found, which should never happen");
         for card in &self.cards_placed.clone() {
             println!("Processing card {:?}", card);
             self.current_selected_card = Some(*card);

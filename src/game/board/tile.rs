@@ -31,4 +31,8 @@ impl Tile {
     pub fn is_occupied(&self) -> bool {
         self.ontile != TileState::Empty
     }
+
+    pub fn add_effect(&mut self, effect: Effect) {
+        self.effects.push(effect);
+    }
 }

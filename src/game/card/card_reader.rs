@@ -1,3 +1,4 @@
+use log::debug;
 use macroquad::math::I16Vec2;
 
 use crate::{
@@ -67,8 +68,7 @@ pub async fn read_card(
     else {
         return Err("Asset path is not a String");
     };
-    println!("{:?}", asset_string);
-    println!("{:?}", name);
+    debug!("Reading in card{:?} {:?}", asset_string, name);
     asset_loader
         .load_texture(asset_string.as_str(), name)
         .await
