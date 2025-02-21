@@ -2,8 +2,8 @@ use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
 pub enum Effect {
-    SLOW,
-    WEAKENING,
+    Slow,
+    Weakening,
 }
 
 impl FromStr for Effect {
@@ -11,8 +11,8 @@ impl FromStr for Effect {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "slow" => Ok(Self::SLOW),
-            "weakening" => Ok(Self::WEAKENING),
+            "slow" => Ok(Self::Slow),
+            "weakening" => Ok(Self::Weakening),
             _ => Err(()),
         }
     }

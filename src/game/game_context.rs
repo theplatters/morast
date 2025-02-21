@@ -7,7 +7,10 @@ use crate::game::phases::Phase;
 
 use super::{
     board::{card_on_board::CardOnBoard, effect::Effect, place_error::PlaceError, Board},
-    card::{card_id::CardID, card_registry::CardRegistry},
+    card::{
+        card_id::CardID,
+        card_registry::{self, CardRegistry},
+    },
     error::Error,
     events::event_scheduler::GameScheduler,
     player::{Player, PlayerID},
@@ -104,12 +107,22 @@ impl GameContext {
         card_id: CardID,
         index: I16Vec2,
         player_id: PlayerID,
+        scheduler: &mut GameScheduler,
         card_registry: &CardRegistry,
     ) -> Result<(), Error> {
         match self.board.place(card_id, player_id, index, card_registry) {
             Ok(id) => {
-                self.cards_placed
-                    .insert(CardOnBoard::new(id, card_id, player_id), index);
+                let key = CardOnBoard::new(id, card_id, player_id);
+                self.current_selected_card = Some(key);
+                self.current_selected_index = Some(index);
+                card_registry
+                    .get(&card_id)
+                    .unwrap()
+                    .on_place(self, scheduler);
+                self.cards_placed.insert(key, index);
+
+                self.current_selected_card = None;
+                self.current_selected_index = None;
                 Ok(())
             }
             Err(err) => Err(Error::PlaceError(err)),
@@ -167,8 +180,12 @@ impl GameContext {
     ) -> Result<(), PlaceError> {
         self.board.add_effects(effect, tiles)
     }
-    pub(crate) fn remove_effects(&mut self, effect: Effect, tiles: &[I16Vec2]) {
-        self.board.remove_effects(effect, tiles);
+    pub(crate) fn remove_effects(
+        &mut self,
+        effect: Effect,
+        tiles: &[I16Vec2],
+    ) -> Result<(), PlaceError> {
+        self.board.remove_effects(effect, tiles)
     }
 
     pub fn draw_board(&self) {

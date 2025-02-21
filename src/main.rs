@@ -1,4 +1,4 @@
-use game::{player::PlayerID, Game};
+use game::{card::card_id::CardID, player::PlayerID, Game};
 use macroquad::prelude::*;
 
 mod engine;
@@ -21,7 +21,8 @@ async fn main() {
     use std::time::Instant;
     let now = Instant::now();
     let mut game = Game::new().await;
-    game.end_turn();
+    game.place(CardID::new(0), I16Vec2::new(2, 2), PlayerID::new(1));
+    game.place(CardID::new(1), I16Vec2::new(4, 2), PlayerID::new(0));
     game.end_turn();
 
     debug!(

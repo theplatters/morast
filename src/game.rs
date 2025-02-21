@@ -1,7 +1,9 @@
+use board::place_error::PlaceError;
 use card::{
     card_id::CardID,
     card_registry::{self, CardRegistry},
 };
+use error::Error;
 use events::event_scheduler::GameScheduler;
 use game_context::GameContext;
 use log::debug;
@@ -36,32 +38,30 @@ impl Game {
         let players = [Player::new(PlayerID::new(0)), Player::new(PlayerID::new(1))];
         let card_registry = CardRegistry::new(&mut env, &mut asset_loader).await;
         println!("Card Registry: {:?}", card_registry);
-        let mut s = Self {
+        Self {
             env,
             scheduler: GameScheduler::new(),
             context: GameContext::new(players),
             card_registry,
             asset_loader,
-        };
-        s.context
-            .place(
-                CardID::new(0),
-                I16Vec2::new(5, 5),
-                PlayerID::new(0),
-                &s.card_registry,
-            )
-            .expect("Couldn't place card");
-
-        s.context
-            .place(
-                CardID::new(1),
-                I16Vec2::new(2, 3),
-                PlayerID::new(0),
-                &s.card_registry,
-            )
-            .expect("Couldn't place card");
-        s
+        }
     }
+
+    pub fn place(
+        &mut self,
+        card_id: CardID,
+        index: I16Vec2,
+        player_id: PlayerID,
+    ) -> Result<(), Error> {
+        self.context.place(
+            card_id,
+            index,
+            player_id,
+            &mut self.scheduler,
+            &self.card_registry,
+        )
+    }
+
     pub fn turn_player_id(&self) -> PlayerID {
         self.context.turn_player_id()
     }

@@ -49,6 +49,17 @@ impl Card {
         }
     }
 
+    pub fn on_place(&self, game: &mut GameContext, scheduler: &mut GameScheduler) {
+        unsafe {
+            self.play_action
+                .eval::<GameContext>(&[
+                    janet_wrap_pointer(game as *mut GameContext as *mut c_void),
+                    janet_wrap_pointer(scheduler as *mut GameScheduler as *mut c_void),
+                ])
+                .unwrap_or_else(|_| panic!("Calling the function failed {:?}", self.name));
+        }
+    }
+
     pub fn get_attack_pattern(&self) -> &Vec<I16Vec2> {
         return &self.attack;
     }

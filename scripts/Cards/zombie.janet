@@ -10,8 +10,8 @@
 (def defense 1)
 
 (defn on-draw [game scheduler] nil)
-(defn on-play [game scheduler] nil)
+(defn on-play [game scheduler] (std/apply-effect game scheduler 'weakening  2 (map (fn [x] (map + x (std/current-index game))) (std/plus 1))))
 (defn on-discard [game scheduler] nil)
 (defn on-ability [game scheduler] nil)
-(defn on-turn-begin [game scheduler] (std/apply-effect game scheduler 'weakening  2 (std/plus 1)))
+(defn on-turn-begin [game scheduler] nil)
 (defn on-turn-end [game scheduler] nil)
