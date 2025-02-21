@@ -6,7 +6,7 @@ use macroquad::math::I16Vec2;
 use crate::game::phases::Phase;
 
 use super::{
-    board::{card_on_board::CardOnBoard, effect::Effect, place_error::PlaceError, Board},
+    board::{card_on_board::CardOnBoard, effect::Effect, place_error::BoardError, Board},
     card::{
         card_id::CardID,
         card_registry::{self, CardRegistry},
@@ -177,19 +177,37 @@ impl GameContext {
         &mut self,
         effect: Effect,
         tiles: &[I16Vec2],
-    ) -> Result<(), PlaceError> {
+    ) -> Result<(), BoardError> {
         self.board.add_effects(effect, tiles)
     }
     pub(crate) fn remove_effects(
         &mut self,
         effect: Effect,
         tiles: &[I16Vec2],
-    ) -> Result<(), PlaceError> {
+    ) -> Result<(), BoardError> {
         self.board.remove_effects(effect, tiles)
     }
 
     pub fn draw_board(&self) {
         self.board.draw();
+    }
+
+    pub fn move_card(
+        &mut self,
+        from: I16Vec2,
+        to: I16Vec2,
+        card_registry: &CardRegistry,
+    ) -> Result<(), Error> {
+        let result = self
+            .board
+            .move_card(from, to, card_registry)
+            .map_err(Error::PlaceError)?;
+        let new_index = self
+            .cards_placed
+            .entry(result)
+            .or_insert(I16Vec2::new(0, 0));
+        *new_index = to;
+        Ok(())
     }
 }
 

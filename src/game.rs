@@ -1,4 +1,4 @@
-use board::place_error::PlaceError;
+use board::place_error::BoardError;
 use card::{
     card_id::CardID,
     card_registry::{self, CardRegistry},
@@ -82,5 +82,9 @@ impl Game {
             .proces_turn_end(&mut self.scheduler, &self.card_registry);
 
         self.advance_turn();
+    }
+
+    pub fn move_card(&mut self, from: I16Vec2, to: I16Vec2) -> Result<(), Error> {
+        self.context.move_card(from, to, &self.card_registry)
     }
 }

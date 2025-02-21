@@ -6,11 +6,15 @@ use macroquad::{
     math::{I16Vec2, U16Vec2},
     Error,
 };
-use place_error::PlaceError;
+use place_error::BoardError;
 use tile::{Tile, TileState};
 
 use super::{
-    card::{card_id::CardID, card_registry::CardRegistry},
+    card::{
+        card_id::CardID,
+        card_registry::{self, CardRegistry},
+        Card,
+    },
     player::PlayerID,
 };
 
@@ -76,13 +80,13 @@ impl Board {
         player_id: PlayerID,
         index: I16Vec2,
         card_registry: &CardRegistry,
-    ) -> Result<i32, PlaceError> {
+    ) -> Result<i32, BoardError> {
         let Some(tile) = self.tiles.get_mut(&index) else {
-            return Err(PlaceError::IndexError);
+            return Err(BoardError::Index);
         };
 
         if tile.is_occupied() {
-            return Err(PlaceError::TileOccupiedError);
+            return Err(BoardError::TileOccupied);
         }
 
         tile.place(CardOnBoard::new(self.next_id, card_id, player_id));
@@ -91,14 +95,14 @@ impl Board {
         Ok(self.next_id - 1)
     }
 
-    pub fn add_effect(&mut self, effect: Effect, index: I16Vec2) -> Result<(), PlaceError> {
-        let tile = self.tiles.get_mut(&index).ok_or(PlaceError::IndexError)?;
+    pub fn add_effect(&mut self, effect: Effect, index: I16Vec2) -> Result<(), BoardError> {
+        let tile = self.tiles.get_mut(&index).ok_or(BoardError::Index)?;
         tile.add_effect(effect);
         Ok(())
     }
 
-    pub fn remove_effect(&mut self, effect: Effect, index: I16Vec2) -> Result<(), PlaceError> {
-        let tile = self.tiles.get_mut(&index).ok_or(PlaceError::IndexError)?;
+    pub fn remove_effect(&mut self, effect: Effect, index: I16Vec2) -> Result<(), BoardError> {
+        let tile = self.tiles.get_mut(&index).ok_or(BoardError::Index)?;
         tile.remove_effect(effect);
         Ok(())
     }
@@ -107,11 +111,11 @@ impl Board {
         &mut self,
         effect: Effect,
         tiles: &[I16Vec2],
-    ) -> Result<(), PlaceError> {
+    ) -> Result<(), BoardError> {
         for tile in tiles {
             self.tiles
                 .get_mut(tile)
-                .ok_or(PlaceError::IndexError)?
+                .ok_or(BoardError::Index)?
                 .add_effect(effect);
         }
         Ok(())
@@ -121,11 +125,11 @@ impl Board {
         &mut self,
         effect: Effect,
         tiles: &[I16Vec2],
-    ) -> Result<(), PlaceError> {
+    ) -> Result<(), BoardError> {
         for tile in tiles {
             self.tiles
                 .get_mut(tile)
-                .ok_or(PlaceError::IndexError)?
+                .ok_or(BoardError::Index)?
                 .remove_effect(effect);
         }
         Ok(())
@@ -178,5 +182,49 @@ impl Board {
                 }
             }
         }
+    }
+
+    fn is_legal_move(
+        &self,
+        card_id: &CardID,
+        from: I16Vec2,
+        to: I16Vec2,
+        card_registry: &CardRegistry,
+    ) -> bool {
+        let movement = &card_registry.get(card_id).unwrap().movement;
+        movement.contains(&(from - to))
+    }
+
+    pub fn move_card(
+        &mut self,
+        from: I16Vec2,
+        to: I16Vec2,
+        card_registry: &CardRegistry,
+    ) -> Result<CardOnBoard, BoardError> {
+        // Check if 'from' and 'to' are valid
+        let from_tile = self.tiles.get(&from).ok_or(BoardError::Index)?;
+        let card = match &from_tile.ontile {
+            TileState::Card(c) => *c,
+            _ => return Err(BoardError::TileEmpty),
+        };
+        if !self.is_legal_move(&card.card_id, from, to, card_registry) {
+            return Err(BoardError::InvalidMove);
+        }
+        let to_tile = self.tiles.get(&to).ok_or(BoardError::Index)?;
+
+        // Check if 'to' tile is valid
+        if to_tile.is_occupied() {
+            return Err(BoardError::TileOccupied);
+        }
+
+        // Move the card
+        let from_tile = self.tiles.get_mut(&from).unwrap();
+        from_tile.ontile = TileState::Empty;
+
+        let to_tile = self.tiles.get_mut(&to).unwrap();
+        to_tile.ontile = TileState::Card(card);
+
+        self.update_attack_values(card_registry);
+        Ok(card)
     }
 }

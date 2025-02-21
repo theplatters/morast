@@ -1,7 +1,10 @@
-use super::board::place_error::PlaceError;
+use super::board::place_error::BoardError;
 
 #[derive(Debug)]
 pub enum Error {
     PlayerNotFound,
-    PlaceError(PlaceError),
+    PlaceError(BoardError),
+    NotCorrectPlayer,
+    InvalidMove,
+    CardNotFound,
 }

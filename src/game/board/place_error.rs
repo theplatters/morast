@@ -1,5 +1,7 @@
 #[derive(Debug)]
-pub enum PlaceError {
-    IndexError,
-    TileOccupiedError,
+pub enum BoardError {
+    Index,
+    TileOccupied,
+    TileEmpty,
+    InvalidMove,
 }

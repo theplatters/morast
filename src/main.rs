@@ -24,7 +24,7 @@ async fn main() {
     game.place(CardID::new(0), I16Vec2::new(2, 2), PlayerID::new(1));
     game.place(CardID::new(1), I16Vec2::new(4, 2), PlayerID::new(0));
     game.end_turn();
-
+    game.move_card(I16Vec2::new(2, 2), I16Vec2::new(3, 2));
     debug!(
         "{:#?}",
         game.context
