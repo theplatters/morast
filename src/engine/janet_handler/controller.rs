@@ -5,9 +5,9 @@ use std::{
 
 use super::{
     api::{
-        cfun_add_gold_to_player, cfun_card_owner, cfun_cross, cfun_discard, cfun_draw,
-        cfun_gold_amout, cfun_other_player, cfun_plus, cfun_shuffle_deck, cfun_turn_count,
-        cfun_turn_player,
+        cfun_add_gold_to_player, cfun_apply_effect, cfun_card_owner, cfun_cross, cfun_discard,
+        cfun_draw, cfun_get_current_index, cfun_gold_amout, cfun_other_player, cfun_plus,
+        cfun_shuffle_deck, cfun_turn_count, cfun_turn_player,
     },
     bindings::{
         janet_cfuns_prefix, janet_core_env, janet_deinit, janet_dostring, janet_env_lookup,
@@ -90,10 +90,20 @@ impl Environment {
                 cfun_shuffle_deck as JanetRawCFunction,
                 "Shuffles the deck of the player, returns nill if the function failed, returns true on success and false if the Player does not exisShuffles the deck of the player, returns nill if the function failed, retu true on success and false if the Player does not existt",
             ),
-            (
+        (
                 "owner",
                 cfun_card_owner as JanetRawCFunction,
                 "Returns the owner of the card",
+            ),
+        (
+                "apply-effect",
+                cfun_apply_effect as JanetRawCFunction,
+                "Applies an Effect to the given offset",
+            ),
+        (
+                "current-index",
+                cfun_get_current_index as JanetRawCFunction,
+                "Get's the current index of the card",
             ),
         ];
 

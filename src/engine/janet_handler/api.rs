@@ -1,18 +1,28 @@
+use core::slice;
+use std::{ffi::CStr, str::FromStr};
+
 use log::debug;
 
-use crate::game::{
-    events::event_scheduler::GameScheduler, game_context::GameContext, player::PlayerID, Game,
+use crate::{
+    engine::janet_handler::bindings::janet_getsymbol,
+    game::{
+        board::effect::Effect, events::event_scheduler::GameScheduler, game_context::GameContext,
+        player::PlayerID, Game,
+    },
 };
 
-use super::bindings::{
-    janet_array, janet_array_push, janet_fixarity, janet_getinteger64, janet_getpointer,
-    janet_getuinteger16, janet_wrap_array, janet_wrap_boolean, janet_wrap_integer, janet_wrap_nil,
-    janet_wrap_u64, Janet,
+use super::{
+    bindings::{
+        janet_array, janet_array_push, janet_fixarity, janet_getarray, janet_getinteger64,
+        janet_getpointer, janet_getuinteger16, janet_getuinteger64, janet_wrap_array,
+        janet_wrap_boolean, janet_wrap_integer, janet_wrap_nil, janet_wrap_u64, Janet,
+    },
+    types::janetenum::{to_u16_vec, JanetEnum},
 };
 
 pub unsafe extern "C" fn cfun_draw(argc: i32, argv: *mut Janet) -> Janet {
     janet_fixarity(argc, 4);
-    let _context = (janet_getpointer(argv, 0) as *mut GameContext)
+    let context = (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()
         .expect("Couldn't cast reference");
 
@@ -22,6 +32,7 @@ pub unsafe extern "C" fn cfun_draw(argc: i32, argv: *mut Janet) -> Janet {
     let num_cards = janet_getuinteger16(argv, 1);
     let player_id = janet_getuinteger16(argv, 2);
     scheduler.schedule_now(
+        context.current_selected_card.unwrap().id,
         move |context| {
             context
                 .draw_cards(PlayerID::new(player_id), num_cards)
@@ -34,7 +45,7 @@ pub unsafe extern "C" fn cfun_draw(argc: i32, argv: *mut Janet) -> Janet {
 
 pub unsafe extern "C" fn cfun_discard(argc: i32, argv: *mut Janet) -> Janet {
     janet_fixarity(argc, 4);
-    let _context = (janet_getpointer(argv, 0) as *mut GameContext)
+    let context = (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()
         .expect("Couldn't cast reference");
 
@@ -45,6 +56,7 @@ pub unsafe extern "C" fn cfun_discard(argc: i32, argv: *mut Janet) -> Janet {
     let player_id = janet_getuinteger16(argv, 2);
 
     scheduler.schedule_now(
+        context.current_selected_card.unwrap().id,
         move |context| {
             context
                 .discard_cards(PlayerID::new(player_id), num_cards)
@@ -57,14 +69,19 @@ pub unsafe extern "C" fn cfun_discard(argc: i32, argv: *mut Janet) -> Janet {
 
 pub unsafe extern "C" fn cfun_add_gold_to_player(argc: i32, argv: *mut Janet) -> Janet {
     debug!("Called into cfun_add_gold_to_player");
-    janet_fixarity(argc, 3);
-    let scheduler = (janet_getpointer(argv, 0) as *mut GameScheduler)
+    janet_fixarity(argc, 4);
+
+    let context = (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()
         .expect("Couldn't cast reference");
-    let amount = janet_getinteger64(argv, 1);
-    let player_id = janet_getinteger64(argv, 2) as u16;
+    let scheduler = (janet_getpointer(argv, 1) as *mut GameScheduler)
+        .as_mut()
+        .expect("Couldn't cast reference");
+    let amount = janet_getinteger64(argv, 2);
+    let player_id = janet_getinteger64(argv, 3) as u16;
 
     scheduler.schedule_now(
+        context.current_selected_card.unwrap().id,
         move |context| {
             context
                 .add_gold(PlayerID::new(player_id), amount)
@@ -87,7 +104,7 @@ pub unsafe extern "C" fn cfun_turn_player(argc: i32, argv: *mut Janet) -> Janet 
 
 pub unsafe extern "C" fn cfun_other_player(argc: i32, argv: *mut Janet) -> Janet {
     janet_fixarity(argc, 1);
-    (janet_getpointer(argv, 0) as *mut Game)
+    (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()
         .map_or(janet_wrap_nil(), |g| {
             janet_wrap_u64(g.other_player_id().get() as u64)
@@ -167,13 +184,67 @@ pub unsafe extern "C" fn cfun_card_owner(argc: i32, argv: *mut Janet) -> Janet {
         })
 }
 
+pub unsafe extern "C" fn cfun_get_current_index(argc: i32, argv: *mut Janet) -> Janet {
+    janet_fixarity(argc, 1);
+    (janet_getpointer(argv, 0) as *mut GameContext)
+        .as_mut()
+        .map_or(janet_wrap_nil(), |game| match game.current_selected_index {
+            Some(index) => {
+                let arr = janet_array(2);
+                janet_array_push(arr, janet_wrap_integer(index.x as i32));
+                janet_array_push(arr, janet_wrap_integer(index.y as i32));
+                janet_wrap_array(arr)
+            }
+            None => panic!("Selected card not found"),
+        })
+}
+
 pub unsafe extern "C" fn cfun_apply_effect(argc: i32, argv: *mut Janet) -> Janet {
     janet_fixarity(argc, 5);
 
-    let game = (janet_getpointer(argv, 0) as *mut GameContext)
+    let context = (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()
         .expect("Couldn't cast reference");
 
-    todo!();
+    let scheduler = (janet_getpointer(argv, 1) as *mut GameScheduler)
+        .as_mut()
+        .expect("Couldn't cast reference");
+
+    let effect = Effect::from_str(
+        CStr::from_ptr(janet_getsymbol(argv, 2) as *const i8)
+            .to_str()
+            .expect("Couldn't read effect as string"),
+    )
+    .expect("Effect not found");
+
+    let duration = janet_getuinteger64(argv, 3);
+
+    //TODO: Rewrite this, this is horrible and a desaster waiting to happen
+    let tiles = to_u16_vec(JanetEnum::_Array(
+        JanetEnum::unwrap_array::<GameScheduler>(*janet_getarray(argv, 4))
+            .expect("Could not cast array"),
+    ))
+    .expect("Could not cast array");
+
+    let owner = context.current_selected_card.unwrap().id;
+    scheduler.schedule_now(
+        owner,
+        {
+            let tiles = tiles.clone();
+            move |ctx| {
+                ctx.add_effects(effect, &tiles);
+            }
+        },
+        1,
+    );
+    scheduler.schedule_at_start(
+        duration as u32,
+        owner,
+        move |ctx| {
+            ctx.remove_effects(effect, &tiles);
+        },
+        1,
+    );
+    // Iterate over elements
     janet_wrap_nil()
 }

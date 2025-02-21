@@ -21,9 +21,8 @@ async fn main() {
     use std::time::Instant;
     let now = Instant::now();
     let mut game = Game::new().await;
-    for i in 0..100 {
-        game.end_turn();
-    }
+    game.end_turn();
+    game.end_turn();
 
     debug!(
         "{:#?}",
@@ -34,4 +33,9 @@ async fn main() {
 
     let elapsed = now.elapsed();
     println!("Elapsed: {:.2?}", elapsed);
+    loop {
+        clear_background(RED);
+        game.context.draw_board();
+        next_frame().await
+    }
 }

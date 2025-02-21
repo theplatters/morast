@@ -6,42 +6,16 @@ use crate::{
         asset_loader::AssetLoader,
         janet_handler::{
             controller::Environment,
-            types::{function::Function, janetenum::JanetEnum},
+            types::{
+                function::Function,
+                janetenum::{convert_to_u16_vec, JanetEnum},
+            },
         },
     },
     game::game_context::GameContext,
 };
 
 use super::Card;
-fn convert_to_u16_vec(env: &Environment, attribute: &str, name: &str) -> Option<Vec<I16Vec2>> {
-    let mut result = Vec::new();
-    let Some(JanetEnum::_Array(vec)) = JanetEnum::get::<GameContext>(env, attribute, Some(name))
-    else {
-        return None;
-    };
-
-    for item in vec {
-        // Ensure the item is am `JanetEnum::_Array`
-        if let JanetEnum::_Array(inner_vec) = item {
-            // Ensure the inner array has exactly two elements
-            if inner_vec.len() != 2 {
-                return None;
-            }
-            // Extract the two values
-            let x = match inner_vec[..] {
-                [JanetEnum::_Int(value_x), JanetEnum::_Int(value_y)] => {
-                    [value_x as i16, value_y as i16]
-                }
-                _ => return None,
-            };
-
-            result.push(I16Vec2::from_array(x));
-        } else {
-            return None;
-        }
-    }
-    Some(result)
-}
 
 pub async fn read_card(
     env: &Environment,

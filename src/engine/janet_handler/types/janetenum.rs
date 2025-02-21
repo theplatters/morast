@@ -1,16 +1,21 @@
 use std::ffi::{c_void, CStr};
 
-use crate::engine::janet_handler::{
-    bindings::{
-        janet_array_pop, janet_checktype, janet_is_int, janet_resolve, janet_type,
-        janet_unwrap_array, janet_unwrap_boolean, janet_unwrap_function, janet_unwrap_integer,
-        janet_unwrap_number, janet_unwrap_pointer, janet_unwrap_string, janet_unwrap_u64,
-        janet_wrap_integer, janet_wrap_nil, janet_wrap_number, janet_wrap_pointer, Janet,
-        JanetArray, JANET_TYPE_JANET_ARRAY, JANET_TYPE_JANET_BOOLEAN, JANET_TYPE_JANET_FUNCTION,
-        JANET_TYPE_JANET_NIL, JANET_TYPE_JANET_NUMBER, JANET_TYPE_JANET_POINTER,
-        JANET_TYPE_JANET_STRING,
+use macroquad::math::I16Vec2;
+
+use crate::{
+    engine::janet_handler::{
+        bindings::{
+            janet_array_pop, janet_checktype, janet_is_int, janet_resolve, janet_type,
+            janet_unwrap_array, janet_unwrap_boolean, janet_unwrap_function, janet_unwrap_integer,
+            janet_unwrap_number, janet_unwrap_pointer, janet_unwrap_string, janet_unwrap_u64,
+            janet_wrap_integer, janet_wrap_nil, janet_wrap_number, janet_wrap_pointer, Janet,
+            JanetArray, JANET_TYPE_JANET_ARRAY, JANET_TYPE_JANET_BOOLEAN,
+            JANET_TYPE_JANET_FUNCTION, JANET_TYPE_JANET_NIL, JANET_TYPE_JANET_NUMBER,
+            JANET_TYPE_JANET_POINTER, JANET_TYPE_JANET_STRING,
+        },
+        controller::Environment,
     },
-    controller::Environment,
+    game::game_context::GameContext,
 };
 
 use super::function::Function;
@@ -53,7 +58,7 @@ impl JanetItem for f64 {
 }
 
 impl JanetEnum {
-    fn unwrap_array<T>(mut arr: JanetArray) -> Result<Vec<JanetEnum>, &'static str>
+    pub fn unwrap_array<T>(mut arr: JanetArray) -> Result<Vec<JanetEnum>, &'static str>
     where
         T: JanetItem + 'static,
     {
@@ -142,7 +147,7 @@ impl JanetEnum {
                     janet_unwrap_pointer(item) as *mut T,
                 ))),
                 JANET_TYPE_JANET_ARRAY => match janet_unwrap_array(item).as_mut() {
-                    Some(it) => match JanetEnum::unwrap_array::<T>(it.clone()) {
+                    Some(it) => match JanetEnum::unwrap_array::<T>(*it) {
                         Ok(v) => Ok(JanetEnum::_Array(v)),
                         Err(_) => Err("Error while creating array"),
                     },
@@ -152,4 +157,37 @@ impl JanetEnum {
             }
         }
     }
+}
+
+pub fn to_u16_vec(item: JanetEnum) -> Option<Vec<I16Vec2>> {
+    let JanetEnum::_Array(arr) = item else {
+        return None;
+    };
+
+    let mut result = Vec::new();
+    for item in arr {
+        // Ensure the item is am `JanetEnum::_Array`
+        if let JanetEnum::_Array(inner_vec) = item {
+            // Ensure the inner array has exactly two elements
+            if inner_vec.len() != 2 {
+                return None;
+            }
+            // Extract the two values
+            let x = match inner_vec[..] {
+                [JanetEnum::_Int(value_x), JanetEnum::_Int(value_y)] => {
+                    [value_x as i16, value_y as i16]
+                }
+                _ => return None,
+            };
+
+            result.push(I16Vec2::from_array(x));
+        } else {
+            return None;
+        }
+    }
+    Some(result)
+}
+
+pub fn convert_to_u16_vec(env: &Environment, attribute: &str, name: &str) -> Option<Vec<I16Vec2>> {
+    return to_u16_vec(JanetEnum::get::<GameContext>(env, attribute, Some(name))?);
 }

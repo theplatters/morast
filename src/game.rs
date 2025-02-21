@@ -1,4 +1,7 @@
-use card::{card_id::CardID, card_registry::CardRegistry};
+use card::{
+    card_id::CardID,
+    card_registry::{self, CardRegistry},
+};
 use events::event_scheduler::GameScheduler;
 use game_context::GameContext;
 use log::debug;
@@ -32,6 +35,7 @@ impl Game {
             .expect("Could not find file");
         let players = [Player::new(PlayerID::new(0)), Player::new(PlayerID::new(1))];
         let card_registry = CardRegistry::new(&mut env, &mut asset_loader).await;
+        println!("Card Registry: {:?}", card_registry);
         let mut s = Self {
             env,
             scheduler: GameScheduler::new(),
@@ -42,7 +46,16 @@ impl Game {
         s.context
             .place(
                 CardID::new(0),
-                I16Vec2::new(1, 1),
+                I16Vec2::new(5, 5),
+                PlayerID::new(0),
+                &s.card_registry,
+            )
+            .expect("Couldn't place card");
+
+        s.context
+            .place(
+                CardID::new(1),
+                I16Vec2::new(2, 3),
                 PlayerID::new(0),
                 &s.card_registry,
             )

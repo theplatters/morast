@@ -33,7 +33,7 @@ impl Card {
                     janet_wrap_pointer(game as *mut GameContext as *mut c_void),
                     janet_wrap_pointer(scheduler as *mut GameScheduler as *mut c_void),
                 ])
-                .expect("Calling the function failed");
+                .unwrap_or_else(|_| panic!("Calling the function failed {:?}", self.name));
         }
     }
 
@@ -45,7 +45,7 @@ impl Card {
                     janet_wrap_pointer(game as *mut GameContext as *mut c_void),
                     janet_wrap_pointer(scheduler as *mut GameScheduler as *mut c_void),
                 ])
-                .expect("Calling the function failed");
+                .unwrap_or_else(|_| panic!("Calling the function failed {:?}", self.name));
         }
     }
 

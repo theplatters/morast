@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use card_on_board::CardOnBoard;
 use effect::Effect;
-use macroquad::math::{I16Vec2, U16Vec2};
+use macroquad::{
+    math::{I16Vec2, U16Vec2},
+    Error,
+};
 use place_error::PlaceError;
 use tile::{Tile, TileState};
 
@@ -12,14 +15,14 @@ use super::{
 };
 
 pub mod card_on_board;
-mod effect;
+pub mod effect;
 pub mod place_error;
 mod tile;
 
 #[derive(Debug)]
 pub struct Board {
     tiles: HashMap<I16Vec2, Tile>,
-    next_id: i64,
+    next_id: i32,
 }
 
 impl Board {
@@ -73,7 +76,7 @@ impl Board {
         player_id: PlayerID,
         index: I16Vec2,
         card_registry: &CardRegistry,
-    ) -> Result<i64, PlaceError> {
+    ) -> Result<i32, PlaceError> {
         let Some(tile) = self.tiles.get_mut(&index) else {
             return Err(PlaceError::IndexError);
         };
@@ -88,9 +91,92 @@ impl Board {
         Ok(self.next_id - 1)
     }
 
-    pub fn add_effect(&mut self, index: I16Vec2, effect: Effect) -> Result<(), PlaceError> {
+    pub fn add_effect(&mut self, effect: Effect, index: I16Vec2) -> Result<(), PlaceError> {
         let tile = self.tiles.get_mut(&index).ok_or(PlaceError::IndexError)?;
         tile.add_effect(effect);
         Ok(())
+    }
+
+    pub fn remove_effect(&mut self, effect: Effect, index: I16Vec2) -> Result<(), PlaceError> {
+        let tile = self.tiles.get_mut(&index).ok_or(PlaceError::IndexError)?;
+        tile.remove_effect(effect);
+        Ok(())
+    }
+
+    pub(crate) fn add_effects(
+        &mut self,
+        effect: Effect,
+        tiles: &[I16Vec2],
+    ) -> Result<(), PlaceError> {
+        for tile in tiles {
+            self.tiles
+                .get_mut(tile)
+                .ok_or(PlaceError::IndexError)?
+                .add_effect(effect);
+        }
+        Ok(())
+    }
+
+    pub(crate) fn remove_effects(
+        &mut self,
+        effect: Effect,
+        tiles: &[I16Vec2],
+    ) -> Result<(), PlaceError> {
+        for tile in tiles {
+            self.tiles
+                .get_mut(tile)
+                .ok_or(PlaceError::IndexError)?
+                .remove_effect(effect);
+        }
+        Ok(())
+    }
+
+    pub fn draw(&self) {
+        const TILE_SIZE: f32 = 32.0;
+
+        for x in 0i16..=64 {
+            for y in 0i16..=64 {
+                let pos = I16Vec2::new(x, y);
+                let tile = self.tiles.get(&pos).unwrap();
+
+                // Determine tile color
+                let color = if !tile.has_effects() {
+                    macroquad::color::GREEN
+                } else {
+                    macroquad::color::WHITE
+                };
+
+                // Calculate screen position
+                let screen_x = x as f32 * TILE_SIZE;
+                let screen_y = y as f32 * TILE_SIZE;
+
+                // Draw tile background
+                macroquad::shapes::draw_rectangle(screen_x, screen_y, TILE_SIZE, TILE_SIZE, color);
+
+                // Draw X if occupied
+                if let TileState::Card(_) = &tile.ontile {
+                    let thickness = 2.0;
+                    let padding = 4.0;
+
+                    // Draw two crossing lines for X
+                    macroquad::shapes::draw_line(
+                        screen_x + padding,
+                        screen_y + padding,
+                        screen_x + TILE_SIZE - padding,
+                        screen_y + TILE_SIZE - padding,
+                        thickness,
+                        macroquad::color::BLACK,
+                    );
+                    macroquad::shapes::draw_line(
+                        screen_x + padding,
+                        screen_y + TILE_SIZE - padding,
+                        screen_x + TILE_SIZE - padding,
+                        screen_y + padding,
+                        thickness,
+                        macroquad::color::BLACK,
+                    );
+                }
+            }
+        }
     }
 }

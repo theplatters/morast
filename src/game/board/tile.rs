@@ -35,4 +35,12 @@ impl Tile {
     pub fn add_effect(&mut self, effect: Effect) {
         self.effects.push(effect);
     }
+
+    pub fn has_effects(&self) -> bool {
+        self.effects.is_empty()
+    }
+
+    pub(crate) fn remove_effect(&mut self, effect: Effect) {
+        self.effects.retain(|&x| x != effect);
+    }
 }

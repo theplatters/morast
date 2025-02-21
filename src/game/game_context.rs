@@ -1,10 +1,12 @@
+use std::collections::HashMap;
+
 use log::debug;
 use macroquad::math::I16Vec2;
 
 use crate::game::phases::Phase;
 
 use super::{
-    board::{card_on_board::CardOnBoard, Board},
+    board::{card_on_board::CardOnBoard, effect::Effect, place_error::PlaceError, Board},
     card::{card_id::CardID, card_registry::CardRegistry},
     error::Error,
     events::event_scheduler::GameScheduler,
@@ -16,8 +18,9 @@ pub struct GameContext {
     players: [Player; 2],
     board: Board,
     turn_player: PlayerID,
-    cards_placed: Vec<CardOnBoard>,
+    cards_placed: HashMap<CardOnBoard, I16Vec2>,
     pub current_selected_card: Option<CardOnBoard>,
+    pub current_selected_index: Option<I16Vec2>,
 }
 
 impl GameContext {
@@ -26,8 +29,9 @@ impl GameContext {
             players,
             board: Board::new(),
             turn_player: PlayerID::new(1),
-            cards_placed: Vec::new(),
+            cards_placed: HashMap::new(),
             current_selected_card: None,
+            current_selected_index: None,
         }
     }
 
@@ -105,7 +109,7 @@ impl GameContext {
         match self.board.place(card_id, player_id, index, card_registry) {
             Ok(id) => {
                 self.cards_placed
-                    .push(CardOnBoard::new(id, card_id, player_id));
+                    .insert(CardOnBoard::new(id, card_id, player_id), index);
                 Ok(())
             }
             Err(err) => Err(Error::PlaceError(err)),
@@ -118,14 +122,17 @@ impl GameContext {
             scheduler.get_turn_count()
         );
         scheduler.advance_to_phase(Phase::End, self);
-        for card in &self.cards_placed.clone() {
-            self.current_selected_card = Some(*card);
+        for (card, index) in self.cards_placed.clone().iter() {
+            self.current_selected_card = Some(card.to_owned());
+            self.current_selected_index = Some(index.to_owned());
             card_registry
                 .get(&card.card_id)
                 .expect("Card not found")
                 .on_turn_start(self, scheduler);
         }
 
+        self.current_selected_card = None;
+        self.current_selected_index = None;
         scheduler.process_events(self);
     }
 
@@ -138,16 +145,34 @@ impl GameContext {
         scheduler.advance_turn(self);
         self.draw_cards(self.turn_player_id(), NUM_CARDS_AT_START)
             .expect("The turn player could not be found, which should never happen");
-        for card in &self.cards_placed.clone() {
+        for (card, index) in &self.cards_placed.clone() {
             println!("Processing card {:?}", card);
-            self.current_selected_card = Some(*card);
+            self.current_selected_card = Some(card.to_owned());
+            self.current_selected_index = Some(index.to_owned());
             card_registry
                 .get(&card.card_id)
                 .expect("Card not found")
                 .on_turn_end(self, scheduler);
         }
 
+        self.current_selected_card = None;
+        self.current_selected_index = None;
         scheduler.process_events(self);
+    }
+
+    pub(crate) fn add_effects(
+        &mut self,
+        effect: Effect,
+        tiles: &[I16Vec2],
+    ) -> Result<(), PlaceError> {
+        self.board.add_effects(effect, tiles)
+    }
+    pub(crate) fn remove_effects(&mut self, effect: Effect, tiles: &[I16Vec2]) {
+        self.board.remove_effects(effect, tiles);
+    }
+
+    pub fn draw_board(&self) {
+        self.board.draw();
     }
 }
 

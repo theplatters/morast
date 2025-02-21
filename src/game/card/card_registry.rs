@@ -1,12 +1,9 @@
 use std::collections::HashMap;
 
-use crate::engine::{
-    asset_loader::{AssetLoader},
-    janet_handler::controller::Environment,
-};
+use crate::engine::{asset_loader::AssetLoader, janet_handler::controller::Environment};
 
 use super::{
-    card_id::{CardID},
+    card_id::CardID,
     card_reader::{get_card_list, read_card},
     Card,
 };
@@ -15,6 +12,7 @@ use super::{
 pub struct CardRegistry {
     cards: HashMap<CardID, Card>,
     id_counter: CardID,
+    names: HashMap<String, CardID>,
 }
 
 impl CardRegistry {
@@ -22,6 +20,7 @@ impl CardRegistry {
         let mut s = Self {
             cards: HashMap::new(),
             id_counter: CardID::new(0),
+            names: HashMap::new(),
         };
         s.init(env, asset_loader).await;
         s
@@ -43,6 +42,7 @@ impl CardRegistry {
         asset_loader: &mut AssetLoader,
     ) -> Result<CardID, &'static str> {
         let card = read_card(env, name, asset_loader).await?;
+        self.names.insert(card.name.clone(), self.id_counter);
         self.cards.insert(self.id_counter, card);
         let current_id = self.id_counter;
         self.id_counter = self.id_counter.next();
