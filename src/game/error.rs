@@ -6,5 +6,6 @@ pub enum Error {
     PlaceError(BoardError),
     NotCorrectPlayer,
     InvalidMove,
+    TileEmpty,
     CardNotFound,
 }

@@ -5,7 +5,7 @@ use log::debug;
 use super::event::{Event, EventTiming, ScheduledEvent};
 use crate::{
     engine::janet_handler::types::janetenum::ToVoidPointer,
-    game::{game_context::GameContext, phases::Phase},
+    game::{error::Error, game_context::GameContext, phases::Phase},
 };
 
 #[derive(Debug)]
@@ -35,7 +35,7 @@ impl GameScheduler {
         &mut self,
         turns_ahead: u32,
         owner: i32,
-        action: impl FnOnce(&mut GameContext) + 'static,
+        action: impl FnOnce(&mut GameContext) -> Result<(), Error> + 'static,
         priority: u32,
     ) {
         let timing = EventTiming::new(
@@ -53,7 +53,7 @@ impl GameScheduler {
         &mut self,
         turns_including: u32,
         owner: i32,
-        action: impl FnOnce(&mut GameContext) + 'static,
+        action: impl FnOnce(&mut GameContext) -> Result<(), Error> + 'static,
         priority: u32,
     ) {
         let timing = EventTiming::new(
@@ -70,7 +70,7 @@ impl GameScheduler {
     pub fn schedule_now(
         &mut self,
         owner: i32,
-        action: impl FnOnce(&mut GameContext) + 'static,
+        action: impl FnOnce(&mut GameContext) -> Result<(), Error> + 'static,
         priority: u32,
     ) {
         self.immediate_events
@@ -81,7 +81,7 @@ impl GameScheduler {
     pub fn schedule_after_current(
         &mut self,
         owner: i32,
-        action: impl FnOnce(&mut GameContext) + 'static,
+        action: impl FnOnce(&mut GameContext) -> Result<(), Error> + 'static,
         priority: u32,
     ) {
         self.deferred_events
@@ -89,11 +89,11 @@ impl GameScheduler {
     }
 
     // Advance the game state (call this when progressing phases/turns)
-    pub fn process_events(&mut self, context: &mut GameContext) {
+    pub fn process_events(&mut self, context: &mut GameContext) -> Result<(), Error> {
         debug!("Processing events, {:?}", self);
         // Process all deferred events from previous cycle first
         while let Some(event) = self.deferred_events.pop() {
-            (event.action)(context);
+            (event.action)(context)?;
         }
 
         // Process current phase events
@@ -105,7 +105,7 @@ impl GameScheduler {
                 // Remove and execute outdated events
 
                 let event = self.future_events.pop().unwrap();
-                (event.event.action)(context);
+                (event.event.action)(context)?;
             } else {
                 break;
             }
@@ -114,8 +114,9 @@ impl GameScheduler {
         // Process immediate events
         while let Some(event) = self.immediate_events.pop() {
             println!("Handling a future event");
-            (event.action)(context);
+            (event.action)(context)?;
         }
+        Ok(())
     }
 
     // Call these when progressing through game phases

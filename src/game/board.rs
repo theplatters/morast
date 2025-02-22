@@ -184,32 +184,13 @@ impl Board {
         }
     }
 
-    fn is_legal_move(
-        &self,
-        card_id: &CardID,
-        from: I16Vec2,
-        to: I16Vec2,
-        card_registry: &CardRegistry,
-    ) -> bool {
-        let movement = &card_registry.get(card_id).unwrap().movement;
-        movement.contains(&(from - to))
-    }
-
-    pub fn move_card(
-        &mut self,
-        from: I16Vec2,
-        to: I16Vec2,
-        card_registry: &CardRegistry,
-    ) -> Result<CardOnBoard, BoardError> {
+    pub fn move_card(&mut self, from: I16Vec2, to: I16Vec2) -> Result<CardOnBoard, BoardError> {
         // Check if 'from' and 'to' are valid
         let from_tile = self.tiles.get(&from).ok_or(BoardError::Index)?;
         let card = match &from_tile.ontile {
             TileState::Card(c) => *c,
             _ => return Err(BoardError::TileEmpty),
         };
-        if !self.is_legal_move(&card.card_id, from, to, card_registry) {
-            return Err(BoardError::InvalidMove);
-        }
         let to_tile = self.tiles.get(&to).ok_or(BoardError::Index)?;
 
         // Check if 'to' tile is valid
@@ -224,7 +205,6 @@ impl Board {
         let to_tile = self.tiles.get_mut(&to).unwrap();
         to_tile.ontile = TileState::Card(card);
 
-        self.update_attack_values(card_registry);
         Ok(card)
     }
 }

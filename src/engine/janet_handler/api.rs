@@ -6,8 +6,8 @@ use log::debug;
 use crate::{
     engine::janet_handler::bindings::janet_getsymbol,
     game::{
-        board::effect::Effect, events::event_scheduler::GameScheduler, game_context::GameContext,
-        player::PlayerID, Game,
+        board::effect::Effect, error::Error, events::event_scheduler::GameScheduler,
+        game_context::GameContext, player::PlayerID, Game,
     },
 };
 
@@ -33,11 +33,7 @@ pub unsafe extern "C" fn cfun_draw(argc: i32, argv: *mut Janet) -> Janet {
     let player_id = janet_getuinteger16(argv, 2);
     scheduler.schedule_now(
         context.current_selected_card.unwrap().id,
-        move |context| {
-            context
-                .draw_cards(PlayerID::new(player_id), num_cards)
-                .expect("Player not found")
-        },
+        move |context| context.draw_cards(PlayerID::new(player_id), num_cards),
         1,
     );
     janet_wrap_nil()
@@ -57,11 +53,7 @@ pub unsafe extern "C" fn cfun_discard(argc: i32, argv: *mut Janet) -> Janet {
 
     scheduler.schedule_now(
         context.current_selected_card.unwrap().id,
-        move |context| {
-            context
-                .discard_cards(PlayerID::new(player_id), num_cards)
-                .expect("Player not found")
-        },
+        move |context| context.discard_cards(PlayerID::new(player_id), num_cards),
         1,
     );
     janet_wrap_nil()
@@ -82,11 +74,7 @@ pub unsafe extern "C" fn cfun_add_gold_to_player(argc: i32, argv: *mut Janet) ->
 
     scheduler.schedule_now(
         context.current_selected_card.unwrap().id,
-        move |context| {
-            context
-                .add_gold(PlayerID::new(player_id), amount)
-                .expect("Player not found");
-        },
+        move |context| context.add_gold(PlayerID::new(player_id), amount),
         1,
     );
 
@@ -232,7 +220,8 @@ pub unsafe extern "C" fn cfun_apply_effect(argc: i32, argv: *mut Janet) -> Janet
         {
             let tiles = tiles.clone();
             move |ctx| {
-                ctx.add_effects(effect, &tiles);
+                ctx.add_effects(effect, &tiles)
+                    .map_err(|e| Error::PlaceError(e))
             }
         },
         1,
@@ -241,7 +230,8 @@ pub unsafe extern "C" fn cfun_apply_effect(argc: i32, argv: *mut Janet) -> Janet
         duration as u32,
         owner,
         move |ctx| {
-            ctx.remove_effects(effect, &tiles);
+            ctx.remove_effects(effect, &tiles)
+                .map_err(|e| Error::PlaceError(e))
         },
         1,
     );

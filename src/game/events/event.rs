@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::game::{game_context::GameContext, phases::Phase};
+use crate::game::{error::Error, game_context::GameContext, phases::Phase};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct EventTiming {
@@ -22,7 +22,7 @@ impl EventTiming {
 pub struct Event {
     priority: u32,
     owner: i32,
-    pub action: Box<dyn FnOnce(&mut GameContext)>,
+    pub action: Box<dyn FnOnce(&mut GameContext) -> Result<(), Error>>,
 }
 
 impl Debug for Event {
@@ -34,7 +34,11 @@ impl Debug for Event {
 }
 
 impl Event {
-    pub fn new(priority: u32, owner: i32, action: impl FnOnce(&mut GameContext) + 'static) -> Self {
+    pub fn new(
+        priority: u32,
+        owner: i32,
+        action: impl FnOnce(&mut GameContext) -> Result<(), Error> + 'static,
+    ) -> Self {
         Self {
             priority,
             owner,
@@ -74,7 +78,7 @@ impl ScheduledEvent {
         timing: EventTiming,
         priority: u32,
         owner: i32,
-        action: impl FnOnce(&mut GameContext) + 'static,
+        action: impl FnOnce(&mut GameContext) -> Result<(), Error> + 'static,
     ) -> Self {
         Self {
             timing,
