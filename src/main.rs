@@ -33,7 +33,7 @@ async fn main() {
     );
 
     let elapsed = now.elapsed();
-    println!("Elapsed: {:.2?}", elapsed);
+    println!("ElapsedXD: {:.2?}", elapsed);
     loop {
         clear_background(RED);
         game.context.draw_board();
