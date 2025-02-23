@@ -32,11 +32,11 @@ async fn main() {
             .expect("nlakdv")
     );
 
-    let elapsed = now.elapsed();
-    println!("ElapsedXD: {:.2?}", elapsed);
     loop {
         clear_background(RED);
         game.context.draw_board();
+        let elapsed = now.elapsed();
+        println!("ElapsedXD: {:.2?}", elapsed);
         next_frame().await
     }
 }

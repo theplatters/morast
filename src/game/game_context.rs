@@ -206,6 +206,21 @@ impl GameContext {
         Ok(())
     }
 
+    pub(crate) fn update_attack_values(&mut self, card_registry: &CardRegistry) {
+        self.board.update_attack_values(card_registry);
+    }
+
+    pub(crate) fn update_attack_values_for_card(
+        &mut self,
+        card_info: CardOnBoard,
+        from: I16Vec2,
+        to: I16Vec2,
+        card_registry: &CardRegistry,
+    ) {
+        self.board
+            .update_attack_values_for_card(card_info, from, to, card_registry);
+    }
+
     pub(crate) fn get_card_at_index(&self, from: &I16Vec2) -> Option<&CardOnBoard> {
         self.cards_placed
             .iter()

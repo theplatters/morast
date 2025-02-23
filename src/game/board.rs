@@ -4,6 +4,7 @@ use card_on_board::CardOnBoard;
 use effect::Effect;
 use macroquad::{
     math::{I16Vec2, U16Vec2},
+    text::draw_text,
     Error,
 };
 use place_error::BoardError;
@@ -48,28 +49,74 @@ impl Board {
         }
     }
 
-    fn update_attack_values(&mut self, card_registry: &CardRegistry) {
+    pub(crate) fn update_attack_values(&mut self, card_registry: &CardRegistry) {
         self.zero_out_attack();
-        for (index, curr_tile) in self.tiles.iter() {
-            match curr_tile.ontile {
-                TileState::Empty => continue,
-                TileState::Card(card_on_board) => {
-                    let card = card_registry
-                        .get(&card_on_board.card_id)
-                        .unwrap_or_else(|| panic!("Card not found {:?}", card_on_board.card_id));
 
-                    for attack in card.get_attack_pattern() {
-                        let Some(tile) = self.tiles.get(&index.wrapping_add(*attack)) else {
-                            continue;
-                        };
-                        let attack_vector = if card_on_board.player_id == PlayerID::new(0) {
-                            U16Vec2::X * card.attack_strength
-                        } else {
-                            U16Vec2::Y * card.attack_strength
-                        };
-                        tile.attack_on_tile.saturating_add(attack_vector);
-                    }
+        // Estimate a capacity: many tiles may be empty so a small capacity helps avoid re-allocations.
+        // Adjust the capacity based on typical board density and attack pattern size.
+        let mut updates = Vec::with_capacity(16);
+
+        for (index, curr_tile) in self.tiles.iter() {
+            if let TileState::Card(card_on_board) = curr_tile.ontile {
+                let card = card_registry
+                    .get(&card_on_board.card_id)
+                    .unwrap_or_else(|| panic!("Card not found {:?}", card_on_board.card_id));
+
+                // Calculate the attack vector once per card.
+                let attack_vector = if card_on_board.player_id == PlayerID::new(0) {
+                    U16Vec2::X * card.attack_strength
+                } else {
+                    U16Vec2::Y * card.attack_strength
+                };
+
+                // Use the card's attack pattern to queue updates.
+                for attack in card.get_attack_pattern() {
+                    let target_index = index.wrapping_add(*attack);
+                    updates.push((target_index, attack_vector));
                 }
+            }
+        }
+
+        // Apply all updates without incurring a second borrow of self.tiles during iteration.
+        for (target_index, attack_vector) in updates {
+            if let Some(tile) = self.tiles.get_mut(&target_index) {
+                tile.attack_on_tile += attack_vector;
+            }
+        }
+    }
+
+    pub(crate) fn update_attack_values_for_card(
+        &mut self,
+        card: CardOnBoard,
+        old_pos: I16Vec2,
+        new_pos: I16Vec2,
+        card_registry: &CardRegistry,
+    ) {
+        let card_info = card_registry
+            .get(&card.card_id)
+            .unwrap_or_else(|| panic!("Card not found {:?}", card.card_id));
+
+        // Compute the card's attack vector.
+        let attack_vector = if card.player_id == PlayerID::new(0) {
+            U16Vec2::X * card_info.attack_strength
+        } else {
+            U16Vec2::Y * card_info.attack_strength
+        };
+
+        // Remove attack contributions from the old position.
+        for attack in card_info.get_attack_pattern() {
+            let old_target = old_pos.wrapping_add(*attack);
+            if let Some(tile) = self.tiles.get_mut(&old_target) {
+                // Use saturating_sub to ensure no underflow.
+                tile.attack_on_tile = tile.attack_on_tile.saturating_sub(attack_vector);
+            }
+        }
+
+        // Add attack contributions from the new position.
+        for attack in card_info.get_attack_pattern() {
+            let new_target = new_pos.wrapping_add(*attack);
+            if let Some(tile) = self.tiles.get_mut(&new_target) {
+                tile.attack_on_tile += attack_vector;
             }
         }
     }
@@ -156,6 +203,18 @@ impl Board {
 
                 // Draw tile background
                 macroquad::shapes::draw_rectangle(screen_x, screen_y, TILE_SIZE, TILE_SIZE, color);
+
+                // Draw attack values
+                let attack_x = tile.attack_on_tile.x as f32;
+                let attack_y = tile.attack_on_tile.y as f32;
+                let attack_text = format!("{:.0}, {:.0}", attack_x, attack_y);
+                draw_text(
+                    &attack_text,
+                    screen_x + 8.0,
+                    screen_y + 20.0,
+                    14.0,
+                    macroquad::color::BLACK,
+                );
 
                 // Draw X if occupied
                 if let TileState::Card(_) = &tile.ontile {

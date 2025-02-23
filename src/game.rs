@@ -85,7 +85,7 @@ impl Game {
     }
 
     pub fn move_card(&mut self, from: I16Vec2, to: I16Vec2) -> Result<(), Error> {
-        let card_at_start = self
+        let card_at_start = *self
             .context
             .get_card_at_index(&from)
             .ok_or(Error::TileEmpty)?;
@@ -100,6 +100,9 @@ impl Game {
         self.scheduler
             .schedule_now(-1, move |context| context.move_card(from, to), 1);
 
-        self.scheduler.process_events(&mut self.context)
+        self.scheduler.process_events(&mut self.context)?;
+        self.context
+            .update_attack_values_for_card(card_at_start, from, to, &self.card_registry);
+        Ok(())
     }
 }
