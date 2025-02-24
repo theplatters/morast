@@ -7,17 +7,14 @@ use crate::game::phases::Phase;
 
 use super::{
     board::{card_on_board::CardOnBoard, effect::Effect, place_error::BoardError, Board},
-    card::{
-        card_id::CardID,
-        card_registry::{self, CardRegistry},
-        Card,
-    },
+    card::{card_id::CardID, card_registry::CardRegistry, Card},
     error::Error,
     events::event_scheduler::GameScheduler,
     player::{Player, PlayerID},
 };
 
 const NUM_CARDS_AT_START: u16 = 2;
+
 pub struct GameContext {
     players: [Player; 2],
     board: Board,
@@ -207,7 +204,11 @@ impl GameContext {
     }
 
     pub(crate) fn update_attack_values(&mut self, card_registry: &CardRegistry) {
-        self.board.update_attack_values(card_registry);
+        let mut removed = self.board.update_attack_values(card_registry);
+        while !removed.is_empty() {
+            //TODO: Only update the card values for the deleted card
+            removed = self.board.update_attack_values(card_registry);
+        }
     }
 
     pub(crate) fn update_attack_values_for_card(

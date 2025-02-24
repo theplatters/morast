@@ -44,40 +44,62 @@ impl Board {
             .for_each(|tile| tile.attack_on_tile = U16Vec2::ZERO);
     }
 
-    pub(crate) fn update_attack_values(&mut self, card_registry: &CardRegistry) {
+    pub(crate) fn update_attack_values(
+        &mut self,
+        card_registry: &CardRegistry,
+    ) -> HashSet<CardOnBoard> {
         self.zero_out_attack();
 
-        // Estimate a capacity: many tiles may be empty so a small capacity helps avoid re-allocations.
-        // Adjust the capacity based on typical board density and attack pattern size.
-        let mut updates = Vec::with_capacity(16);
+        // First collect all attack contributions
+        let mut attack_updates = HashMap::new();
 
+        // Immutable phase - collect data
         for (index, curr_tile) in self.tiles.iter() {
-            if let Some(card_on_board) = curr_tile.ontile {
+            if let Some(card_on_board) = &curr_tile.ontile {
                 let card = card_registry
                     .get(&card_on_board.card_id)
                     .unwrap_or_else(|| panic!("Card not found {:?}", card_on_board.card_id));
 
-                // Calculate the attack vector once per card.
-                let attack_vector = if card_on_board.player_id == PlayerID::new(0) {
-                    U16Vec2::X * card.attack_strength
-                } else {
-                    U16Vec2::Y * card.attack_strength
+                let attack_vector = match card_on_board.player_id {
+                    PlayerID(0) => U16Vec2::X * card.attack_strength,
+                    _ => U16Vec2::Y * card.attack_strength,
                 };
 
-                // Use the card's attack pattern to queue updates.
                 for attack in card.get_attack_pattern() {
                     let target_index = index.wrapping_add(*attack);
-                    updates.push((target_index, attack_vector));
+                    attack_updates
+                        .entry(target_index)
+                        .and_modify(|v| *v += attack_vector)
+                        .or_insert(attack_vector);
                 }
             }
         }
 
-        // Apply all updates without incurring a second borrow of self.tiles during iteration.
-        for (target_index, attack_vector) in updates {
-            if let Some(tile) = self.tiles.get_mut(&target_index) {
-                tile.attack_on_tile += attack_vector;
+        // Mutable phase - apply updates
+        for (index, attack) in attack_updates {
+            if let Some(tile) = self.tiles.get_mut(&index) {
+                tile.attack_on_tile += attack;
             }
         }
+
+        // Now handle card removal in a separate pass
+        let mut removed = HashSet::new();
+        for tile in self.tiles.values_mut() {
+            if let Some(card) = &tile.ontile {
+                let defense = card_registry
+                    .get(&card.card_id)
+                    .expect("Card not found in registry")
+                    .defense;
+
+                let attacker_idx = card.player_id.get() as usize;
+                if defense < tile.attack_on_tile[attacker_idx] {
+                    removed.insert(*card);
+                    tile.ontile = None;
+                }
+            }
+        }
+
+        removed
     }
 
     pub(crate) fn update_attack_values_for_card(
@@ -125,7 +147,7 @@ impl Board {
                     }
                     _ => {}
                 }
-            }
+            } // Calculate attack vector once
         }
         removed
     }
@@ -226,7 +248,7 @@ impl Board {
                 );
 
                 // Draw X if occupied
-                if let Some(_) = &tile.ontile {
+                if tile.ontile.is_some() {
                     let thickness = 2.0;
                     let padding = 4.0;
 
