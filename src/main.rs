@@ -26,8 +26,6 @@ async fn main() {
 
     game.end_turn();
 
-    game.move_card(I16Vec2::new(2, 2), I16Vec2::new(3, 2));
-
     let elapsed = now.elapsed();
     println!("ElapsedXD: {:.2?}", elapsed);
     debug!(

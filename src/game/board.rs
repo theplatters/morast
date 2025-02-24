@@ -157,7 +157,6 @@ impl Board {
         card_id: CardID,
         player_id: PlayerID,
         index: I16Vec2,
-        card_registry: &CardRegistry,
     ) -> Result<i32, BoardError> {
         let Some(tile) = self.tiles.get_mut(&index) else {
             return Err(BoardError::Index);
@@ -169,7 +168,6 @@ impl Board {
 
         tile.place(CardOnBoard::new(self.next_id, card_id, player_id));
         self.next_id += 1;
-        self.update_attack_values(card_registry);
         Ok(self.next_id - 1)
     }
 

@@ -2,7 +2,6 @@ use card::{card_id::CardID, card_registry::CardRegistry};
 use error::Error;
 use events::event_scheduler::GameScheduler;
 use game_context::GameContext;
-use log::debug;
 use macroquad::math::I16Vec2;
 use player::{Player, PlayerID};
 
@@ -49,13 +48,17 @@ impl Game {
         index: I16Vec2,
         player_id: PlayerID,
     ) -> Result<(), Error> {
-        self.context.place(
-            card_id,
-            index,
-            player_id,
-            &mut self.scheduler,
-            &self.card_registry,
-        )
+        self.scheduler.schedule_now(
+            player_id.get() as i32,
+            move |context| context.place(card_id, index, player_id),
+            1,
+        );
+
+        self.scheduler.process_events(&mut self.context)?;
+        self.context
+            .on_place(index, &self.card_registry, &mut self.scheduler);
+        self.context.update_attack_values(&self.card_registry);
+        Ok(())
     }
 
     pub fn turn_player_id(&self) -> PlayerID {
@@ -69,8 +72,6 @@ impl Game {
     pub fn advance_turn(&mut self) {
         self.context
             .proces_turn_begin(&mut self.scheduler, &self.card_registry);
-
-        debug!("scheduler {:?}", self.scheduler);
     }
 
     pub fn end_turn(&mut self) {
