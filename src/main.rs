@@ -23,8 +23,13 @@ async fn main() {
     let mut game = Game::new().await;
     game.place(CardID::new(0), I16Vec2::new(2, 2), PlayerID::new(1));
     game.place(CardID::new(1), I16Vec2::new(4, 2), PlayerID::new(0));
+
     game.end_turn();
+
     game.move_card(I16Vec2::new(2, 2), I16Vec2::new(3, 2));
+
+    let elapsed = now.elapsed();
+    println!("ElapsedXD: {:.2?}", elapsed);
     debug!(
         "{:#?}",
         game.context
@@ -35,8 +40,6 @@ async fn main() {
     loop {
         clear_background(RED);
         game.context.draw_board();
-        let elapsed = now.elapsed();
-        println!("ElapsedXD: {:.2?}", elapsed);
         next_frame().await
     }
 }

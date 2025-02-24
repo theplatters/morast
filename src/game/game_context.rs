@@ -217,8 +217,15 @@ impl GameContext {
         to: I16Vec2,
         card_registry: &CardRegistry,
     ) {
-        self.board
+        let removed = self
+            .board
             .update_attack_values_for_card(card_info, from, to, card_registry);
+        self.cards_placed.retain(|k, _| !removed.contains(k));
+        //update the attack values for the cards affected by the removed cards
+        if !removed.is_empty() {
+            //TODO: Only update the card values for the deleted card
+            self.update_attack_values(card_registry);
+        }
     }
 
     pub(crate) fn get_card_at_index(&self, from: &I16Vec2) -> Option<&CardOnBoard> {
