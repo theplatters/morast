@@ -1,20 +1,16 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use card_on_board::CardOnBoard;
 use effect::Effect;
 use macroquad::{
     math::{I16Vec2, U16Vec2},
-    Error,
+    text::draw_text,
 };
 use place_error::BoardError;
-use tile::{Tile, TileState};
+use tile::Tile;
 
 use super::{
-    card::{
-        card_id::CardID,
-        card_registry::{self, CardRegistry},
-        Card,
-    },
+    card::{card_id::CardID, card_registry::CardRegistry},
     player::PlayerID,
 };
 
@@ -43,35 +39,117 @@ impl Board {
     }
 
     fn zero_out_attack(&mut self) {
-        for (index, curr_tile) in self.tiles.iter_mut() {
-            curr_tile.attack_on_tile = U16Vec2::ZERO;
-        }
+        self.tiles
+            .values_mut()
+            .for_each(|tile| tile.attack_on_tile = U16Vec2::ZERO);
     }
 
-    fn update_attack_values(&mut self, card_registry: &CardRegistry) {
+    pub(crate) fn update_attack_values(
+        &mut self,
+        card_registry: &CardRegistry,
+    ) -> HashSet<CardOnBoard> {
         self.zero_out_attack();
-        for (index, curr_tile) in self.tiles.iter() {
-            match curr_tile.ontile {
-                TileState::Empty => continue,
-                TileState::Card(card_on_board) => {
-                    let card = card_registry
-                        .get(&card_on_board.card_id)
-                        .unwrap_or_else(|| panic!("Card not found {:?}", card_on_board.card_id));
 
-                    for attack in card.get_attack_pattern() {
-                        let Some(tile) = self.tiles.get(&index.wrapping_add(*attack)) else {
-                            continue;
-                        };
-                        let attack_vector = if card_on_board.player_id == PlayerID::new(0) {
-                            U16Vec2::X * card.attack_strength
-                        } else {
-                            U16Vec2::Y * card.attack_strength
-                        };
-                        tile.attack_on_tile.saturating_add(attack_vector);
-                    }
+        // First collect all attack contributions
+        let mut attack_updates = HashMap::new();
+
+        // Immutable phase - collect data
+        for (index, curr_tile) in self.tiles.iter() {
+            if let Some(card_on_board) = &curr_tile.ontile {
+                let card = card_registry
+                    .get(&card_on_board.card_id)
+                    .unwrap_or_else(|| panic!("Card not found {:?}", card_on_board.card_id));
+
+                let attack_vector = match card_on_board.player_id {
+                    PlayerID(0) => U16Vec2::X * card.attack_strength,
+                    _ => U16Vec2::Y * card.attack_strength,
+                };
+
+                for attack in card.get_attack_pattern() {
+                    let target_index = index.wrapping_add(*attack);
+                    attack_updates
+                        .entry(target_index)
+                        .and_modify(|v| *v += attack_vector)
+                        .or_insert(attack_vector);
                 }
             }
         }
+
+        // Mutable phase - apply updates
+        for (index, attack) in attack_updates {
+            if let Some(tile) = self.tiles.get_mut(&index) {
+                tile.attack_on_tile += attack;
+            }
+        }
+
+        // Now handle card removal in a separate pass
+        let mut removed = HashSet::new();
+        for tile in self.tiles.values_mut() {
+            if let Some(card) = &tile.ontile {
+                let defense = card_registry
+                    .get(&card.card_id)
+                    .expect("Card not found in registry")
+                    .defense;
+
+                let attacked_idx = card.player_id.next().get() as usize;
+                if defense < tile.attack_on_tile[attacked_idx] {
+                    removed.insert(*card);
+                    tile.ontile = None;
+                }
+            }
+        }
+
+        removed
+    }
+
+    pub(crate) fn update_attack_values_for_card(
+        &mut self,
+        attacking_card: CardOnBoard,
+        old_pos: I16Vec2,
+        new_pos: I16Vec2,
+        card_registry: &CardRegistry,
+    ) -> HashSet<CardOnBoard> {
+        let card_info = card_registry
+            .get(&attacking_card.card_id)
+            .unwrap_or_else(|| panic!("Card not found {:?}", attacking_card.card_id));
+
+        let attack_vector = match attacking_card.player_id {
+            PlayerID(0) => U16Vec2::X * card_info.attack_strength,
+            _ => U16Vec2::Y * card_info.attack_strength,
+        };
+
+        // Remove attack contributions from the old position.
+        for attack in card_info.get_attack_pattern() {
+            let old_target = old_pos.wrapping_add(*attack);
+            if let Some(tile) = self.tiles.get_mut(&old_target) {
+                // Use saturating_sub to ensure no underflow.
+                tile.attack_on_tile = tile.attack_on_tile.saturating_sub(attack_vector);
+            }
+        }
+        let mut removed = HashSet::new();
+        // Add attack contributions from the new position.
+        for attack in card_info.get_attack_pattern() {
+            let new_target = new_pos.wrapping_add(*attack);
+            if let Some(tile) = self.tiles.get_mut(&new_target) {
+                tile.attack_on_tile += attack_vector;
+                match tile.ontile {
+                    Some(attacked_card) if attacking_card.player_id != attacked_card.player_id => {
+                        let attacked_card_health = card_registry
+                            .get(&attacked_card.card_id)
+                            .expect("Fatal: Card not found in card_registry")
+                            .defense;
+                        if attacked_card_health
+                            < tile.attack_on_tile[attacking_card.player_id.get() as usize]
+                        {
+                            removed.insert(attacked_card);
+                            tile.ontile = None;
+                        }
+                    }
+                    _ => {}
+                }
+            } // Calculate attack vector once
+        }
+        removed
     }
 
     pub fn place(
@@ -79,7 +157,6 @@ impl Board {
         card_id: CardID,
         player_id: PlayerID,
         index: I16Vec2,
-        card_registry: &CardRegistry,
     ) -> Result<i32, BoardError> {
         let Some(tile) = self.tiles.get_mut(&index) else {
             return Err(BoardError::Index);
@@ -91,7 +168,6 @@ impl Board {
 
         tile.place(CardOnBoard::new(self.next_id, card_id, player_id));
         self.next_id += 1;
-        self.update_attack_values(card_registry);
         Ok(self.next_id - 1)
     }
 
@@ -157,8 +233,22 @@ impl Board {
                 // Draw tile background
                 macroquad::shapes::draw_rectangle(screen_x, screen_y, TILE_SIZE, TILE_SIZE, color);
 
+                // Draw attack values
+                let attack_x = tile.attack_on_tile.x;
+                let attack_y = tile.attack_on_tile.y;
+                let attack_text = format!("{:}, {:}", attack_x, attack_y);
+                if attack_x != 0 || attack_y != 0 {
+                    draw_text(
+                        &attack_text,
+                        screen_x + 8.0,
+                        screen_y + 20.0,
+                        14.0,
+                        macroquad::color::BLACK,
+                    );
+                }
+
                 // Draw X if occupied
-                if let TileState::Card(_) = &tile.ontile {
+                if tile.ontile.is_some() {
                     let thickness = 2.0;
                     let padding = 4.0;
 
@@ -188,7 +278,7 @@ impl Board {
         // Check if 'from' and 'to' are valid
         let from_tile = self.tiles.get(&from).ok_or(BoardError::Index)?;
         let card = match &from_tile.ontile {
-            TileState::Card(c) => *c,
+            Some(c) => *c,
             _ => return Err(BoardError::TileEmpty),
         };
         let to_tile = self.tiles.get(&to).ok_or(BoardError::Index)?;
@@ -200,10 +290,10 @@ impl Board {
 
         // Move the card
         let from_tile = self.tiles.get_mut(&from).unwrap();
-        from_tile.ontile = TileState::Empty;
+        from_tile.ontile = None;
 
         let to_tile = self.tiles.get_mut(&to).unwrap();
-        to_tile.ontile = TileState::Card(card);
+        to_tile.ontile = Some(card);
 
         Ok(card)
     }

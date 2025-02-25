@@ -1,4 +1,3 @@
-use core::slice;
 use std::{ffi::CStr, str::FromStr};
 
 use log::debug;

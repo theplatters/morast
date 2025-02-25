@@ -113,7 +113,7 @@ impl GameScheduler {
 
         // Process immediate events
         while let Some(event) = self.immediate_events.pop() {
-            println!("Handling a future event");
+            debug!("Handling immediate event: {:?}", event);
             (event.action)(context)?;
         }
         Ok(())

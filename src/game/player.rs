@@ -5,7 +5,7 @@ use macroquad::rand::ChooseRandom;
 use super::card::card_id::CardID;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-pub struct PlayerID(u16);
+pub struct PlayerID(pub u16);
 impl PlayerID {
     // Existing methods
     pub fn new(id: u16) -> Self {

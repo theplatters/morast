@@ -16,7 +16,7 @@ pub struct Card {
     pub movement: Vec<I16Vec2>,
     pub attack: Vec<I16Vec2>,
     pub attack_strength: u16,
-    defense: u16,
+    pub defense: u16,
     play_action: Function,
     turn_begin_action: Function,
     turn_end_action: Function,

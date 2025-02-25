@@ -29,6 +29,7 @@ impl Debug for Event {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Event")
             .field("priority", &self.priority)
+            .field("owner", &self.owner)
             .finish()
     }
 }

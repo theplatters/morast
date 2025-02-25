@@ -7,17 +7,14 @@ use crate::game::phases::Phase;
 
 use super::{
     board::{card_on_board::CardOnBoard, effect::Effect, place_error::BoardError, Board},
-    card::{
-        card_id::CardID,
-        card_registry::{self, CardRegistry},
-        Card,
-    },
+    card::{card_id::CardID, card_registry::CardRegistry, Card},
     error::Error,
     events::event_scheduler::GameScheduler,
     player::{Player, PlayerID},
 };
 
 const NUM_CARDS_AT_START: u16 = 2;
+
 pub struct GameContext {
     players: [Player; 2],
     board: Board,
@@ -108,18 +105,12 @@ impl GameContext {
         card_id: CardID,
         index: I16Vec2,
         player_id: PlayerID,
-        scheduler: &mut GameScheduler,
-        card_registry: &CardRegistry,
     ) -> Result<(), Error> {
-        match self.board.place(card_id, player_id, index, card_registry) {
+        match self.board.place(card_id, player_id, index) {
             Ok(id) => {
                 let key = CardOnBoard::new(id, card_id, player_id);
                 self.current_selected_card = Some(key);
                 self.current_selected_index = Some(index);
-                card_registry
-                    .get(&card_id)
-                    .unwrap()
-                    .on_place(self, scheduler);
                 self.cards_placed.insert(key, index);
 
                 self.current_selected_card = None;
@@ -206,10 +197,58 @@ impl GameContext {
         Ok(())
     }
 
+    pub(crate) fn update_attack_values(&mut self, card_registry: &CardRegistry) {
+        let mut removed = self.board.update_attack_values(card_registry);
+        while !removed.is_empty() {
+            //TODO: Only update the card values for the deleted card
+            removed = self.board.update_attack_values(card_registry);
+        }
+    }
+
+    pub(crate) fn update_attack_values_for_card(
+        &mut self,
+        card_info: CardOnBoard,
+        from: I16Vec2,
+        to: I16Vec2,
+        card_registry: &CardRegistry,
+    ) {
+        let removed = self
+            .board
+            .update_attack_values_for_card(card_info, from, to, card_registry);
+        self.cards_placed.retain(|k, _| !removed.contains(k));
+        //update the attack values for the cards affected by the removed cards
+        if !removed.is_empty() {
+            //TODO: Only update the card values for the deleted card
+            self.update_attack_values(card_registry);
+        }
+    }
+
     pub(crate) fn get_card_at_index(&self, from: &I16Vec2) -> Option<&CardOnBoard> {
         self.cards_placed
             .iter()
             .find_map(|(key, &val)| if val == *from { Some(key) } else { None })
+    }
+
+    pub(crate) fn on_place(
+        &mut self,
+        index: I16Vec2,
+        card_registry: &CardRegistry,
+        scheduler: &mut GameScheduler,
+    ) {
+        let (card, _) = self
+            .cards_placed
+            .iter()
+            .find(|(_, &v)| v == index)
+            .expect("Placed Card not found");
+        self.current_selected_card = Some(*card);
+        self.current_selected_index = Some(index);
+        card_registry
+            .get(&card.card_id)
+            .unwrap_or_else(|| panic!("Card {:?} not found", card.card_id))
+            .on_place(self, scheduler);
+
+        self.current_selected_card = None;
+        self.current_selected_index = None;
     }
 }
 
