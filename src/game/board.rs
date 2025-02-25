@@ -91,8 +91,8 @@ impl Board {
                     .expect("Card not found in registry")
                     .defense;
 
-                let attacker_idx = card.player_id.get() as usize;
-                if defense < tile.attack_on_tile[attacker_idx] {
+                let attacked_idx = card.player_id.next().get() as usize;
+                if defense < tile.attack_on_tile[attacked_idx] {
                     removed.insert(*card);
                     tile.ontile = None;
                 }
@@ -104,17 +104,16 @@ impl Board {
 
     pub(crate) fn update_attack_values_for_card(
         &mut self,
-        card: CardOnBoard,
+        attacking_card: CardOnBoard,
         old_pos: I16Vec2,
         new_pos: I16Vec2,
         card_registry: &CardRegistry,
     ) -> HashSet<CardOnBoard> {
         let card_info = card_registry
-            .get(&card.card_id)
-            .unwrap_or_else(|| panic!("Card not found {:?}", card.card_id));
+            .get(&attacking_card.card_id)
+            .unwrap_or_else(|| panic!("Card not found {:?}", attacking_card.card_id));
 
-        // Calculate attack vector once
-        let attack_vector = match card.player_id {
+        let attack_vector = match attacking_card.player_id {
             PlayerID(0) => U16Vec2::X * card_info.attack_strength,
             _ => U16Vec2::Y * card_info.attack_strength,
         };
@@ -134,12 +133,13 @@ impl Board {
             if let Some(tile) = self.tiles.get_mut(&new_target) {
                 tile.attack_on_tile += attack_vector;
                 match tile.ontile {
-                    Some(attacked_card) if card.player_id != attacked_card.player_id => {
+                    Some(attacked_card) if attacking_card.player_id != attacked_card.player_id => {
                         let attacked_card_health = card_registry
                             .get(&attacked_card.card_id)
                             .expect("Fatal: Card not found in card_registry")
                             .defense;
-                        if attacked_card_health < tile.attack_on_tile[card.player_id.get() as usize]
+                        if attacked_card_health
+                            < tile.attack_on_tile[attacking_card.player_id.get() as usize]
                         {
                             removed.insert(attacked_card);
                             tile.ontile = None;
@@ -234,16 +234,18 @@ impl Board {
                 macroquad::shapes::draw_rectangle(screen_x, screen_y, TILE_SIZE, TILE_SIZE, color);
 
                 // Draw attack values
-                let attack_x = tile.attack_on_tile.x as f32;
-                let attack_y = tile.attack_on_tile.y as f32;
-                let attack_text = format!("{:.0}, {:.0}", attack_x, attack_y);
-                draw_text(
-                    &attack_text,
-                    screen_x + 8.0,
-                    screen_y + 20.0,
-                    14.0,
-                    macroquad::color::BLACK,
-                );
+                let attack_x = tile.attack_on_tile.x;
+                let attack_y = tile.attack_on_tile.y;
+                let attack_text = format!("{:}, {:}", attack_x, attack_y);
+                if attack_x != 0 || attack_y != 0 {
+                    draw_text(
+                        &attack_text,
+                        screen_x + 8.0,
+                        screen_y + 20.0,
+                        14.0,
+                        macroquad::color::BLACK,
+                    );
+                }
 
                 // Draw X if occupied
                 if tile.ontile.is_some() {

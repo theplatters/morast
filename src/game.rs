@@ -57,6 +57,8 @@ impl Game {
         self.scheduler.process_events(&mut self.context)?;
         self.context
             .on_place(index, &self.card_registry, &mut self.scheduler);
+
+        self.scheduler.process_events(&mut self.context)?;
         self.context.update_attack_values(&self.card_registry);
         Ok(())
     }
