@@ -22,13 +22,7 @@ async fn main() {
     let mut game = Game::new().await;
 
     let elapsed = now.elapsed();
-    println!("ElapsedXD: {:.2?}", elapsed);
-    debug!(
-        "{:#?}",
-        game.context
-            .get_player_gold(PlayerID::new(0))
-            .expect("nlakdv")
-    );
+    println!("Elapsed: {:.2?}", elapsed);
     let start = I16Vec2::new(2, 2);
     let mut curr = start;
     loop {
