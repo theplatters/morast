@@ -135,7 +135,3 @@ impl GameScheduler {
         self.current_turn
     }
 }
-
-impl ToVoidPointer for GameScheduler {
-    // add code here
-}

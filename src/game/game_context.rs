@@ -133,7 +133,7 @@ impl GameContext {
             card_registry
                 .get(&card.card_id)
                 .expect("Card not found")
-                .on_turn_start(self, scheduler);
+                .on_turn_start(scheduler);
         }
 
         self.current_selected_card = None;
@@ -157,7 +157,7 @@ impl GameContext {
             card_registry
                 .get(&card.card_id)
                 .expect("Card not found")
-                .on_turn_end(self, scheduler);
+                .on_turn_end(scheduler);
         }
 
         self.current_selected_card = None;
@@ -245,7 +245,7 @@ impl GameContext {
         card_registry
             .get(&card.card_id)
             .unwrap_or_else(|| panic!("Card {:?} not found", card.card_id))
-            .on_place(self, scheduler);
+            .on_place(scheduler);
 
         self.current_selected_card = None;
         self.current_selected_index = None;

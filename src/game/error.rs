@@ -8,4 +8,6 @@ pub enum Error {
     InvalidMove,
     TileEmpty,
     CardNotFound,
+    NotFound,
+    CastError,
 }

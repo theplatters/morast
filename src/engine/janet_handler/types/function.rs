@@ -18,10 +18,7 @@ impl Function {
         Self { janet_fun }
     }
 
-    pub fn eval<T>(&self, argv: &[Janet]) -> Result<JanetEnum, String>
-    where
-        T: JanetItem + 'static,
-    {
+    pub fn eval(&self, argv: &[Janet]) -> Result<JanetEnum, String> {
         let signal: JanetSignal;
         unsafe {
             let mut out: Janet = janet_wrap_nil();
@@ -37,7 +34,7 @@ impl Function {
                 return Err(format!("Got signal {}", signal));
             }
 
-            super::janetenum::JanetEnum::from::<T>(out).map_err(|e| e.to_string())
+            JanetEnum::from(out).map_err(|e| e.to_string())
         }
     }
 

@@ -1,10 +1,12 @@
+use std::collections::HashMap;
+
 use log::debug;
-use macroquad::math::I16Vec2;
 
 use crate::{
     engine::{
         asset_loader::AssetLoader,
         janet_handler::{
+            bindings::Janet,
             controller::Environment,
             types::{
                 function::Function,
@@ -12,60 +14,92 @@ use crate::{
             },
         },
     },
-    game::game_context::GameContext,
+    game::{error::Error, game_action::GameAction},
 };
 
 use super::Card;
+
+fn destructure_action(action: JanetEnum) -> Result<Vec<GameAction>, Error> {
+    if let JanetEnum::_Array(elements) = action {
+        let mut result = Vec::new();
+        for element in elements {
+            if let JanetEnum::_HashMap(map) = element {
+                let Some(JanetEnum::_Function(func)) = map.get("action") else {
+                    return Err(Error::CastError);
+                };
+                let Some(JanetEnum::_UInt(timing)) = map.get("timing") else {
+                    return Err(Error::CastError);
+                };
+                result.push(GameAction::new(func.to_owned(), *timing as u32));
+            } else {
+                return Err(Error::CastError);
+            }
+        }
+        Ok(result)
+    } else {
+        return Err(Error::CastError);
+    }
+}
 
 pub async fn read_card(
     env: &Environment,
     name: &str,
     asset_loader: &mut AssetLoader,
-) -> Result<Card, &'static str> {
-    let draw_action =
-        Function::get_method(env, "on-draw", Some(name)).ok_or("on-draw not found")?;
-    let play_action =
-        Function::get_method(env, "on-play", Some(name)).ok_or("on-play not found")?;
-    let discard_action =
-        Function::get_method(env, "on-discard", Some(name)).ok_or("on-discard not found")?;
-    let turn_begin_action =
-        Function::get_method(env, "on-turn-begin", Some(name)).ok_or("on-turn-begin not found")?;
+) -> Result<Card, Error> {
+    let draw_action = match JanetEnum::get(env, "on-draw", Some(name)) {
+        Some(value) => destructure_action(value)?,
+        None => return Err(Error::NotFound),
+    };
 
-    let turn_end_action =
-        Function::get_method(env, "on-turn-end", Some(name)).ok_or("on-turn-end not found")?;
+    let play_action = match JanetEnum::get(env, "on-play", Some(name)) {
+        Some(value) => destructure_action(value)?,
+        None => return Err(Error::NotFound),
+    };
 
-    let attack = convert_to_u16_vec(env, "attack", name).ok_or("attack not found")?;
-    let movement = convert_to_u16_vec(env, "movement", name).ok_or("movement not found")?;
+    let turn_begin_action = match JanetEnum::get(env, "on-turn-begin", Some(name)) {
+        Some(value) => destructure_action(value)?,
+        None => return Err(Error::NotFound),
+    };
+
+    let turn_end_action = match JanetEnum::get(env, "on-turn-end", Some(name)) {
+        Some(value) => destructure_action(value)?,
+        None => return Err(Error::NotFound),
+    };
+
+    let discard_action = match JanetEnum::get(env, "on-discard", Some(name)) {
+        Some(value) => destructure_action(value)?,
+        None => return Err(Error::NotFound),
+    };
+
+    let attack = convert_to_u16_vec(env, "attack", name).ok_or(Error::NotFound)?;
+    let movement = convert_to_u16_vec(env, "movement", name).ok_or(Error::NotFound)?;
     let JanetEnum::_String(asset_string) =
-        JanetEnum::get::<GameContext>(env, "card-image", Some(name))
-            .ok_or("Asset path not found")?
+        JanetEnum::get(env, "card-image", Some(name)).ok_or(Error::NotFound)?
     else {
-        return Err("Asset path is not a String");
+        return Err(Error::CastError);
     };
     debug!("Reading in card{:?} {:?}", asset_string, name);
     asset_loader
         .load_texture(asset_string.as_str(), name)
         .await
-        .map_err(|_| "Loading texture failed")?;
+        .map_err(|_| Error::CastError)?;
 
-    let Some(JanetEnum::_Int(attack_strength)) =
-        JanetEnum::get::<GameContext>(env, "attack-strength", Some(name))
+    let Some(JanetEnum::_Int(attack_strength)) = JanetEnum::get(env, "attack-strength", Some(name))
     else {
-        return Err("attack_strength not found");
+        return Err(Error::CastError);
     };
 
-    let Some(JanetEnum::_Int(defense)) = JanetEnum::get::<GameContext>(env, "defense", Some(name))
-    else {
-        return Err("defense not found");
+    let Some(JanetEnum::_Int(defense)) = JanetEnum::get(env, "defense", Some(name)) else {
+        return Err(Error::CastError);
     };
 
     Ok(Card {
-        name: name.to_string(),
         draw_action,
         play_action,
-        discard_action,
         turn_begin_action,
         turn_end_action,
+        discard_action,
+        name: name.to_string(),
         attack,
         attack_strength: attack_strength as u16,
         defense: defense as u16,
@@ -74,8 +108,7 @@ pub async fn read_card(
 }
 
 pub fn get_card_list(env: &Environment) -> Option<Vec<String>> {
-    let Some(JanetEnum::_Array(cards)) = JanetEnum::get::<GameContext>(env, "cards", Some("cards"))
-    else {
+    let Some(JanetEnum::_Array(cards)) = JanetEnum::get(env, "cards", Some("cards")) else {
         return None;
     };
 

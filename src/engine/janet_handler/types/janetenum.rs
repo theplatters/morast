@@ -1,21 +1,24 @@
-use std::ffi::{c_void, CStr};
+use std::{
+    collections::HashMap,
+    error::Error,
+    ffi::{c_void, CStr},
+    hash::Hash,
+};
 
 use macroquad::math::I16Vec2;
 
-use crate::{
-    engine::janet_handler::{
-        bindings::{
-            janet_array_pop, janet_checktype, janet_is_int, janet_resolve, janet_type,
-            janet_unwrap_array, janet_unwrap_boolean, janet_unwrap_function, janet_unwrap_integer,
-            janet_unwrap_number, janet_unwrap_pointer, janet_unwrap_string, janet_unwrap_u64,
-            janet_wrap_integer, janet_wrap_nil, janet_wrap_number, janet_wrap_pointer, Janet,
-            JanetArray, JANET_TYPE_JANET_ARRAY, JANET_TYPE_JANET_BOOLEAN,
-            JANET_TYPE_JANET_FUNCTION, JANET_TYPE_JANET_NIL, JANET_TYPE_JANET_NUMBER,
-            JANET_TYPE_JANET_POINTER, JANET_TYPE_JANET_STRING,
-        },
-        controller::Environment,
+use crate::engine::janet_handler::{
+    bindings::{
+        janet_array_pop, janet_checktype, janet_is_int, janet_resolve, janet_table_to_struct,
+        janet_type, janet_unwrap_array, janet_unwrap_boolean, janet_unwrap_function,
+        janet_unwrap_integer, janet_unwrap_number, janet_unwrap_string, janet_unwrap_symbol,
+        janet_unwrap_table, janet_unwrap_u64, janet_wrap_integer, janet_wrap_nil,
+        janet_wrap_number, janet_wrap_pointer, Janet, JanetArray, JANET_TYPE_JANET_ARRAY,
+        JANET_TYPE_JANET_BOOLEAN, JANET_TYPE_JANET_FUNCTION, JANET_TYPE_JANET_NIL,
+        JANET_TYPE_JANET_NUMBER, JANET_TYPE_JANET_STRING, JANET_TYPE_JANET_SYMBOL,
+        JANET_TYPE_JANET_TABLE,
     },
-    game::game_context::GameContext,
+    controller::Environment,
 };
 
 use super::function::Function;
@@ -25,48 +28,32 @@ pub trait JanetItem {
     fn to_janet(&self) -> Janet;
 }
 
+#[derive(Debug)]
 pub enum JanetEnum {
     _Int(i32),
     _UInt(u64),
     _Float(f64),
     _Bool(bool),
     _String(String),
-    _Struct(Box<dyn JanetItem>),
     _Function(Function),
     _Array(Vec<JanetEnum>),
+    _HashMap(HashMap<String, JanetEnum>),
     _Null,
 }
 
-impl<T> JanetItem for T
-where
-    T: ToVoidPointer,
-{
-    fn to_janet(&self) -> crate::engine::janet_handler::bindings::Janet {
-        unsafe { janet_wrap_pointer(std::ptr::from_ref(self) as *mut c_void) }
-    }
-}
-
-impl JanetItem for i32 {
-    fn to_janet(&self) -> crate::engine::janet_handler::bindings::Janet {
-        unsafe { janet_wrap_integer(*self) }
-    }
-}
-impl JanetItem for f64 {
-    fn to_janet(&self) -> crate::engine::janet_handler::bindings::Janet {
-        unsafe { janet_wrap_number(*self) }
+impl Hash for JanetEnum {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
     }
 }
 
 impl JanetEnum {
-    pub fn unwrap_array<T>(mut arr: JanetArray) -> Result<Vec<JanetEnum>, &'static str>
-    where
-        T: JanetItem + 'static,
-    {
+    pub fn unwrap_array(mut arr: JanetArray) -> Result<Vec<JanetEnum>, &'static str> {
         let mut arr_vec: Vec<JanetEnum> = Vec::with_capacity(arr.count as usize);
         while arr.count != 0 {
             unsafe {
                 let item = janet_array_pop(&mut arr as *mut _);
-                match JanetEnum::from::<T>(item) {
+                match JanetEnum::from(item) {
                     Ok(v) => arr_vec.push(v),
                     Err(e) => return Err(e),
                 }
@@ -75,14 +62,7 @@ impl JanetEnum {
         Ok(arr_vec)
     }
 
-    pub fn get<T>(
-        env: &Environment,
-        method_name: &str,
-        namespace: Option<&str>,
-    ) -> Option<JanetEnum>
-    where
-        T: JanetItem + 'static,
-    {
+    pub fn get(env: &Environment, method_name: &str, namespace: Option<&str>) -> Option<JanetEnum> {
         let together = match namespace {
             None => method_name.to_string(),
             Some(n) => format!("{n}/{method_name}"),
@@ -104,17 +84,14 @@ impl JanetEnum {
                 println!("Return type is nill");
                 return None;
             }
-            match Self::from::<T>(out) {
+            match Self::from(out) {
                 Ok(v) => Some(v),
                 Err(e) => panic!("{}", e),
             }
         }
     }
 
-    pub fn from<T>(item: Janet) -> Result<JanetEnum, &'static str>
-    where
-        T: JanetItem + 'static,
-    {
+    pub fn from(item: Janet) -> Result<JanetEnum, &'static str> {
         unsafe {
             match janet_type(item) {
                 JANET_TYPE_JANET_FUNCTION => Ok(JanetEnum::_Function(Function::new(
@@ -128,7 +105,9 @@ impl JanetEnum {
                     }
                 }
                 JANET_TYPE_JANET_STRING => {
-                    match CStr::from_ptr(janet_unwrap_string(item) as *const i8).to_str() {
+                    match CStr::from_ptr(janet_unwrap_string(item) as *const std::ffi::c_char)
+                        .to_str()
+                    {
                         Ok(v) => Ok(JanetEnum::_String(String::from(v))),
                         Err(_) => Err("Casting to String failed"),
                     }
@@ -143,19 +122,47 @@ impl JanetEnum {
                         Ok(JanetEnum::_Float(janet_unwrap_number(item)))
                     }
                 }
-                JANET_TYPE_JANET_POINTER => Ok(JanetEnum::_Struct(Box::from_raw(
-                    janet_unwrap_pointer(item) as *mut T,
-                ))),
                 JANET_TYPE_JANET_ARRAY => match janet_unwrap_array(item).as_mut() {
-                    Some(it) => match JanetEnum::unwrap_array::<T>(*it) {
+                    Some(it) => match JanetEnum::unwrap_array(*it) {
                         Ok(v) => Ok(JanetEnum::_Array(v)),
                         Err(_) => Err("Error while creating array"),
                     },
                     None => Err("Couldn't cast pointer to reference"),
                 },
+                JANET_TYPE_JANET_TABLE => match janet_unwrap_table(item).as_mut() {
+                    Some(it) => match JanetEnum::unwrap_table(it) {
+                        Some(v) => Ok(v),
+                        None => Err("Error while creating table"),
+                    },
+                    None => Err("Couldn't cast pointer to reference"),
+                },
+                JANET_TYPE_JANET_SYMBOL => Ok(JanetEnum::_String(
+                    CStr::from_ptr(janet_unwrap_symbol(item) as *const std::ffi::c_char)
+                        .to_str()
+                        .map_err(|_| "Could not cast to a string")?
+                        .to_owned(),
+                )),
                 _ => Err("Type is Currently unsuported"),
             }
         }
+    }
+
+    fn unwrap_table(
+        it: *mut crate::engine::janet_handler::bindings::JanetTable,
+    ) -> Option<JanetEnum> {
+        let mut map = HashMap::new();
+        unsafe {
+            let count = (*it).count as usize;
+            let kv_ptr = janet_table_to_struct(it);
+            let kvs = std::slice::from_raw_parts(kv_ptr, count);
+            for kv in kvs {
+                let JanetEnum::_String(key) = JanetEnum::from(kv.key.clone()).ok()? else {
+                    return None;
+                };
+                map.insert(key, JanetEnum::from(kv.value.clone()).ok()?);
+            }
+        }
+        Some(JanetEnum::_HashMap(map))
     }
 }
 
@@ -189,5 +196,82 @@ pub fn to_u16_vec(item: JanetEnum) -> Option<Vec<I16Vec2>> {
 }
 
 pub fn convert_to_u16_vec(env: &Environment, attribute: &str, name: &str) -> Option<Vec<I16Vec2>> {
-    return to_u16_vec(JanetEnum::get::<GameContext>(env, attribute, Some(name))?);
+    return to_u16_vec(JanetEnum::get(env, attribute, Some(name))?);
+}
+
+impl TryInto<Function> for JanetEnum {
+    type Error = ();
+    fn try_into(self) -> Result<Function, Self::Error> {
+        if let Self::_Function(v) = self {
+            Ok(v)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl TryInto<Vec<JanetEnum>> for JanetEnum {
+    type Error = ();
+    fn try_into(self) -> Result<Vec<JanetEnum>, Self::Error> {
+        if let Self::_Array(v) = self {
+            Ok(v)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl TryInto<i32> for JanetEnum {
+    type Error = ();
+    fn try_into(self) -> Result<i32, Self::Error> {
+        if let Self::_Int(v) = self {
+            Ok(v)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl TryInto<f64> for JanetEnum {
+    type Error = ();
+    fn try_into(self) -> Result<f64, Self::Error> {
+        if let Self::_Float(v) = self {
+            Ok(v)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl TryInto<String> for JanetEnum {
+    type Error = ();
+    fn try_into(self) -> Result<String, Self::Error> {
+        if let Self::_String(v) = self {
+            Ok(v)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl TryInto<bool> for JanetEnum {
+    type Error = ();
+    fn try_into(self) -> Result<bool, Self::Error> {
+        if let Self::_Bool(v) = self {
+            Ok(v)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl TryInto<HashMap<String, JanetEnum>> for JanetEnum {
+    type Error = ();
+    fn try_into(self) -> Result<HashMap<String, JanetEnum>, Self::Error> {
+        if let Self::_HashMap(v) = self {
+            Ok(v)
+        } else {
+            Err(())
+        }
+    }
 }

@@ -1,12 +1,35 @@
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
-pub enum Effect {
+pub enum EffectType {
     Slow,
     Weakening,
 }
 
-impl FromStr for Effect {
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
+pub struct Effect {
+    effect_type: EffectType,
+    duration: u16,
+}
+
+impl Effect {
+    pub fn new(effect_type: EffectType, duration: u16) -> Self {
+        Self {
+            effect_type,
+            duration,
+        }
+    }
+
+    pub fn effect_type(&self) -> EffectType {
+        self.effect_type
+    }
+
+    pub fn duration(&self) -> u16 {
+        self.duration
+    }
+}
+
+impl FromStr for EffectType {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {

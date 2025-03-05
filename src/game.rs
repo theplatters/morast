@@ -11,6 +11,7 @@ pub mod board;
 pub mod card;
 pub mod error;
 pub mod events;
+pub mod game_action;
 pub mod game_context;
 mod phases;
 pub mod player;

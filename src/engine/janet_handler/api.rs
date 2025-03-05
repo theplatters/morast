@@ -5,8 +5,12 @@ use log::debug;
 use crate::{
     engine::janet_handler::bindings::janet_getsymbol,
     game::{
-        board::effect::Effect, error::Error, events::event_scheduler::GameScheduler,
-        game_context::GameContext, player::PlayerID, Game,
+        board::effect::{Effect, EffectType},
+        error::Error,
+        events::event_scheduler::GameScheduler,
+        game_context::GameContext,
+        player::PlayerID,
+        Game,
     },
 };
 
@@ -25,57 +29,36 @@ pub unsafe extern "C" fn cfun_draw(argc: i32, argv: *mut Janet) -> Janet {
         .as_mut()
         .expect("Couldn't cast reference");
 
-    let scheduler = (janet_getpointer(argv, 1) as *mut GameScheduler)
-        .as_mut()
-        .expect("Couldn't cast reference");
     let num_cards = janet_getuinteger16(argv, 1);
     let player_id = janet_getuinteger16(argv, 2);
-    scheduler.schedule_now(
-        context.current_selected_card.unwrap().id,
-        move |context| context.draw_cards(PlayerID::new(player_id), num_cards),
-        1,
-    );
+    context.draw_cards(PlayerID::new(player_id), num_cards);
     janet_wrap_nil()
 }
 
 pub unsafe extern "C" fn cfun_discard(argc: i32, argv: *mut Janet) -> Janet {
-    janet_fixarity(argc, 4);
+    janet_fixarity(argc, 3);
     let context = (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()
         .expect("Couldn't cast reference");
 
-    let scheduler = (janet_getpointer(argv, 0) as *mut GameScheduler)
-        .as_mut()
-        .expect("Couldn't cast reference");
     let num_cards = janet_getuinteger16(argv, 1);
     let player_id = janet_getuinteger16(argv, 2);
 
-    scheduler.schedule_now(
-        context.current_selected_card.unwrap().id,
-        move |context| context.discard_cards(PlayerID::new(player_id), num_cards),
-        1,
-    );
+    context.discard_cards(PlayerID::new(player_id), num_cards);
     janet_wrap_nil()
 }
 
 pub unsafe extern "C" fn cfun_add_gold_to_player(argc: i32, argv: *mut Janet) -> Janet {
     debug!("Called into cfun_add_gold_to_player");
-    janet_fixarity(argc, 4);
+    janet_fixarity(argc, 3);
 
     let context = (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()
         .expect("Couldn't cast reference");
-    let scheduler = (janet_getpointer(argv, 1) as *mut GameScheduler)
-        .as_mut()
-        .expect("Couldn't cast reference");
-    let amount = janet_getinteger64(argv, 2);
-    let player_id = janet_getinteger64(argv, 3) as u16;
+    let amount = janet_getinteger64(argv, 1);
+    let player_id = janet_getinteger64(argv, 2) as u16;
 
-    scheduler.schedule_now(
-        context.current_selected_card.unwrap().id,
-        move |context| context.add_gold(PlayerID::new(player_id), amount),
-        1,
-    );
+    context.add_gold(PlayerID::new(player_id), amount);
 
     janet_wrap_nil()
 }
@@ -187,53 +170,28 @@ pub unsafe extern "C" fn cfun_get_current_index(argc: i32, argv: *mut Janet) -> 
 }
 
 pub unsafe extern "C" fn cfun_apply_effect(argc: i32, argv: *mut Janet) -> Janet {
-    janet_fixarity(argc, 5);
+    janet_fixarity(argc, 3);
 
     let context = (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()
         .expect("Couldn't cast reference");
 
-    let scheduler = (janet_getpointer(argv, 1) as *mut GameScheduler)
-        .as_mut()
-        .expect("Couldn't cast reference");
-
-    let effect = Effect::from_str(
-        CStr::from_ptr(janet_getsymbol(argv, 2) as *const i8)
+    let effect_type = EffectType::from_str(
+        CStr::from_ptr(janet_getsymbol(argv, 1) as *const i8)
             .to_str()
             .expect("Couldn't read effect as string"),
     )
     .expect("Effect not found");
-
-    let duration = janet_getuinteger64(argv, 3);
+    let duration = janet_getuinteger16(argv, 2);
+    let effect = Effect::new(effect_type, duration);
 
     //TODO: Rewrite this, this is horrible and a desaster waiting to happen
     let tiles = to_u16_vec(JanetEnum::_Array(
-        JanetEnum::unwrap_array::<GameScheduler>(*janet_getarray(argv, 4))
-            .expect("Could not cast array"),
+        JanetEnum::unwrap_array(*janet_getarray(argv, 4)).expect("Could not cast array"),
     ))
     .expect("Could not cast array");
 
-    let owner = context.current_selected_card.unwrap().id;
-    scheduler.schedule_now(
-        owner,
-        {
-            let tiles = tiles.clone();
-            move |ctx| {
-                ctx.add_effects(effect, &tiles)
-                    .map_err(|e| Error::PlaceError(e))
-            }
-        },
-        1,
-    );
-    scheduler.schedule_at_start(
-        duration as u32,
-        owner,
-        move |ctx| {
-            ctx.remove_effects(effect, &tiles)
-                .map_err(|e| Error::PlaceError(e))
-        },
-        1,
-    );
+    context.add_effects(effect, &tiles);
     // Iterate over elements
     janet_wrap_nil()
 }

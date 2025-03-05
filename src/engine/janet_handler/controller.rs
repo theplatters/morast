@@ -194,6 +194,6 @@ impl Environment {
                 &mut out as *mut Janet,
             );
         }
-        JanetEnum::from::<i32>(out).map_err(|e| e.to_string())
+        JanetEnum::from(out).map_err(|e| e.to_string())
     }
 }

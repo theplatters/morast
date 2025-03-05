@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::engine::{asset_loader::AssetLoader, janet_handler::controller::Environment};
+use crate::{
+    engine::{asset_loader::AssetLoader, janet_handler::controller::Environment},
+    game::error::Error,
+};
 
 use super::{
     card_id::CardID,
@@ -40,7 +43,7 @@ impl CardRegistry {
         env: &Environment,
         name: &str,
         asset_loader: &mut AssetLoader,
-    ) -> Result<CardID, &'static str> {
+    ) -> Result<CardID, Error> {
         let card = read_card(env, name, asset_loader).await?;
         self.names.insert(card.name.clone(), self.id_counter);
         self.cards.insert(self.id_counter, card);
