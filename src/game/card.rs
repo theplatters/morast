@@ -27,24 +27,53 @@ pub struct Card {
 }
 
 impl Card {
-    pub fn on_turn_start(&self, scheduler: &mut GameScheduler) {
-        debug!("Calling on_turn_start");
-        //for ele in &self.turn_begin_action {
-        //    scheduler.schedule_now(owner, ele.speed);
-        //}
+    pub fn on_turn_start(&self, scheduler: &mut GameScheduler, owner: i32) {
+        for GameAction { function, speed } in &self.turn_begin_action {
+            match speed {
+                super::game_action::Timing::Now => {
+                    scheduler.schedule_now(owner, function.to_owned(), 1)
+                }
+                super::game_action::Timing::End(timing) => {
+                    scheduler.schedule_at_end(*timing, owner, function.to_owned(), 1)
+                }
+                super::game_action::Timing::Start(timing) => {
+                    scheduler.schedule_at_start(*timing, owner, function.to_owned(), 1)
+                }
+            }
+        }
     }
 
-    pub fn on_turn_end(&self, scheduler: &mut GameScheduler) {
-        debug!("Calling on_turn_end");
-        //for ele in &self.turn_begin_action {
-        //    scheduler.schedule_now(owner, ele.speed);
-        //}
+    pub fn on_turn_end(&self, scheduler: &mut GameScheduler, owner: i32) {
+        for GameAction { function, speed } in &self.turn_end_action {
+            match speed {
+                super::game_action::Timing::Now => {
+                    scheduler.schedule_now(owner, function.to_owned(), 1)
+                }
+                super::game_action::Timing::End(timing) => {
+                    scheduler.schedule_at_end(*timing, owner, function.to_owned(), 1)
+                }
+                super::game_action::Timing::Start(timing) => {
+                    scheduler.schedule_at_start(*timing, owner, function.to_owned(), 1)
+                }
+            }
+        }
     }
 
-    pub fn on_place(&self, scheduler: &mut GameScheduler) {
-        //for ele in &self.turn_begin_action {
-        //    scheduler.schedule_now(owner, ele.speed);
-        //}
+    pub fn on_place(&self, scheduler: &mut GameScheduler, owner: i32) {
+        println!("Calling on-place for card {}", self.name);
+        for GameAction { function, speed } in &self.turn_end_action {
+            match speed {
+                super::game_action::Timing::Now => {
+                    scheduler.schedule_now(owner, function.to_owned(), 1)
+                }
+                super::game_action::Timing::End(timing) => {
+                    scheduler.schedule_at_end(*timing, owner, function.to_owned(), 1)
+                }
+                super::game_action::Timing::Start(timing) => {
+                    scheduler.schedule_at_start(*timing, owner, function.to_owned(), 1)
+                }
+            }
+        }
     }
 
     pub fn get_attack_pattern(&self) -> &Vec<I16Vec2> {

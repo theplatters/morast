@@ -16,13 +16,10 @@ fn window_config() -> Conf {
 #[macroquad::main(window_config)]
 async fn main() {
     let path = std::env::current_dir().unwrap();
-    debug!("The current directory is {:#?}", path.display());
     use std::time::Instant;
     let now = Instant::now();
     let mut game = Game::new().await;
 
-    let elapsed = now.elapsed();
-    println!("Elapsed: {:.2?}", elapsed);
     let start = I16Vec2::new(2, 2);
     let mut curr = start;
     loop {
@@ -30,7 +27,8 @@ async fn main() {
             game.end_turn();
         }
         if is_key_released(KeyCode::Enter) {
-            game.place(CardID::new(0), start, PlayerID::new(1));
+            game.place(CardID::new(0), start, PlayerID::new(1))
+                .expect("Placing card failed");
         }
 
         if is_key_released(KeyCode::Q) {

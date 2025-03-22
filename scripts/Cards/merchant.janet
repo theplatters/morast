@@ -7,17 +7,17 @@
 (def attack-strength 1)
 (def defense 1)
 
-(def on-draw [])
-(def on-play [])
-(def on-discard [])
-(def on-ability [])
-(def on-turn-begin [@{
-  :action (fn [game] (if (= (std/owner game) (std/turn-player game)) 
+(def on-draw @[])
+(def on-play @[])
+(def on-discard @[])
+(def on-ability @[])
+(def on-turn-begin @[@{
+  'action (fn [game] (if (= (std/owner game) (std/turn-player game)) 
       (std/get-gold game 4 (std/owner game))))
-  :timing 1
+  'timing @['now]
   }])
-(def on-turn-end [@{
-  :action (fn [game] (if (= (std/owner game) (std/turn-player game)) 
+(def on-turn-end @[@{
+  'action (fn [game] (if (= (std/owner game) (std/turn-player game)) 
       (std/get-gold game 4 (std/owner game))))
-  :timing 1
+  'timing @['now]
   }])

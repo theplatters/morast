@@ -6,19 +6,17 @@ use crate::{
     engine::janet_handler::bindings::janet_getsymbol,
     game::{
         board::effect::{Effect, EffectType},
-        error::Error,
         events::event_scheduler::GameScheduler,
         game_context::GameContext,
         player::PlayerID,
-        Game,
     },
 };
 
 use super::{
     bindings::{
         janet_array, janet_array_push, janet_fixarity, janet_getarray, janet_getinteger64,
-        janet_getpointer, janet_getuinteger16, janet_getuinteger64, janet_wrap_array,
-        janet_wrap_boolean, janet_wrap_integer, janet_wrap_nil, janet_wrap_u64, Janet,
+        janet_getpointer, janet_getuinteger16, janet_wrap_array, janet_wrap_boolean,
+        janet_wrap_integer, janet_wrap_nil, janet_wrap_u64, Janet,
     },
     types::janetenum::{to_u16_vec, JanetEnum},
 };
@@ -172,6 +170,7 @@ pub unsafe extern "C" fn cfun_get_current_index(argc: i32, argv: *mut Janet) -> 
 pub unsafe extern "C" fn cfun_apply_effect(argc: i32, argv: *mut Janet) -> Janet {
     janet_fixarity(argc, 3);
 
+    println!("Applying effect");
     let context = (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()
         .expect("Couldn't cast reference");

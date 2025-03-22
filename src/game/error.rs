@@ -8,6 +8,7 @@ pub enum Error {
     InvalidMove,
     TileEmpty,
     CardNotFound,
-    NotFound,
-    CastError,
+    NotFound(String),
+    Cast(String),
+    MacroquadError(macroquad::Error),
 }

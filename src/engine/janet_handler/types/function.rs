@@ -6,7 +6,7 @@ use crate::engine::janet_handler::{
     controller::Environment,
 };
 
-use super::janetenum::{JanetEnum, JanetItem};
+use super::janetenum::JanetEnum;
 
 #[derive(Clone, Debug)]
 pub struct Function {

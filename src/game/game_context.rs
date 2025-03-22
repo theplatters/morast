@@ -105,14 +105,21 @@ impl GameContext {
         card_id: CardID,
         index: I16Vec2,
         player_id: PlayerID,
+        card_registry: &CardRegistry,
+        scheduler: &mut GameScheduler,
     ) -> Result<(), Error> {
+        println!("Placing card {:?} at index {:?}", card_id, index);
         match self.board.place(card_id, player_id, index) {
             Ok(id) => {
                 let key = CardOnBoard::new(id, card_id, player_id);
                 self.current_selected_card = Some(key);
                 self.current_selected_index = Some(index);
                 self.cards_placed.insert(key, index);
-
+                card_registry
+                    .get(&card_id)
+                    .unwrap_or_else(|| panic!("Card {:?} not found", key))
+                    .on_place(scheduler, self.turn_player_id().get() as i32);
+                scheduler.process_events(self)?;
                 self.current_selected_card = None;
                 self.current_selected_index = None;
                 Ok(())
@@ -133,7 +140,7 @@ impl GameContext {
             card_registry
                 .get(&card.card_id)
                 .expect("Card not found")
-                .on_turn_start(scheduler);
+                .on_turn_start(scheduler, self.turn_player_id().get() as i32);
         }
 
         self.current_selected_card = None;
@@ -157,7 +164,7 @@ impl GameContext {
             card_registry
                 .get(&card.card_id)
                 .expect("Card not found")
-                .on_turn_end(scheduler);
+                .on_turn_end(scheduler, self.turn_player_id().get() as i32);
         }
 
         self.current_selected_card = None;
@@ -227,28 +234,6 @@ impl GameContext {
         self.cards_placed
             .iter()
             .find_map(|(key, &val)| if val == *from { Some(key) } else { None })
-    }
-
-    pub(crate) fn on_place(
-        &mut self,
-        index: I16Vec2,
-        card_registry: &CardRegistry,
-        scheduler: &mut GameScheduler,
-    ) {
-        let (card, _) = self
-            .cards_placed
-            .iter()
-            .find(|(_, &v)| v == index)
-            .expect("Placed Card not found");
-        self.current_selected_card = Some(*card);
-        self.current_selected_index = Some(index);
-        card_registry
-            .get(&card.card_id)
-            .unwrap_or_else(|| panic!("Card {:?} not found", card.card_id))
-            .on_place(scheduler);
-
-        self.current_selected_card = None;
-        self.current_selected_index = None;
     }
 }
 

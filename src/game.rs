@@ -49,17 +49,16 @@ impl Game {
         index: I16Vec2,
         player_id: PlayerID,
     ) -> Result<(), Error> {
-        self.scheduler.schedule_now(
-            player_id.get() as i32,
-            move |context| context.place(card_id, index, player_id),
-            1,
-        );
-
-        self.scheduler.process_events(&mut self.context)?;
         self.context
-            .on_place(index, &self.card_registry, &mut self.scheduler);
+            .place(
+                card_id,
+                index,
+                player_id,
+                &self.card_registry,
+                &mut self.scheduler,
+            )
+            .expect("Placing card failed");
 
-        self.scheduler.process_events(&mut self.context)?;
         self.context.update_attack_values(&self.card_registry);
         Ok(())
     }
@@ -97,8 +96,7 @@ impl Game {
         if !self.context.is_legal_move(from, to, card) {
             return Err(Error::InvalidMove);
         }
-        self.scheduler
-            .schedule_now(-1, move |context| context.move_card(from, to), 1);
+        self.context.move_card(from, to);
 
         self.scheduler.process_events(&mut self.context)?;
         self.context

@@ -1,13 +1,20 @@
 use crate::engine::janet_handler::types::function::Function;
 
+#[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
+pub enum Timing {
+    Now,
+    End(u32),
+    Start(u32),
+}
+
 #[derive(Debug)]
 pub struct GameAction {
-    function: Function,
-    pub speed: u32,
+    pub function: Function,
+    pub speed: Timing,
 }
 
 impl GameAction {
-    pub fn new(function: Function, speed: u32) -> Self {
+    pub fn new(function: Function, speed: Timing) -> Self {
         Self { function, speed }
     }
 
