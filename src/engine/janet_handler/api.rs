@@ -186,7 +186,8 @@ pub unsafe extern "C" fn cfun_apply_effect(argc: i32, argv: *mut Janet) -> Janet
     )
     .expect("Effect not found");
     let duration = janet_getuinteger16(argv, 2);
-    let effect = Effect::new(effect_type, duration);
+    //TODO This should not be the turn player
+    let effect = Effect::new(effect_type, duration, context.turn_player_id());
 
     //TODO: Rewrite this, this is horrible and a desaster waiting to happen
     let tiles = to_u16_vec(JanetEnum::_Array(

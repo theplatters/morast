@@ -1,5 +1,7 @@
 use std::str::FromStr;
 
+use crate::game::player::PlayerID;
+
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
 pub enum EffectType {
     Slow,
@@ -10,13 +12,15 @@ pub enum EffectType {
 pub struct Effect {
     effect_type: EffectType,
     duration: u16,
+    owner: PlayerID,
 }
 
 impl Effect {
-    pub fn new(effect_type: EffectType, duration: u16) -> Self {
+    pub fn new(effect_type: EffectType, duration: u16, owner: PlayerID) -> Self {
         Self {
             effect_type,
             duration,
+            owner,
         }
     }
 
