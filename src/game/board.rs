@@ -10,7 +10,7 @@ use place_error::BoardError;
 use tile::Tile;
 
 use super::{
-    card::{card_id::CardID, card_registry::CardRegistry},
+    card::{card_id::CardID, card_registry::CardRegistry, in_play_id::InPlayID},
     player::PlayerID,
 };
 
@@ -22,7 +22,7 @@ mod tile;
 #[derive(Debug)]
 pub struct Board {
     tiles: HashMap<I16Vec2, Tile>,
-    next_id: i32,
+    next_id: InPlayID,
 }
 
 impl Board {
@@ -35,7 +35,10 @@ impl Board {
                 tiles.insert(position, Tile::new());
             }
         }
-        Self { tiles, next_id: 0 }
+        Self {
+            tiles,
+            next_id: InPlayID::new(0),
+        }
     }
 
     fn zero_out_attack(&mut self) {
@@ -157,7 +160,7 @@ impl Board {
         card_id: CardID,
         player_id: PlayerID,
         index: I16Vec2,
-    ) -> Result<i32, BoardError> {
+    ) -> Result<InPlayID, BoardError> {
         let Some(tile) = self.tiles.get_mut(&index) else {
             return Err(BoardError::Index);
         };
@@ -167,8 +170,9 @@ impl Board {
         }
 
         tile.place(CardOnBoard::new(self.next_id, card_id, player_id));
-        self.next_id += 1;
-        Ok(self.next_id - 1)
+        let id = self.next_id;
+        self.next_id = self.next_id.next();
+        Ok(id)
     }
 
     pub fn add_effect(&mut self, effect: Effect, index: I16Vec2) -> Result<(), BoardError> {
@@ -296,5 +300,11 @@ impl Board {
         to_tile.ontile = Some(card);
 
         Ok(card)
+    }
+
+    pub(crate) fn update_effects(&mut self) {
+        for (_, tile) in self.tiles.iter_mut() {
+            tile.process_effects();
+        }
     }
 }

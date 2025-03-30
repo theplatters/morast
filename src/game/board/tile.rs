@@ -18,6 +18,13 @@ impl Tile {
         }
     }
 
+    pub fn process_effects(&mut self) {
+        self.effects.retain(|effect| effect.duration() > 0);
+        self.effects
+            .iter_mut()
+            .for_each(|effect| effect.decrease_duration());
+    }
+
     pub fn place(&mut self, card: CardOnBoard) {
         self.ontile = Some(card);
     }

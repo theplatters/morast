@@ -27,6 +27,10 @@ impl Effect {
     pub fn duration(&self) -> u16 {
         self.duration
     }
+
+    pub fn decrease_duration(&mut self) {
+        self.duration -= 1;
+    }
 }
 
 impl FromStr for EffectType {

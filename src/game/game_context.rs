@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Index};
 
 use log::debug;
 use macroquad::math::I16Vec2;
@@ -7,7 +7,7 @@ use crate::game::phases::Phase;
 
 use super::{
     board::{card_on_board::CardOnBoard, effect::Effect, place_error::BoardError, Board},
-    card::{card_id::CardID, card_registry::CardRegistry, Card},
+    card::{card_id::CardID, card_registry::CardRegistry, in_play_id::InPlayID, Card},
     error::Error,
     events::event_scheduler::GameScheduler,
     player::{Player, PlayerID},
@@ -20,8 +20,6 @@ pub struct GameContext {
     board: Board,
     turn_player: PlayerID,
     cards_placed: HashMap<CardOnBoard, I16Vec2>,
-    pub current_selected_card: Option<CardOnBoard>,
-    pub current_selected_index: Option<I16Vec2>,
 }
 
 impl GameContext {
@@ -31,8 +29,6 @@ impl GameContext {
             board: Board::new(),
             turn_player: PlayerID::new(1),
             cards_placed: HashMap::new(),
-            current_selected_card: None,
-            current_selected_index: None,
         }
     }
 
@@ -112,16 +108,12 @@ impl GameContext {
         match self.board.place(card_id, player_id, index) {
             Ok(id) => {
                 let key = CardOnBoard::new(id, card_id, player_id);
-                self.current_selected_card = Some(key);
-                self.current_selected_index = Some(index);
                 self.cards_placed.insert(key, index);
                 card_registry
                     .get(&card_id)
                     .unwrap_or_else(|| panic!("Card {:?} not found", key))
-                    .on_place(scheduler, self.turn_player_id().get() as i32);
+                    .on_place(scheduler, self.turn_player_id(), id);
                 scheduler.process_events(self)?;
-                self.current_selected_card = None;
-                self.current_selected_index = None;
                 Ok(())
             }
             Err(err) => Err(Error::PlaceError(err)),
@@ -135,16 +127,12 @@ impl GameContext {
         );
         scheduler.advance_to_phase(Phase::End, self);
         for (card, index) in self.cards_placed.clone().iter() {
-            self.current_selected_card = Some(card.to_owned());
-            self.current_selected_index = Some(index.to_owned());
             card_registry
                 .get(&card.card_id)
                 .expect("Card not found")
-                .on_turn_start(scheduler, self.turn_player_id().get() as i32);
+                .on_turn_start(scheduler, self.turn_player_id(), card.id);
         }
 
-        self.current_selected_card = None;
-        self.current_selected_index = None;
         scheduler.process_events(self);
     }
 
@@ -159,16 +147,13 @@ impl GameContext {
             .expect("The turn player could not be found, which should never happen");
         for (card, index) in &self.cards_placed.clone() {
             println!("Processing card {:?}", card);
-            self.current_selected_card = Some(card.to_owned());
-            self.current_selected_index = Some(index.to_owned());
             card_registry
                 .get(&card.card_id)
                 .expect("Card not found")
-                .on_turn_end(scheduler, self.turn_player_id().get() as i32);
+                .on_turn_end(scheduler, self.turn_player_id(), card.id);
         }
 
-        self.current_selected_card = None;
-        self.current_selected_index = None;
+        self.board.update_effects();
         scheduler.process_events(self);
     }
 
@@ -207,7 +192,6 @@ impl GameContext {
     pub(crate) fn update_attack_values(&mut self, card_registry: &CardRegistry) {
         let mut removed = self.board.update_attack_values(card_registry);
         while !removed.is_empty() {
-            //TODO: Only update the card values for the deleted card
             removed = self.board.update_attack_values(card_registry);
         }
     }
@@ -225,7 +209,6 @@ impl GameContext {
         self.cards_placed.retain(|k, _| !removed.contains(k));
         //update the attack values for the cards affected by the removed cards
         if !removed.is_empty() {
-            //TODO: Only update the card values for the deleted card
             self.update_attack_values(card_registry);
         }
     }
@@ -234,6 +217,20 @@ impl GameContext {
         self.cards_placed
             .iter()
             .find_map(|(key, &val)| if val == *from { Some(key) } else { None })
+    }
+
+    pub(crate) fn get_card_owner(&self, id: InPlayID) -> Option<PlayerID> {
+        self.cards_placed
+            .iter()
+            .find(|x| x.0.id == id)
+            .map(|x| x.0.player_id)
+    }
+
+    pub(crate) fn get_card_index(&self, id: InPlayID) -> Option<I16Vec2> {
+        self.cards_placed
+            .iter()
+            .find(|x| x.0.id == id)
+            .map(|x| x.1.to_owned())
     }
 }
 

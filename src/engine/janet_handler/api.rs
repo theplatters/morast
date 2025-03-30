@@ -22,7 +22,7 @@ use super::{
 };
 
 pub unsafe extern "C" fn cfun_draw(argc: i32, argv: *mut Janet) -> Janet {
-    janet_fixarity(argc, 4);
+    janet_fixarity(argc, 3);
     let context = (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()
         .expect("Couldn't cast reference");
@@ -139,36 +139,40 @@ pub unsafe extern "C" fn cfun_shuffle_deck(argc: i32, argv: *mut Janet) -> Janet
 }
 
 pub unsafe extern "C" fn cfun_card_owner(argc: i32, argv: *mut Janet) -> Janet {
-    janet_fixarity(argc, 1);
+    janet_fixarity(argc, 2);
 
+    let id = janet_getinteger64(argv, 1);
     (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()
-        .map_or(janet_wrap_nil(), |game| match game.current_selected_card {
-            Some(card_id) => {
-                println!("{:?}", card_id);
-                janet_wrap_u64(card_id.player_id.get() as u64)
+        .map_or(janet_wrap_nil(), |game| {
+            match game.get_card_owner(id.into()) {
+                Some(owner) => janet_wrap_u64(owner.get() as u64),
+                None => janet_wrap_nil(),
             }
-            None => panic!("Selected card not found"),
         })
 }
 
 pub unsafe extern "C" fn cfun_get_current_index(argc: i32, argv: *mut Janet) -> Janet {
-    janet_fixarity(argc, 1);
+    print!("getting current index");
+    janet_fixarity(argc, 2);
+    let id = janet_getinteger64(argv, 1);
     (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()
-        .map_or(janet_wrap_nil(), |game| match game.current_selected_index {
-            Some(index) => {
-                let arr = janet_array(2);
-                janet_array_push(arr, janet_wrap_integer(index.x as i32));
-                janet_array_push(arr, janet_wrap_integer(index.y as i32));
-                janet_wrap_array(arr)
+        .map_or(janet_wrap_nil(), |game| {
+            match game.get_card_index(id.into()) {
+                Some(index) => {
+                    let arr = janet_array(2);
+                    janet_array_push(arr, janet_wrap_integer(index.x as i32));
+                    janet_array_push(arr, janet_wrap_integer(index.y as i32));
+                    janet_wrap_array(arr)
+                }
+                None => janet_wrap_nil(),
             }
-            None => panic!("Selected card not found"),
         })
 }
 
 pub unsafe extern "C" fn cfun_apply_effect(argc: i32, argv: *mut Janet) -> Janet {
-    janet_fixarity(argc, 3);
+    janet_fixarity(argc, 4);
 
     println!("Applying effect");
     let context = (janet_getpointer(argv, 0) as *mut GameContext)
@@ -186,7 +190,7 @@ pub unsafe extern "C" fn cfun_apply_effect(argc: i32, argv: *mut Janet) -> Janet
 
     //TODO: Rewrite this, this is horrible and a desaster waiting to happen
     let tiles = to_u16_vec(JanetEnum::_Array(
-        JanetEnum::unwrap_array(*janet_getarray(argv, 4)).expect("Could not cast array"),
+        JanetEnum::unwrap_array(*janet_getarray(argv, 3)).expect("Could not cast array"),
     ))
     .expect("Could not cast array");
 

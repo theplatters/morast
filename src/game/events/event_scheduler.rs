@@ -4,8 +4,17 @@ use log::debug;
 
 use super::event::{Event, EventTiming, ScheduledEvent};
 use crate::{
-    engine::janet_handler::{bindings::janet_wrap_pointer, types::function::Function},
-    game::{error::Error, game_context::GameContext, phases::Phase},
+    engine::janet_handler::{
+        bindings::{janet_wrap_integer, janet_wrap_pointer},
+        types::function::Function,
+    },
+    game::{
+        card::{card_id::CardID, in_play_id::InPlayID, Card},
+        error::Error,
+        game_context::GameContext,
+        phases::Phase,
+        player::PlayerID,
+    },
 };
 
 #[derive(Debug)]
@@ -34,7 +43,8 @@ impl GameScheduler {
     pub fn schedule_at_start(
         &mut self,
         turns_ahead: u32,
-        owner: i32,
+        owner: PlayerID,
+        by_id: InPlayID,
         action: Function,
         priority: u32,
     ) {
@@ -45,14 +55,15 @@ impl GameScheduler {
         );
         self.next_insertion += 1;
         self.future_events
-            .push(ScheduledEvent::new(timing, priority, owner, action));
+            .push(ScheduledEvent::new(timing, priority, owner, by_id, action));
     }
 
     // Schedule at the end of the n-th turn including this turn
     pub fn schedule_at_end(
         &mut self,
         turns_including: u32,
-        owner: i32,
+        owner: PlayerID,
+        by_id: InPlayID,
         action: Function,
         priority: u32,
     ) {
@@ -63,19 +74,31 @@ impl GameScheduler {
         );
         self.next_insertion += 1;
         self.future_events
-            .push(ScheduledEvent::new(timing, priority, owner, action));
+            .push(ScheduledEvent::new(timing, priority, owner, by_id, action));
     }
 
     // Schedule to execute now (after current batch of events)
-    pub fn schedule_now(&mut self, owner: i32, action: Function, priority: u32) {
+    pub fn schedule_now(
+        &mut self,
+        owner: PlayerID,
+        by_id: InPlayID,
+        action: Function,
+        priority: u32,
+    ) {
         self.immediate_events
-            .push(Event::new(priority, owner, action));
+            .push(Event::new(priority, owner, by_id, action));
     }
 
     // Schedule to execute after all currently scheduled events
-    pub fn schedule_after_current(&mut self, owner: i32, action: Function, priority: u32) {
+    pub fn schedule_after_current(
+        &mut self,
+        owner: PlayerID,
+        by_id: InPlayID,
+        action: Function,
+        priority: u32,
+    ) {
         self.deferred_events
-            .push(Event::new(priority, owner, action));
+            .push(Event::new(priority, owner, by_id, action));
     }
 
     // Advance the game state (call this when progressing phases/turns)
@@ -86,25 +109,29 @@ impl GameScheduler {
             unsafe {
                 event
                     .action
-                    .eval(&[janet_wrap_pointer(context as *mut _ as *mut c_void)])
+                    .eval(&[
+                        janet_wrap_pointer(context as *mut _ as *mut c_void),
+                        janet_wrap_integer(event.by_id.into()),
+                    ])
                     .expect("Error when processing deferred event");
             }
         }
 
         // Process current phase events
-        while let Some(event) = self.future_events.peek() {
-            if event.timing.turn < self.current_turn
-                || (event.timing.turn == self.current_turn
-                    && event.timing.phase < self.current_phase)
+        while let Some(ScheduledEvent { timing, event: _ }) = self.future_events.peek() {
+            if timing.turn < self.current_turn
+                || (timing.turn == self.current_turn && timing.phase < self.current_phase)
             {
                 // Remove and execute outdated events
 
-                let event = self.future_events.pop().unwrap();
+                let ScheduledEvent { timing: _, event } = self.future_events.pop().unwrap();
                 unsafe {
                     event
-                        .event
                         .action
-                        .eval(&[janet_wrap_pointer(context as *mut _ as *mut c_void)])
+                        .eval(&[
+                            janet_wrap_pointer(context as *mut _ as *mut c_void),
+                            janet_wrap_integer(event.by_id.into()),
+                        ])
                         .expect("Error when processing deferred event");
                 }
             } else {
@@ -116,10 +143,12 @@ impl GameScheduler {
         while let Some(event) = self.immediate_events.pop() {
             debug!("Handling immediate event: {:?}", event);
             unsafe {
-                event
-                    .action
-                    .eval(&[janet_wrap_pointer(context as *mut _ as *mut c_void)])
-                    .expect("Error when processing deferred event");
+                if let Err(e) = event.action.eval(&[
+                    janet_wrap_pointer(context as *mut _ as *mut c_void),
+                    janet_wrap_integer(event.by_id.into()),
+                ]) {
+                    println!("Error when processing immediate event: {:?}", e);
+                }
             }
         }
         Ok(())

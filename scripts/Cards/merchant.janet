@@ -12,12 +12,12 @@
 (def on-discard @[])
 (def on-ability @[])
 (def on-turn-begin @[@{
-  'action (fn [game] (if (= (std/owner game) (std/turn-player game)) 
-      (std/get-gold game 4 (std/owner game))))
+  'action (fn [game card-id] (if (= (std/owner game card-id) (std/turn-player game)) 
+      (std/get-gold game 4 (std/owner game card-id))))
   'timing @['now]
   }])
 (def on-turn-end @[@{
-  'action (fn [game] (if (= (std/owner game) (std/turn-player game)) 
-      (std/get-gold game 4 (std/owner game))))
+  'action (fn [game card-id] (if (= (std/owner game card-id) (std/turn-player game)) 
+      (std/get-gold game 4 (std/owner game card-id))))
   'timing @['now]
   }])
