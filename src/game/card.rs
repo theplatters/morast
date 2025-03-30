@@ -1,7 +1,9 @@
+use abilities::Abilities;
 use in_play_id::InPlayID;
 use macroquad::math::I16Vec2;
 
 use super::{events::event_scheduler::GameScheduler, game_action::GameAction, player::PlayerID};
+pub mod abilities;
 pub mod card_id;
 pub mod card_reader;
 pub mod card_registry;
@@ -19,6 +21,7 @@ pub struct Card {
     turn_end_action: Vec<GameAction>,
     draw_action: Vec<GameAction>,
     discard_action: Vec<GameAction>,
+    abilities: Vec<Abilities>,
 }
 
 impl Card {

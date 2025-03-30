@@ -1,4 +1,4 @@
-use log::debug;
+use std::str::FromStr;
 
 use crate::{
     engine::{
@@ -9,6 +9,7 @@ use crate::{
         },
     },
     game::{
+        card::abilities::Abilities,
         error::Error,
         game_action::{GameAction, Timing},
     },
@@ -128,6 +129,17 @@ pub async fn read_card(
         return Err(Error::Cast("Defense strength not found".into()));
     };
 
+    let abilities: Vec<Abilities> = match JanetEnum::get(env, "abilities", Some(name)) {
+        Some(JanetEnum::_Array(abilities)) => abilities
+            .iter()
+            .map(|el| {
+                el.try_into()
+                    .map_or_else(Err, |el: String| Abilities::from_str(el.as_str()))
+            })
+            .collect::<Result<_, Error>>()?,
+        _ => Vec::new(),
+    };
+
     Ok(Card {
         draw_action,
         play_action,
@@ -139,6 +151,7 @@ pub async fn read_card(
         attack_strength: attack_strength as u16,
         defense: defense as u16,
         movement,
+        abilities,
     })
 }
 

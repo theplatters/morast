@@ -5,6 +5,7 @@
 
 (def attack (array/join (std/cross 1) (std/plus 1)))
 
+(def abilities @["dig"])
 
 (def attack-strength 2)
 (def defense 1)

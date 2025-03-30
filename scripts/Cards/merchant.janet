@@ -4,6 +4,7 @@
 (def movement (std/plus 1))
 (def attack (std/plus 1))
 
+(def abilities @["fly" "dig"])
 (def attack-strength 1)
 (def defense 1)
 

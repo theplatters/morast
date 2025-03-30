@@ -1,25 +1,25 @@
 use std::{
-    collections::HashMap,
-    error::Error,
-    ffi::{c_void, CStr},
-    fmt::{self, format},
+    ffi::CStr,
+    fmt::{self},
     hash::Hash,
 };
 
 use macroquad::math::I16Vec2;
 
-use crate::engine::janet_handler::{
-    bindings::{
-        janet_array_pop, janet_checktype, janet_is_int, janet_resolve, janet_table_to_struct,
-        janet_type, janet_unwrap_array, janet_unwrap_boolean, janet_unwrap_function,
-        janet_unwrap_integer, janet_unwrap_number, janet_unwrap_string, janet_unwrap_symbol,
-        janet_unwrap_table, janet_unwrap_u64, janet_wrap_integer, janet_wrap_nil,
-        janet_wrap_number, janet_wrap_pointer, Janet, JanetArray, JANET_TYPE_JANET_ARRAY,
-        JANET_TYPE_JANET_BOOLEAN, JANET_TYPE_JANET_FUNCTION, JANET_TYPE_JANET_NIL,
-        JANET_TYPE_JANET_NUMBER, JANET_TYPE_JANET_STRING, JANET_TYPE_JANET_SYMBOL,
-        JANET_TYPE_JANET_TABLE,
+use crate::{
+    engine::janet_handler::{
+        bindings::{
+            janet_array_pop, janet_checktype, janet_is_int, janet_resolve, janet_type,
+            janet_unwrap_array, janet_unwrap_boolean, janet_unwrap_function, janet_unwrap_integer,
+            janet_unwrap_number, janet_unwrap_string, janet_unwrap_symbol, janet_unwrap_table,
+            janet_unwrap_u64, janet_wrap_nil, Janet, JanetArray, JANET_TYPE_JANET_ARRAY,
+            JANET_TYPE_JANET_BOOLEAN, JANET_TYPE_JANET_FUNCTION, JANET_TYPE_JANET_NIL,
+            JANET_TYPE_JANET_NUMBER, JANET_TYPE_JANET_STRING, JANET_TYPE_JANET_SYMBOL,
+            JANET_TYPE_JANET_TABLE,
+        },
+        controller::Environment,
     },
-    controller::Environment,
+    game::error::Error,
 };
 
 use super::{function::Function, table::Table};
@@ -193,5 +193,26 @@ impl fmt::Display for JanetEnum {
             JanetEnum::_Null => "Null",
         };
         write!(f, "{}", s)
+    }
+}
+
+impl TryFrom<JanetEnum> for String {
+    type Error = Error;
+
+    fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
+        let JanetEnum::_String(s) = value else {
+            return Err(Error::Cast("Value is not a String".into()));
+        };
+        Ok(s)
+    }
+}
+impl TryFrom<&JanetEnum> for String {
+    type Error = Error;
+
+    fn try_from(value: &JanetEnum) -> Result<Self, Self::Error> {
+        let JanetEnum::_String(s) = value else {
+            return Err(Error::Cast("Value is not a String".into()));
+        };
+        Ok(s.to_owned())
     }
 }

@@ -4,6 +4,7 @@
 (def attack (array/join (std/plus 1) (std/plus 2)))
 
 
+(def abilities @["fly" "dig"])
 (def attack-strength 3)
 (def defense 1)
 
