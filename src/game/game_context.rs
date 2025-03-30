@@ -179,13 +179,29 @@ impl GameContext {
     pub fn is_legal_move(&self, from: I16Vec2, to: I16Vec2, card: &Card) -> bool {
         card.movement.contains(&(from - to))
     }
-    pub fn move_card(&mut self, from: I16Vec2, to: I16Vec2) -> Result<(), Error> {
+    pub fn move_card(
+        &mut self,
+        from: I16Vec2,
+        to: I16Vec2,
+        card_registry: &CardRegistry,
+    ) -> Result<(), Error> {
+        let card_at_start = *self.get_card_at_index(&from).ok_or(Error::TileEmpty)?;
+
+        let card = card_registry
+            .get(&card_at_start.card_id)
+            .ok_or(Error::CardNotFound)?;
+        if !self.is_legal_move(from, to, card) {
+            return Err(Error::InvalidMove);
+        }
         let result = self.board.move_card(from, to).map_err(Error::PlaceError)?;
         let new_index = self
             .cards_placed
             .entry(result)
             .or_insert(I16Vec2::new(0, 0));
         *new_index = to;
+
+        self.update_attack_values_for_card(card_at_start, from, to, card_registry);
+
         Ok(())
     }
 

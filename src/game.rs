@@ -84,23 +84,8 @@ impl Game {
     }
 
     pub fn move_card(&mut self, from: I16Vec2, to: I16Vec2) -> Result<(), Error> {
-        let card_at_start = *self
-            .context
-            .get_card_at_index(&from)
-            .ok_or(Error::TileEmpty)?;
-
-        let card = self
-            .card_registry
-            .get(&card_at_start.card_id)
-            .ok_or(Error::CardNotFound)?;
-        if !self.context.is_legal_move(from, to, card) {
-            return Err(Error::InvalidMove);
-        }
-        self.context.move_card(from, to);
-
+        self.context.move_card(from, to, &self.card_registry)?;
         self.scheduler.process_events(&mut self.context)?;
-        self.context
-            .update_attack_values_for_card(card_at_start, from, to, &self.card_registry);
         Ok(())
     }
 }
