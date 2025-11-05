@@ -1,9 +1,10 @@
 use std::{ffi::CStr, str::FromStr};
 
 use log::debug;
+use macroquad::math::I16Vec2;
 
 use crate::{
-    engine::janet_handler::bindings::janet_getsymbol,
+    engine::janet_handler::bindings::{janet_getsymbol, JanetArray},
     game::{
         board::effect::{Effect, EffectType},
         events::event_scheduler::GameScheduler,
@@ -18,8 +19,12 @@ use super::{
         janet_getpointer, janet_getuinteger16, janet_wrap_array, janet_wrap_boolean,
         janet_wrap_integer, janet_wrap_nil, janet_wrap_u64, Janet,
     },
-    types::janetenum::{to_u16_vec, JanetEnum},
+    types::janetenum::{to_i16_vec, vec_to_janet_array},
 };
+
+unsafe fn vec_to_janet_array(coords: &[I16Vec2]) -> *mut JanetArray {
+    vec_to_janet_array(coords)
+}
 
 pub unsafe extern "C" fn cfun_draw(argc: i32, argv: *mut Janet) -> Janet {
     janet_fixarity(argc, 3);
@@ -81,33 +86,30 @@ pub unsafe extern "C" fn cfun_other_player(argc: i32, argv: *mut Janet) -> Janet
 
 pub unsafe extern "C" fn cfun_plus(argc: i32, argv: *mut Janet) -> Janet {
     janet_fixarity(argc, 1);
-    let size = janet_getinteger64(argv, 0) as i32;
-    let plus: [[i32; 2]; 4] = [[-size, 0], [0, -size], [0, size], [size, 0]];
-    let arr = janet_array(4);
-    plus.iter().for_each(|el| {
-        let r = janet_array(2);
-        janet_array_push(r, janet_wrap_integer(el[0]));
-        janet_array_push(r, janet_wrap_integer(el[1]));
-        janet_array_push(arr, janet_wrap_array(r));
-    });
-    janet_wrap_array(arr)
+    let size = janet_getinteger64(argv, 0) as i16;
+    let plus: [I16Vec2; 4] = [
+        I16Vec2::new(-size, 0),
+        I16Vec2::new(0, -size),
+        I16Vec2::new(0, size),
+        I16Vec2::new(size, 0),
+    ];
+    janet_wrap_array(vec_to_janet_array(&plus))
 }
 
 pub unsafe extern "C" fn cfun_cross(argc: i32, argv: *mut Janet) -> Janet {
     janet_fixarity(argc, 1);
-    let size = janet_getinteger64(argv, 0) as i32;
-    let cross: [[i32; 2]; 4] = [[-size, -size], [size, -size], [-size, size], [size, size]];
-    let arr = janet_array(4);
-    cross.iter().for_each(|el| {
-        let r = janet_array(2);
-        janet_array_push(r, janet_wrap_integer(el[0]));
-        janet_array_push(r, janet_wrap_integer(el[1]));
-        janet_array_push(arr, janet_wrap_array(r));
-    });
-    janet_wrap_array(arr)
+    let size = janet_getinteger64(argv, 0) as i16;
+
+    let cross: [I16Vec2; 4] = [
+        I16Vec2::new(-size, -size),
+        I16Vec2::new(size, -size),
+        I16Vec2::new(-size, size),
+        I16Vec2::new(size, size),
+    ];
+    janet_wrap_array(vec_to_janet_array(&cross))
 }
 
-pub unsafe extern "C" fn cfun_gold_amout(argc: i32, argv: *mut Janet) -> Janet {
+pub unsafe extern "C" fn cfun_gold_amount(argc: i32, argv: *mut Janet) -> Janet {
     janet_fixarity(argc, 2);
     let game = (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()
@@ -130,7 +132,7 @@ pub unsafe extern "C" fn cfun_turn_count(argc: i32, argv: *mut Janet) -> Janet {
 pub unsafe extern "C" fn cfun_shuffle_deck(argc: i32, argv: *mut Janet) -> Janet {
     janet_fixarity(argc, 1);
     let player_id = PlayerID::new(janet_getuinteger16(argv, 0));
-    (janet_getpointer(argv, 2) as *mut GameContext)
+    (janet_getpointer(argv, 1) as *mut GameContext)
         .as_mut()
         .map_or(janet_wrap_nil(), |game| match game.shuffe_deck(player_id) {
             Some(_) => janet_wrap_boolean(1),
@@ -175,25 +177,32 @@ pub unsafe extern "C" fn cfun_apply_effect(argc: i32, argv: *mut Janet) -> Janet
     janet_fixarity(argc, 4);
 
     println!("Applying effect");
-    let context = (janet_getpointer(argv, 0) as *mut GameContext)
-        .as_mut()
-        .expect("Couldn't cast reference");
+    let Some(context) = (janet_getpointer(argv, 0) as *mut GameContext).as_mut() else {
+        print!("Could not get game context");
+        return janet_wrap_nil();
+    };
 
-    let effect_type = EffectType::from_str(
-        CStr::from_ptr(janet_getsymbol(argv, 1) as *const i8)
-            .to_str()
-            .expect("Couldn't read effect as string"),
-    )
-    .expect("Effect not found");
+    let effect_cstr = CStr::from_ptr(janet_getsymbol(argv, 1) as *const i8);
+    let effect_str = match effect_cstr.to_str() {
+        Ok(s) => s,
+        Err(_) => return janet_wrap_nil(),
+    };
+
+    let effect_type = match EffectType::from_str(effect_str) {
+        Ok(t) => t,
+        Err(_) => return janet_wrap_nil(),
+    };
+
     let duration = janet_getuinteger16(argv, 2);
+
     //TODO This should not be the turn player
     let effect = Effect::new(effect_type, duration, context.turn_player_id());
 
-    //TODO: Rewrite this, this is horrible and a desaster waiting to happen
-    let tiles = to_u16_vec(JanetEnum::_Array(
-        JanetEnum::unwrap_array(*janet_getarray(argv, 3)).expect("Could not cast array"),
-    ))
-    .expect("Could not cast array");
+    // Use centralized helper to convert nested JanetArray -> Vec<I16Vec2>
+    let tiles = match to_i16_vec(janet_getarray(argv, 3)) {
+        Some(v) => v,
+        None => return janet_wrap_nil(),
+    };
 
     context.add_effects(effect, &tiles);
     // Iterate over elements
@@ -207,11 +216,17 @@ pub unsafe extern "C" fn cfun_from_current_position(argc: i32, argv: *mut Janet)
         .as_mut()
         .expect("Failed to cast reference to GameContext");
 
+    let card_id = janet_getinteger64(argv, 1);
 
-    let card_id = 
-    //TODO: Rewrite this, this is horrible and a desaster waiting to happen
+    let Some(card_index) = context.get_card_index(card_id.into()) else {
+        return janet_wrap_nil();
+    };
 
-    context.add_effects(effect, &tiles);
-    // Iterate over elements
-    janet_wrap_nil()
+    let tiles = match to_i16_vec(janet_getarray(argv, 2)) {
+        Some(v) => v,
+        None => return janet_wrap_nil(),
+    };
+
+    let remaped_tiles: Vec<I16Vec2> = tiles.iter().map(|tile| *tile + card_index).collect();
+    janet_wrap_array(vec_to_janet_array(&remaped_tiles))
 }

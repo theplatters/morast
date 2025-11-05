@@ -3,10 +3,12 @@ use std::{
     str::FromStr,
 };
 
+use crate::engine::janet_handler::api::cfun_from_current_position;
+
 use super::{
     api::{
         cfun_add_gold_to_player, cfun_apply_effect, cfun_card_owner, cfun_cross, cfun_discard,
-        cfun_draw, cfun_get_current_index, cfun_gold_amout, cfun_other_player, cfun_plus,
+        cfun_draw, cfun_get_current_index, cfun_gold_amount, cfun_other_player, cfun_plus,
         cfun_shuffle_deck, cfun_turn_count, cfun_turn_player,
     },
     bindings::{
@@ -77,7 +79,7 @@ impl Environment {
             ),
             (
                 "player-gold",
-                cfun_gold_amout as JanetRawCFunction,
+                cfun_gold_amount as JanetRawCFunction,
                 "Get's the amount of gold a player has",
             ),
             (
@@ -104,6 +106,11 @@ impl Environment {
                 "current-index",
                 cfun_get_current_index as JanetRawCFunction,
                 "Get's the current index of the card",
+            ),
+        (
+                "from_current_position",
+                cfun_from_current_position as JanetRawCFunction,
+                "Maps an array relative to a position",
             ),
         ];
 

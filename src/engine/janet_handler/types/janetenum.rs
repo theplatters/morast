@@ -9,10 +9,11 @@ use macroquad::math::I16Vec2;
 use crate::{
     engine::janet_handler::{
         bindings::{
-            janet_array_pop, janet_checktype, janet_is_int, janet_resolve, janet_type,
-            janet_unwrap_array, janet_unwrap_boolean, janet_unwrap_function, janet_unwrap_integer,
-            janet_unwrap_number, janet_unwrap_string, janet_unwrap_symbol, janet_unwrap_table,
-            janet_unwrap_u64, janet_wrap_nil, Janet, JanetArray, JANET_TYPE_JANET_ARRAY,
+            janet_array, janet_array_pop, janet_array_push, janet_checktype, janet_getarray,
+            janet_getinteger64, janet_resolve, janet_type, janet_unwrap_array, janet_unwrap_boolean,
+            janet_unwrap_function, janet_unwrap_integer, janet_unwrap_number, janet_unwrap_string,
+            janet_unwrap_symbol, janet_unwrap_table, janet_unwrap_u64, janet_wrap_array,
+            janet_wrap_integer, janet_wrap_nil, Janet, JanetArray, JANET_TYPE_JANET_ARRAY,
             JANET_TYPE_JANET_BOOLEAN, JANET_TYPE_JANET_FUNCTION, JANET_TYPE_JANET_NIL,
             JANET_TYPE_JANET_NUMBER, JANET_TYPE_JANET_STRING, JANET_TYPE_JANET_SYMBOL,
             JANET_TYPE_JANET_TABLE,
@@ -146,37 +147,42 @@ impl JanetEnum {
     }
 }
 
-pub fn to_u16_vec(item: JanetEnum) -> Option<Vec<I16Vec2>> {
-    let JanetEnum::_Array(arr) = item else {
+pub unsafe fn vec_to_janet_array(coords: &[I16Vec2]) -> *mut JanetArray {
+    let arr = janet_array(coords.len() as i32);
+    for coord in coords {
+        let sub = janet_array(2);
+        janet_array_push(sub, janet_wrap_integer(coord.x as i32));
+        janet_array_push(sub, janet_wrap_integer(coord.y as i32));
+        janet_array_push(arr, janet_wrap_array(sub));
+    }
+    arr
+}
+
+pub unsafe fn to_i16_vec(arr_ptr: *mut JanetArray) -> Option<Vec<I16Vec2>> {
+    if arr_ptr.is_null() {
         return None;
-    };
-
-    let mut result = Vec::new();
-    for item in arr {
-        // Ensure the item is am `JanetEnum::_Array`
-        if let JanetEnum::_Array(inner_vec) = item {
-            // Ensure the inner array has exactly two elements
-            if inner_vec.len() != 2 {
-                return None;
-            }
-            // Extract the two values
-            let x = match inner_vec[..] {
-                [JanetEnum::_Int(value_x), JanetEnum::_Int(value_y)] => {
-                    [value_x as i16, value_y as i16]
-                }
-                _ => return None,
-            };
-
-            result.push(I16Vec2::from_array(x));
-        } else {
+    }
+    // Safety: rely on JanetArray layout from bindings; treat data as pointer to Janet elements.
+    let count = (*arr_ptr).count as usize;
+    let mut out = Vec::with_capacity(count);
+    for i in 0..count {
+        // pointer to the i-th Janet value in the outer array
+        let elem_janet_ptr = (*arr_ptr).data.add(i);
+        // obtain inner array pointer from that element (index 0 of a one-element argv)
+        let sub_arr = janet_getarray(elem_janet_ptr as *mut Janet, 0);
+        if sub_arr.is_null() {
             return None;
         }
+        // read integers from sub array's data (first and second element)
+        let x = janet_getinteger64((*sub_arr).data as *mut Janet, 0) as i16;
+        let y = janet_getinteger64((*sub_arr).data as *mut Janet, 1) as i16;
+        out.push(I16Vec2::new(x, y));
     }
-    Some(result)
+    Some(out)
 }
 
 pub fn convert_to_u16_vec(env: &Environment, attribute: &str, name: &str) -> Option<Vec<I16Vec2>> {
-    to_u16_vec(JanetEnum::get(env, attribute, Some(name))?)
+    to_i16_vec(JanetEnum::get(env, attribute, Some(name))?)
 }
 
 impl fmt::Display for JanetEnum {
