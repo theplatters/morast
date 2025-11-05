@@ -13,6 +13,7 @@ pub mod error;
 pub mod events;
 pub mod game_action;
 pub mod game_context;
+pub mod game_objects;
 mod phases;
 pub mod player;
 

@@ -1,10 +1,14 @@
 use macroquad::math::U16Vec2;
 
+use crate::game::game_objects::player_base::PlayerBase;
+
 use super::{card_on_board::CardOnBoard, effect::Effect};
 
 #[derive(Debug)]
 pub struct Tile {
     pub ontile: Option<CardOnBoard>,
+    has_gold_mine: bool,
+    player_base: Option<PlayerBase>,
     effects: Vec<Effect>,
     pub attack_on_tile: U16Vec2,
 }
@@ -13,6 +17,8 @@ impl Tile {
     pub fn new() -> Self {
         Self {
             ontile: None,
+            has_gold_mine: false,
+            player_base: None,
             effects: Vec::new(),
             attack_on_tile: U16Vec2::ZERO,
         }
@@ -30,7 +36,7 @@ impl Tile {
     }
 
     pub fn is_occupied(&self) -> bool {
-        self.ontile != None
+        self.ontile.is_some()
     }
 
     pub fn add_effect(&mut self, effect: Effect) {

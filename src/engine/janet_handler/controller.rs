@@ -197,3 +197,9 @@ impl Environment {
         JanetEnum::from(out).map_err(|e| e.to_string())
     }
 }
+
+impl Default for Environment {
+    fn default() -> Self {
+        Self::new()
+    }
+}

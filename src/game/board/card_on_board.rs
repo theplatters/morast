@@ -2,6 +2,7 @@ use crate::game::{
     card::{card_id::CardID, in_play_id::InPlayID},
     player::PlayerID,
 };
+
 use std::hash::{Hash, Hasher};
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Copy, Clone)]
 pub struct CardOnBoard {
