@@ -44,7 +44,7 @@ impl Tile {
     }
 
     pub fn has_effects(&self) -> bool {
-        self.effects.is_empty()
+        !self.effects.is_empty()
     }
 
     pub(crate) fn remove_effect(&mut self, effect: Effect) {

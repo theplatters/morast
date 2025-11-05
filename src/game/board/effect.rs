@@ -33,7 +33,7 @@ impl Effect {
     }
 
     pub fn decrease_duration(&mut self) {
-        self.duration -= 1;
+        self.duration = self.duration.saturating_sub(1);
     }
 }
 

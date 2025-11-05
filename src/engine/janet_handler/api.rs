@@ -199,3 +199,19 @@ pub unsafe extern "C" fn cfun_apply_effect(argc: i32, argv: *mut Janet) -> Janet
     // Iterate over elements
     janet_wrap_nil()
 }
+
+pub unsafe extern "C" fn cfun_from_current_position(argc: i32, argv: *mut Janet) -> Janet {
+    janet_fixarity(argc, 3);
+
+    let context = (janet_getpointer(argv, 0) as *mut GameContext)
+        .as_mut()
+        .expect("Failed to cast reference to GameContext");
+
+
+    let card_id = 
+    //TODO: Rewrite this, this is horrible and a desaster waiting to happen
+
+    context.add_effects(effect, &tiles);
+    // Iterate over elements
+    janet_wrap_nil()
+}

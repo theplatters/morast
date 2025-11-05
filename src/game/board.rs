@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use card_on_board::CardOnBoard;
 use effect::Effect;
 use macroquad::{
-    math::{I16Vec2, U16Vec2},
+    math::{I16Vec2, U16Vec2, UVec2},
     text::draw_text,
 };
 use place_error::BoardError;
@@ -23,14 +23,16 @@ mod tile;
 pub struct Board {
     tiles: HashMap<I16Vec2, Tile>,
     next_id: InPlayID,
+    board_size: I16Vec2,
 }
 
 impl Board {
     pub fn new() -> Self {
         let mut tiles = HashMap::new();
-
-        for x in 0..=64 {
-            for y in 0..=64 {
+        let x_size: i16 = 12;
+        let y_size: i16 = 12;
+        for x in 0..=x_size {
+            for y in 0..=y_size {
                 let position = I16Vec2::new(x, y);
                 tiles.insert(position, Tile::new());
             }
@@ -38,6 +40,7 @@ impl Board {
         Self {
             tiles,
             next_id: InPlayID::new(0),
+            board_size: I16Vec2::new(x_size, y_size),
         }
     }
 
@@ -216,15 +219,15 @@ impl Board {
     }
 
     pub fn draw(&self) {
-        const TILE_SIZE: f32 = 32.0;
+        const TILE_SIZE: f32 = 64.0;
 
-        for x in 0i16..=64 {
-            for y in 0i16..=64 {
+        for x in 0i16..=self.board_size.x {
+            for y in 0i16..=self.board_size.y {
                 let pos = I16Vec2::new(x, y);
                 let tile = self.tiles.get(&pos).unwrap();
 
                 // Determine tile color
-                let color = if !tile.has_effects() {
+                let color = if tile.has_effects() {
                     macroquad::color::GREEN
                 } else {
                     macroquad::color::WHITE

@@ -74,7 +74,7 @@ impl Card {
     }
 
     pub fn get_attack_pattern(&self) -> &Vec<I16Vec2> {
-        return &self.attack;
+        &self.attack
     }
 }
 impl crate::engine::janet_handler::types::janetenum::ToVoidPointer for Card {}

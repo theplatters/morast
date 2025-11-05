@@ -1,5 +1,5 @@
 use game::{card::card_id::CardID, player::PlayerID, Game};
-use macroquad::{prelude::*, ui::root_ui};
+use macroquad::prelude::*;
 
 mod engine;
 mod game;

@@ -13,7 +13,7 @@
 (def on-draw @[])
 (def on-play 
  @[(table
-  'action (fn [game card-id] (std/apply-effect game 'weakening 2 (map (fn [x] (map + x (std/current-index game card-id))) (std/plus 1))))
+  'action (fn [game card-id] (std/apply-effect game 'weakening 2 (map (fn [x] (map + x (std/current-index game card-id))) (std/plus 2))))
   'timing @['now]
   )])
 (def on-discard @[])

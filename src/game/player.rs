@@ -50,6 +50,10 @@ impl Player {
         self.deck.shuffle();
     }
 
+    pub fn peek_deck(&self) -> Option<CardID> {
+        self.deck.last().cloned()
+    }
+
     pub fn add_to_deck_top(&mut self, card: CardID) {
         self.hand.push(card)
     }
