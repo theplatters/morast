@@ -22,10 +22,6 @@ use super::{
     types::janetenum::{to_i16_vec, vec_to_janet_array},
 };
 
-unsafe fn vec_to_janet_array(coords: &[I16Vec2]) -> *mut JanetArray {
-    vec_to_janet_array(coords)
-}
-
 pub unsafe extern "C" fn cfun_draw(argc: i32, argv: *mut Janet) -> Janet {
     janet_fixarity(argc, 3);
     let context = (janet_getpointer(argv, 0) as *mut GameContext)

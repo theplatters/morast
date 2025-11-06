@@ -120,13 +120,17 @@ impl GameContext {
         }
     }
 
-    pub fn proces_turn_end(&mut self, scheduler: &mut GameScheduler, card_registry: &CardRegistry) {
+    pub fn process_turn_end(
+        &mut self,
+        scheduler: &mut GameScheduler,
+        card_registry: &CardRegistry,
+    ) {
         debug!(
             "Processing turn {:?} beginning ",
             scheduler.get_turn_count()
         );
         scheduler.advance_to_phase(Phase::End, self);
-        for (card, index) in self.cards_placed.clone().iter() {
+        for (card, _) in self.cards_placed.clone().iter() {
             card_registry
                 .get(&card.card_id)
                 .expect("Card not found")
@@ -136,7 +140,7 @@ impl GameContext {
         scheduler.process_events(self);
     }
 
-    pub fn proces_turn_begin(
+    pub fn process_turn_begin(
         &mut self,
         scheduler: &mut GameScheduler,
         card_registry: &CardRegistry,

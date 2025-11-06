@@ -10,13 +10,13 @@ use crate::{
     engine::janet_handler::{
         bindings::{
             janet_array, janet_array_pop, janet_array_push, janet_checktype, janet_getarray,
-            janet_getinteger64, janet_resolve, janet_type, janet_unwrap_array, janet_unwrap_boolean,
-            janet_unwrap_function, janet_unwrap_integer, janet_unwrap_number, janet_unwrap_string,
-            janet_unwrap_symbol, janet_unwrap_table, janet_unwrap_u64, janet_wrap_array,
-            janet_wrap_integer, janet_wrap_nil, Janet, JanetArray, JANET_TYPE_JANET_ARRAY,
-            JANET_TYPE_JANET_BOOLEAN, JANET_TYPE_JANET_FUNCTION, JANET_TYPE_JANET_NIL,
-            JANET_TYPE_JANET_NUMBER, JANET_TYPE_JANET_STRING, JANET_TYPE_JANET_SYMBOL,
-            JANET_TYPE_JANET_TABLE,
+            janet_getinteger64, janet_is_int, janet_resolve, janet_type, janet_unwrap_array,
+            janet_unwrap_boolean, janet_unwrap_function, janet_unwrap_integer, janet_unwrap_number,
+            janet_unwrap_string, janet_unwrap_symbol, janet_unwrap_table, janet_unwrap_u64,
+            janet_wrap_array, janet_wrap_integer, janet_wrap_nil, Janet, JanetArray,
+            JANET_TYPE_JANET_ARRAY, JANET_TYPE_JANET_BOOLEAN, JANET_TYPE_JANET_FUNCTION,
+            JANET_TYPE_JANET_NIL, JANET_TYPE_JANET_NUMBER, JANET_TYPE_JANET_STRING,
+            JANET_TYPE_JANET_SYMBOL, JANET_TYPE_JANET_TABLE,
         },
         controller::Environment,
     },
@@ -179,10 +179,6 @@ pub unsafe fn to_i16_vec(arr_ptr: *mut JanetArray) -> Option<Vec<I16Vec2>> {
         out.push(I16Vec2::new(x, y));
     }
     Some(out)
-}
-
-pub fn convert_to_u16_vec(env: &Environment, attribute: &str, name: &str) -> Option<Vec<I16Vec2>> {
-    to_i16_vec(JanetEnum::get(env, attribute, Some(name))?)
 }
 
 impl fmt::Display for JanetEnum {
