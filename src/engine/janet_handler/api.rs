@@ -4,7 +4,10 @@ use log::debug;
 use macroquad::math::I16Vec2;
 
 use crate::{
-    engine::janet_handler::bindings::{janet_getsymbol, JanetArray},
+    engine::janet_handler::{
+        bindings::{janet_getsymbol, JanetArray},
+        types::janetenum::ptr_to_i16_vec,
+    },
     game::{
         board::effect::{Effect, EffectType},
         events::event_scheduler::GameScheduler,
@@ -195,7 +198,7 @@ pub unsafe extern "C" fn cfun_apply_effect(argc: i32, argv: *mut Janet) -> Janet
     let effect = Effect::new(effect_type, duration, context.turn_player_id());
 
     // Use centralized helper to convert nested JanetArray -> Vec<I16Vec2>
-    let tiles = match to_i16_vec(janet_getarray(argv, 3)) {
+    let tiles = match ptr_to_i16_vec(janet_getarray(argv, 3)) {
         Some(v) => v,
         None => return janet_wrap_nil(),
     };
@@ -218,7 +221,7 @@ pub unsafe extern "C" fn cfun_from_current_position(argc: i32, argv: *mut Janet)
         return janet_wrap_nil();
     };
 
-    let tiles = match to_i16_vec(janet_getarray(argv, 2)) {
+    let tiles = match ptr_to_i16_vec(janet_getarray(argv, 2)) {
         Some(v) => v,
         None => return janet_wrap_nil(),
     };

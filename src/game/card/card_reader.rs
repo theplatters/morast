@@ -5,7 +5,7 @@ use crate::{
         asset_loader::AssetLoader,
         janet_handler::{
             controller::Environment,
-            types::janetenum::{to_i16_vec, JanetEnum},
+            types::janetenum::{convert_to_i16_vec, to_i16_vec, JanetEnum},
         },
     },
     game::{
@@ -106,10 +106,10 @@ pub async fn read_card(
         None => return Err(Error::NotFound("on-discard".into())),
     };
 
-    let attack =
-        to_i16_vec(env, "attack", name).ok_or(Error::NotFound(format!("{}, attack", name)))?;
-    let movement =
-        to_i16_vec(env, "movement", name).ok_or(Error::NotFound(format!("{}, attack", name)))?;
+    let attack = convert_to_i16_vec(env, "attack", name)
+        .ok_or(Error::NotFound(format!("{}, attack", name)))?;
+    let movement = convert_to_i16_vec(env, "movement", name)
+        .ok_or(Error::NotFound(format!("{}, attack", name)))?;
     let JanetEnum::_String(asset_string) = JanetEnum::get(env, "card-image", Some(name))
         .ok_or(Error::NotFound("card-image".into()))?
     else {
