@@ -160,10 +160,12 @@ impl GameContext {
                     .ok_or(Error::CardNotFound)?
                     .on_place(scheduler, self.turn_player_id(), id);
                 scheduler.process_events(self)?;
-                Ok(())
             }
-            Err(err) => Err(Error::PlaceError(err)),
+            Err(err) => Err(Error::PlaceError(err))?,
         }
+
+        self.update_attack_values(card_registry);
+        Ok(())
     }
 
     pub fn process_turn_end(
@@ -220,6 +222,7 @@ impl GameContext {
         let turn_player = self
             .get_player_mut(self.turn_player_id())
             .ok_or(Error::PlayerNotFound)?;
+
         Ok(())
     }
 
@@ -236,9 +239,6 @@ impl GameContext {
         tiles: &[I16Vec2],
     ) -> Result<(), BoardError> {
         self.board.remove_effects(effect, tiles)
-    }
-    pub fn draw_board(&self) {
-        self.board.draw();
     }
     pub fn is_legal_move(&self, from: I16Vec2, to: I16Vec2, card: &Card) -> bool {
         card.movement.contains(&(from - to))

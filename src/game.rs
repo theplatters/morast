@@ -5,7 +5,10 @@ use game_context::GameContext;
 use macroquad::{math::I16Vec2, window::next_frame};
 use player::{Player, PlayerID};
 
-use crate::engine::{asset_loader::AssetLoader, janet_handler::controller::Environment};
+use crate::{
+    engine::{asset_loader::AssetLoader, janet_handler::controller::Environment},
+    game::renderer::Renderer,
+};
 
 pub mod board;
 pub mod card;
@@ -16,6 +19,7 @@ pub mod game_context;
 pub mod game_objects;
 mod phases;
 pub mod player;
+mod renderer;
 
 pub struct Game {
     pub context: GameContext,
@@ -23,6 +27,7 @@ pub struct Game {
     pub card_registry: CardRegistry,
     env: Environment,
     asset_loader: AssetLoader,
+    renderer: Renderer,
 }
 
 impl Game {
@@ -41,29 +46,8 @@ impl Game {
             context: GameContext::new(players),
             card_registry,
             asset_loader,
+            renderer: Renderer {},
         }
-    }
-
-    pub fn place(
-        &mut self,
-        card_id: CardID,
-        index: I16Vec2,
-        player_id: PlayerID,
-    ) -> Result<(), Error> {
-        self.context.place(
-            card_id,
-            index,
-            player_id,
-            &self.card_registry,
-            &mut self.scheduler,
-        )?;
-
-        self.context.update_attack_values(&self.card_registry);
-        Ok(())
-    }
-
-    pub fn turn_player_id(&self) -> PlayerID {
-        self.context.turn_player_id()
     }
 
     pub async fn main_loop(&mut self) -> Result<(), Error> {
@@ -77,18 +61,7 @@ impl Game {
                 .process_main_phase(&mut self.scheduler, &self.card_registry)?;
             self.context
                 .process_turn_end(&mut self.scheduler, &self.card_registry)?;
-            self.context.draw_board();
             next_frame().await
         }
-    }
-
-    pub fn other_player_id(&self) -> PlayerID {
-        self.context.other_player_id()
-    }
-
-    pub fn move_card(&mut self, from: I16Vec2, to: I16Vec2) -> Result<(), Error> {
-        self.context.move_card(from, to, &self.card_registry)?;
-        self.scheduler.process_events(&mut self.context)?;
-        Ok(())
     }
 }
