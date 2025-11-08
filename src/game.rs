@@ -2,7 +2,7 @@ use card::{card_id::CardID, card_registry::CardRegistry};
 use error::Error;
 use events::event_scheduler::GameScheduler;
 use game_context::GameContext;
-use macroquad::math::I16Vec2;
+use macroquad::{math::I16Vec2, window::next_frame};
 use player::{Player, PlayerID};
 
 use crate::engine::{asset_loader::AssetLoader, janet_handler::controller::Environment};
@@ -66,7 +66,7 @@ impl Game {
         self.context.turn_player_id()
     }
 
-    pub fn game_loop(&mut self) -> Result<(), Error> {
+    pub async fn main_loop(&mut self) -> Result<(), Error> {
         loop {
             self.context.advance_turn(&mut self.scheduler);
             self.context
@@ -77,6 +77,8 @@ impl Game {
                 .process_main_phase(&mut self.scheduler, &self.card_registry)?;
             self.context
                 .process_turn_end(&mut self.scheduler, &self.card_registry)?;
+            self.context.draw_board();
+            next_frame().await
         }
     }
 

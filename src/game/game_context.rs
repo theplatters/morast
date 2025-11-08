@@ -104,8 +104,6 @@ impl GameContext {
         card_registry: &CardRegistry,
         scheduler: &mut GameScheduler,
     ) -> Result<(), Error> {
-        // Get the card from hand
-
         // Validate side of the board
         if !self.is_on_player_side(position, player_id) {
             return Err(Error::InvalidMove);

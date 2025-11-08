@@ -22,6 +22,6 @@ impl GameAction {
         &self,
         argv: &[crate::engine::janet_handler::bindings::Janet],
     ) -> Result<crate::engine::janet_handler::types::janetenum::JanetEnum, Error> {
-        self.function.eval(argv).map_err(|e| Error::EngineError(e))
+        self.function.eval(argv).map_err(Error::EngineError)
     }
 }

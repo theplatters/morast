@@ -17,8 +17,5 @@ fn window_config() -> Conf {
 async fn main() {
     let mut game = Game::new().await;
 
-    loop {
-        game.context.draw_board();
-        next_frame().await
-    }
+    game.main_loop().await;
 }

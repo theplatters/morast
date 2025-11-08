@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use card_on_board::CardOnBoard;
 use effect::Effect;
 use macroquad::{
-    math::{I16Vec2, U16Vec2, UVec2},
+    math::{I16Vec2, U16Vec2},
     text::draw_text,
 };
 use place_error::BoardError;
