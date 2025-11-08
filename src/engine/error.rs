@@ -1,5 +1,7 @@
 use std::ffi::NulError;
 
+use macroquad::Error;
+
 #[derive(Debug)]
 pub enum EngineError {
     Eval,
@@ -8,4 +10,5 @@ pub enum EngineError {
     Type(String),
     File(String),
     String(NulError),
+    Load(Error),
 }

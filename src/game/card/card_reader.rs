@@ -3,10 +3,9 @@ use std::str::FromStr;
 use crate::{
     engine::{
         asset_loader::AssetLoader,
-        error::EngineError,
         janet_handler::{
             controller::Environment,
-            types::janetenum::{convert_to_i16_vec, to_i16_vec, JanetEnum},
+            types::janetenum::{convert_to_i16_vec, JanetEnum},
         },
     },
     game::{
@@ -119,7 +118,7 @@ pub async fn read_card(
     asset_loader
         .load_texture(asset_string.as_str(), name)
         .await
-        .map_err(Error::MacroquadError)?;
+        .map_err(Error::EngineError)?;
 
     let Some(JanetEnum::_Int(attack_strength)) = JanetEnum::get(env, "attack-strength", Some(name))
     else {
