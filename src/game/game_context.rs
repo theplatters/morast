@@ -108,12 +108,14 @@ impl GameContext {
             .get_player_mut(player_id)
             .ok_or(Error::PlayerNotFound)?;
         // Get the card from hand
-        let card = player
+        let card_id = player
             .remove_card_from_hand(card_index)
             .ok_or(Error::CardNotFound)?;
 
+        let card = card_registry.get(&card_id).ok_or(Error::CardNotFound)?;
+
         // Place onto the board
-        self.place(card, position, player_id, card_registry, scheduler)
+        self.place(card_id, position, player_id, card_registry, scheduler)
     }
 
     pub fn place(
@@ -173,7 +175,7 @@ impl GameContext {
     ) -> Result<(), Error> {
         self.draw_cards(self.turn_player_id(), NUM_CARDS_AT_START)
             .expect("The turn player could not be found, which should never happen");
-        for card in self.cards_placed.clone().keys() {
+        for card in self.cards_placed.keys() {
             println!("Processing card {:?}", card);
             card_registry
                 .get(&card.card_id)
@@ -287,9 +289,5 @@ impl GameContext {
             .iter()
             .find(|x| x.0.id == id)
             .map(|x| x.1.to_owned())
-    }
-
-    pub(crate) fn get_turn_player(&self) -> Option<&Player> {
-        self.players.get(self.turn_player.index())
     }
 }

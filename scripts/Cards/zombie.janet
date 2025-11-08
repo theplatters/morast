@@ -1,4 +1,4 @@
-(def cost 1)
+(def cost 2)
 (def card-image "assets/image3.png")
 
 (def movement (std/plus 1))

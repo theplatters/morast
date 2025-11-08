@@ -125,6 +125,10 @@ pub async fn read_card(
         return Err(Error::Cast("Attack strength not found".into()));
     };
 
+    let Some(JanetEnum::_Int(cost)) = JanetEnum::get(env, "cost", Some(name)) else {
+        return Err(Error::Cast("Cost not found".into()));
+    };
+
     let Some(JanetEnum::_Int(defense)) = JanetEnum::get(env, "defense", Some(name)) else {
         return Err(Error::Cast("Defense strength not found".into()));
     };
@@ -150,6 +154,7 @@ pub async fn read_card(
         attack,
         attack_strength: attack_strength as u16,
         defense: defense as u16,
+        cost: cost as u16,
         movement,
         abilities,
     })
