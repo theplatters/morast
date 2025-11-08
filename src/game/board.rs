@@ -178,6 +178,13 @@ impl Board {
         Ok(id)
     }
 
+    pub fn width(&self) -> i16 {
+        self.board_size.x
+    }
+
+    pub fn height(&self) -> i16 {
+        self.board_size.y
+    }
     pub fn add_effect(&mut self, effect: Effect, index: I16Vec2) -> Result<(), BoardError> {
         let tile = self.tiles.get_mut(&index).ok_or(BoardError::Index)?;
         tile.add_effect(effect);

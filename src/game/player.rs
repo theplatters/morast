@@ -75,6 +75,10 @@ impl Player {
         self.money = cmp::max(self.money + amount, 0)
     }
 
+    pub fn remove_gold(&mut self, amount: i64) {
+        self.money -= amount;
+    }
+
     pub fn get_gold(&self) -> i64 {
         self.money
     }

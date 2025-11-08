@@ -11,4 +11,5 @@ pub enum Error {
     NotFound(String),
     Cast(String),
     MacroquadError(macroquad::Error),
+    InsufficientGold,
 }

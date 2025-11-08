@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use log::debug;
 use macroquad::math::I16Vec2;
 
-use crate::game::{card::card_registry, phases::Phase};
+use crate::game::phases::Phase;
 
 use super::{
     board::{card_on_board::CardOnBoard, effect::Effect, place_error::BoardError, Board},
@@ -104,18 +104,44 @@ impl GameContext {
         card_registry: &CardRegistry,
         scheduler: &mut GameScheduler,
     ) -> Result<(), Error> {
+        // Get the card from hand
+
+        // Validate side of the board
+        if !self.is_on_player_side(position, player_id) {
+            return Err(Error::InvalidMove);
+        }
+
+        // Ensure the tile is empty
+        if self.get_card_at_index(&position).is_some() {
+            return Err(Error::PlaceError(BoardError::TileOccupied));
+        }
+
         let player = self
             .get_player_mut(player_id)
             .ok_or(Error::PlayerNotFound)?;
-        // Get the card from hand
+
         let card_id = player
             .remove_card_from_hand(card_index)
             .ok_or(Error::CardNotFound)?;
 
         let card = card_registry.get(&card_id).ok_or(Error::CardNotFound)?;
+        if player.get_gold() <= card.cost.into() {
+            return Err(Error::InsufficientGold);
+        }
 
+        player.remove_gold(card.cost.into());
         // Place onto the board
-        self.place(card_id, position, player_id, card_registry, scheduler)
+        self.place(card_id, position, player_id, card_registry, scheduler)?;
+        Ok(())
+    }
+
+    fn is_on_player_side(&self, pos: I16Vec2, player_id: PlayerID) -> bool {
+        let board_height = self.board.height();
+        if player_id.get() == 0 {
+            pos.y < board_height / 2
+        } else {
+            pos.y >= board_height / 2
+        }
     }
 
     pub fn place(
