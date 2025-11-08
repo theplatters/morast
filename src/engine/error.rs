@@ -2,10 +2,10 @@ use std::ffi::NulError;
 
 #[derive(Debug)]
 pub enum EngineError {
-    EvalError,
-    SignalError(String),
-    CastError(String),
-    TypeError(String),
-    FileError(String),
-    StringError(NulError),
+    Eval,
+    Signal(String),
+    Cast(String),
+    Type(String),
+    File(String),
+    String(NulError),
 }

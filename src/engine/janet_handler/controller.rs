@@ -185,7 +185,7 @@ impl Environment {
     }
     pub fn read_script(&self, filename: &str) -> Result<JanetEnum, EngineError> {
         let script = std::fs::read_to_string(filename).map_err(|e| {
-            EngineError::FileError(format!("Couldn't read file {}, Error: {}", filename, e))
+            EngineError::File(format!("Couldn't read file {}, Error: {}", filename, e))
         })?;
         let mut out: Janet = Janet {
             pointer: std::ptr::null_mut(),
@@ -194,10 +194,10 @@ impl Environment {
             janet_dostring(
                 self.env_ptr(),
                 std::ffi::CString::new(script)
-                    .map_err(|e| EngineError::StringError(e))?
+                    .map_err(|e| EngineError::String(e))?
                     .as_ptr(),
                 std::ffi::CString::new(filename)
-                    .map_err(|e| EngineError::StringError(e))?
+                    .map_err(|e| EngineError::String(e))?
                     .as_ptr(),
                 &mut out as *mut Janet,
             );

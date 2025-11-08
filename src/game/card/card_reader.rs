@@ -135,17 +135,14 @@ pub async fn read_card(
     };
 
     let abilities: Vec<Abilities> = match JanetEnum::get(env, "abilities", Some(name)) {
-        Some(JanetEnum::_Array(abilities)) => {
-            let abilities_parsed: Vec<Abilities> = abilities
-                .iter()
-                .map(|el| {
-                    let s: String = el.try_into().map_err(Error::EngineError)?; // try convert to String
-                    Abilities::from_str(&s)
-                })
-                .collect::<Result<_, Error>>()?;
+        Some(JanetEnum::_Array(abilities)) => abilities
+            .iter()
+            .map(|el| {
+                let s: String = el.try_into().map_err(Error::EngineError)?; // try convert to String
+                Abilities::from_str(&s)
+            })
+            .collect::<Result<_, Error>>()?,
 
-            abilities_parsed
-        }
         _ => Vec::new(),
     };
 

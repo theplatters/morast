@@ -34,7 +34,7 @@ impl Function {
             );
 
             if signal != 0 {
-                return Err(EngineError::SignalError(format!("Got signal {}", signal)));
+                return Err(EngineError::Signal(format!("Got signal {}", signal)));
             }
 
             JanetEnum::from(out)
