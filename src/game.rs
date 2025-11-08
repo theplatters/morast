@@ -1,13 +1,12 @@
-use card::{card_id::CardID, card_registry::CardRegistry};
+use card::card_registry::CardRegistry;
 use error::Error;
 use events::event_scheduler::GameScheduler;
 use game_context::GameContext;
-use macroquad::{math::I16Vec2, window::next_frame};
+use macroquad::window::next_frame;
 use player::{Player, PlayerID};
 
-use crate::{
-    engine::{asset_loader::AssetLoader, janet_handler::controller::Environment},
-    game::renderer::Renderer,
+use crate::engine::{
+    asset_loader::AssetLoader, janet_handler::controller::Environment, renderer::Renderer,
 };
 
 pub mod board;
@@ -19,7 +18,6 @@ pub mod game_context;
 pub mod game_objects;
 mod phases;
 pub mod player;
-mod renderer;
 
 pub struct Game {
     pub context: GameContext,
@@ -61,6 +59,8 @@ impl Game {
                 .process_main_phase(&mut self.scheduler, &self.card_registry)?;
             self.context
                 .process_turn_end(&mut self.scheduler, &self.card_registry)?;
+
+            self.renderer.render(&self.context, &self.asset_loader);
             next_frame().await
         }
     }

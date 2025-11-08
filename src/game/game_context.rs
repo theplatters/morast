@@ -31,6 +31,9 @@ impl GameContext {
             cards_placed: HashMap::new(),
         }
     }
+    pub fn get_board(&self) -> &Board {
+        &self.board
+    }
 
     pub fn change_turn_player(&mut self) {
         self.turn_player = self.turn_player.next();
@@ -166,6 +169,10 @@ impl GameContext {
 
         self.update_attack_values(card_registry);
         Ok(())
+    }
+
+    pub fn get_turn_player(&self) -> Option<&Player> {
+        self.players.get(self.turn_player_id().index())
     }
 
     pub fn process_turn_end(

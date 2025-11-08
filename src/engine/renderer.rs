@@ -2,13 +2,13 @@ use macroquad::{math::I16Vec2, text::draw_text};
 
 use crate::{
     engine::asset_loader::AssetLoader,
-    game::{board::Board, player::Player},
+    game::{board::Board, error::Error, game_context::GameContext, player::Player},
 };
 
 pub struct Renderer {}
 
 impl Renderer {
-    pub fn draw_board(&self, board: Board) {
+    pub fn draw_board(&self, board: &Board, _asset_loader: &AssetLoader) {
         const TILE_SIZE: f32 = 64.0;
 
         for x in 0i16..=board.width() {
@@ -71,6 +71,16 @@ impl Renderer {
         }
     }
 
-    fn draw_hand(self, player: &Player) {}
-}
+    fn draw_hand(&self, player: &Player, _asset_loader: &AssetLoader) {}
 
+    pub(crate) fn render(
+        &self,
+        context: &GameContext,
+        asset_loader: &AssetLoader,
+    ) -> Result<(), Error> {
+        let turn_player = context.get_turn_player().ok_or(Error::PlayerNotFound)?;
+        self.draw_hand(turn_player, asset_loader);
+        self.draw_board(context.get_board(), asset_loader);
+        Ok(())
+    }
+}
