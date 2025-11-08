@@ -50,15 +50,13 @@ impl Game {
         index: I16Vec2,
         player_id: PlayerID,
     ) -> Result<(), Error> {
-        self.context
-            .place(
-                card_id,
-                index,
-                player_id,
-                &self.card_registry,
-                &mut self.scheduler,
-            )
-            .expect("Placing card failed");
+        self.context.place(
+            card_id,
+            index,
+            player_id,
+            &self.card_registry,
+            &mut self.scheduler,
+        )?;
 
         self.context.update_attack_values(&self.card_registry);
         Ok(())

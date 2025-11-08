@@ -3,6 +3,7 @@ use std::str::FromStr;
 use crate::{
     engine::{
         asset_loader::AssetLoader,
+        error::EngineError,
         janet_handler::{
             controller::Environment,
             types::janetenum::{convert_to_i16_vec, to_i16_vec, JanetEnum},
@@ -134,13 +135,17 @@ pub async fn read_card(
     };
 
     let abilities: Vec<Abilities> = match JanetEnum::get(env, "abilities", Some(name)) {
-        Some(JanetEnum::_Array(abilities)) => abilities
-            .iter()
-            .map(|el| {
-                el.try_into()
-                    .map_or_else(Err, |el: String| Abilities::from_str(el.as_str()))
-            })
-            .collect::<Result<_, Error>>()?,
+        Some(JanetEnum::_Array(abilities)) => {
+            let abilities_parsed: Vec<Abilities> = abilities
+                .iter()
+                .map(|el| {
+                    let s: String = el.try_into().map_err(Error::EngineError)?; // try convert to String
+                    Abilities::from_str(&s)
+                })
+                .collect::<Result<_, Error>>()?;
+
+            abilities_parsed
+        }
         _ => Vec::new(),
     };
 

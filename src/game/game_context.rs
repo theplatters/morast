@@ -159,7 +159,7 @@ impl GameContext {
                 self.cards_placed.insert(key, index);
                 card_registry
                     .get(&card_id)
-                    .unwrap_or_else(|| panic!("Card {:?} not found", key))
+                    .ok_or(Error::CardNotFound)?
                     .on_place(scheduler, self.turn_player_id(), id);
                 scheduler.process_events(self)?;
                 Ok(())
@@ -199,8 +199,7 @@ impl GameContext {
         scheduler: &mut GameScheduler,
         card_registry: &CardRegistry,
     ) -> Result<(), Error> {
-        self.draw_cards(self.turn_player_id(), NUM_CARDS_AT_START)
-            .expect("The turn player could not be found, which should never happen");
+        self.draw_cards(self.turn_player_id(), NUM_CARDS_AT_START)?;
         for card in self.cards_placed.keys() {
             println!("Processing card {:?}", card);
             card_registry

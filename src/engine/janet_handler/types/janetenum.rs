@@ -7,6 +7,7 @@ use std::{
 use macroquad::math::I16Vec2;
 
 use crate::{
+    engine::error::EngineError,
     engine::janet_handler::{
         bindings::{
             janet_array, janet_array_pop, janet_array_push, janet_checktype, janet_getarray,
@@ -20,7 +21,6 @@ use crate::{
         },
         controller::Environment,
     },
-    game::error::Error,
 };
 
 use super::{function::Function, table::Table};
@@ -49,7 +49,7 @@ impl Hash for JanetEnum {
 }
 
 impl JanetEnum {
-    pub fn unwrap_array(mut arr: JanetArray) -> Result<Vec<JanetEnum>, String> {
+    pub fn unwrap_array(mut arr: JanetArray) -> Result<Vec<JanetEnum>, EngineError> {
         let mut arr_vec: Vec<JanetEnum> = Vec::with_capacity(arr.count as usize);
         while arr.count != 0 {
             unsafe {
@@ -87,12 +87,12 @@ impl JanetEnum {
             }
             match Self::from(out) {
                 Ok(v) => Some(v),
-                Err(e) => panic!("{}", e),
+                Err(_) => None,
             }
         }
     }
 
-    pub fn from(item: Janet) -> Result<JanetEnum, String> {
+    pub fn from(item: Janet) -> Result<JanetEnum, EngineError> {
         unsafe {
             match janet_type(item) {
                 JANET_TYPE_JANET_FUNCTION => Ok(JanetEnum::_Function(Function::new(
@@ -110,7 +110,7 @@ impl JanetEnum {
                         .to_str()
                     {
                         Ok(v) => Ok(JanetEnum::_String(String::from(v))),
-                        Err(_) => Err("Casting to String failed".to_owned()),
+                        Err(_) => Err(EngineError::CastError("Casting to string failed".into())),
                     }
                 }
                 JANET_TYPE_JANET_NIL => Ok(JanetEnum::_Null),
@@ -126,21 +126,33 @@ impl JanetEnum {
                 JANET_TYPE_JANET_ARRAY => match janet_unwrap_array(item).as_mut() {
                     Some(it) => match JanetEnum::unwrap_array(*it) {
                         Ok(v) => Ok(JanetEnum::_Array(v)),
-                        Err(e) => Err(format!("Error while creating array {}", e)),
+                        Err(e) => Err(e),
                     },
-                    None => Err("Couldn't cast pointer to reference".into()),
+                    None => Err(EngineError::CastError(
+                        "Couldn't cast pointer to reference".into(),
+                    )),
                 },
                 JANET_TYPE_JANET_TABLE => match janet_unwrap_table(item).as_mut() {
                     Some(it) => Ok(JanetEnum::_Table(Table::new(it))),
-                    None => Err("Couldn't cast pointer to reference".into()),
+                    None => Err(EngineError::CastError(
+                        "Couldn't cast pointer to reference".into(),
+                    )),
                 },
                 JANET_TYPE_JANET_SYMBOL => Ok(JanetEnum::_String(
                     CStr::from_ptr(janet_unwrap_symbol(item) as *const std::ffi::c_char)
                         .to_str()
-                        .map_err(|_| "Could not cast to a string")?
+                        .map_err(|e| {
+                            EngineError::CastError(format!(
+                                "Could not cast symbol at pointer to UTF-8 string: {}",
+                                e
+                            ))
+                        })?
                         .to_owned(),
                 )),
-                janet_type => Err(format!("Type {} is Currently unsuported", janet_type)),
+                other => Err(EngineError::TypeError(format!(
+                    "Type '{}' is currently unsupported",
+                    other
+                ))),
             }
         }
     }
@@ -231,21 +243,21 @@ impl fmt::Display for JanetEnum {
 }
 
 impl TryFrom<JanetEnum> for String {
-    type Error = Error;
+    type Error = EngineError;
 
     fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
         let JanetEnum::_String(s) = value else {
-            return Err(Error::Cast("Value is not a String".into()));
+            return Err(EngineError::CastError("Value is not a String".into()));
         };
         Ok(s)
     }
 }
 impl TryFrom<&JanetEnum> for String {
-    type Error = Error;
+    type Error = EngineError;
 
     fn try_from(value: &JanetEnum) -> Result<Self, Self::Error> {
         let JanetEnum::_String(s) = value else {
-            return Err(Error::Cast("Value is not a String".into()));
+            return Err(EngineError::CastError("Value is not a String".into()));
         };
         Ok(s.to_owned())
     }

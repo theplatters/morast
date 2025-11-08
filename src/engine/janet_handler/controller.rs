@@ -3,7 +3,7 @@ use std::{
     str::FromStr,
 };
 
-use crate::engine::janet_handler::api::cfun_from_current_position;
+use crate::engine::{error::EngineError, janet_handler::api::cfun_from_current_position};
 
 use super::{
     api::{
@@ -183,9 +183,10 @@ impl Environment {
             janet_deinit();
         }
     }
-    pub fn read_script(&self, filename: &str) -> Result<JanetEnum, String> {
-        let script = std::fs::read_to_string(filename)
-            .map_err(|_| format!("Couldn't read file {}", filename))?;
+    pub fn read_script(&self, filename: &str) -> Result<JanetEnum, EngineError> {
+        let script = std::fs::read_to_string(filename).map_err(|e| {
+            EngineError::FileError(format!("Couldn't read file {}, Error: {}", filename, e))
+        })?;
         let mut out: Janet = Janet {
             pointer: std::ptr::null_mut(),
         };
@@ -193,15 +194,15 @@ impl Environment {
             janet_dostring(
                 self.env_ptr(),
                 std::ffi::CString::new(script)
-                    .map_err(|_| "CString::new failed")?
+                    .map_err(|e| EngineError::StringError(e))?
                     .as_ptr(),
                 std::ffi::CString::new(filename)
-                    .map_err(|_| "CString::new failed")?
+                    .map_err(|e| EngineError::StringError(e))?
                     .as_ptr(),
                 &mut out as *mut Janet,
             );
         }
-        JanetEnum::from(out).map_err(|e| e.to_string())
+        JanetEnum::from(out)
     }
 }
 
