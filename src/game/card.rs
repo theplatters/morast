@@ -77,4 +77,3 @@ impl Card {
         &self.attack
     }
 }
-impl crate::engine::janet_handler::types::janetenum::ToVoidPointer for Card {}

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use log::debug;
 use macroquad::math::I16Vec2;
 
-use crate::game::phases::Phase;
+use crate::game::{card::card_registry, phases::Phase};
 
 use super::{
     board::{card_on_board::CardOnBoard, effect::Effect, place_error::BoardError, Board},
@@ -48,9 +48,9 @@ impl GameContext {
 
     pub fn other_player_id(&self) -> PlayerID {
         if self.players[0].id == self.turn_player {
-            self.turn_player
-        } else {
             self.players[1].id
+        } else {
+            self.players[0].id
         }
     }
 
@@ -90,10 +90,30 @@ impl GameContext {
         Ok(())
     }
 
-    pub fn shuffe_deck(&mut self, player_id: PlayerID) -> Option<()> {
+    pub fn shuffle_deck(&mut self, player_id: PlayerID) -> Option<()> {
         let player = self.get_player_mut(player_id)?;
         player.shuffle_deck();
         Some(())
+    }
+
+    pub fn place_card_from_hand(
+        &mut self,
+        player_id: PlayerID,
+        card_index: usize,
+        position: I16Vec2,
+        card_registry: &CardRegistry,
+        scheduler: &mut GameScheduler,
+    ) -> Result<(), Error> {
+        let player = self
+            .get_player_mut(player_id)
+            .ok_or(Error::PlayerNotFound)?;
+        // Get the card from hand
+        let card = player
+            .remove_card_from_hand(card_index)
+            .ok_or(Error::CardNotFound)?;
+
+        // Place onto the board
+        self.place(card, position, player_id, card_registry, scheduler)
     }
 
     pub fn place(
@@ -124,41 +144,58 @@ impl GameContext {
         &mut self,
         scheduler: &mut GameScheduler,
         card_registry: &CardRegistry,
-    ) {
+    ) -> Result<(), Error> {
         debug!(
             "Processing turn {:?} beginning ",
             scheduler.get_turn_count()
         );
         scheduler.advance_to_phase(Phase::End, self);
-        for (card, _) in self.cards_placed.clone().iter() {
+        for card in self.cards_placed.keys() {
             card_registry
                 .get(&card.card_id)
-                .expect("Card not found")
+                .ok_or(Error::CardNotFound)?
                 .on_turn_start(scheduler, self.turn_player_id(), card.id);
         }
 
-        scheduler.process_events(self);
+        scheduler.process_events(self)?;
+        Ok(())
+    }
+
+    pub(crate) fn advance_turn(&mut self, scheduler: &mut GameScheduler) {
+        self.change_turn_player();
+        scheduler.advance_turn(self);
     }
 
     pub fn process_turn_begin(
         &mut self,
         scheduler: &mut GameScheduler,
         card_registry: &CardRegistry,
-    ) {
-        self.change_turn_player();
-        scheduler.advance_turn(self);
+    ) -> Result<(), Error> {
         self.draw_cards(self.turn_player_id(), NUM_CARDS_AT_START)
             .expect("The turn player could not be found, which should never happen");
-        for (card, index) in &self.cards_placed.clone() {
+        for card in self.cards_placed.clone().keys() {
             println!("Processing card {:?}", card);
             card_registry
                 .get(&card.card_id)
-                .expect("Card not found")
+                .ok_or(Error::CardNotFound)?
                 .on_turn_end(scheduler, self.turn_player_id(), card.id);
         }
 
         self.board.update_effects();
-        scheduler.process_events(self);
+        scheduler.process_events(self)?;
+        Ok(())
+    }
+
+    pub(crate) fn process_main_phase(
+        &mut self,
+        scheduler: &mut GameScheduler,
+        card_registry: &CardRegistry,
+    ) -> Result<(), Error> {
+        scheduler.advance_to_phase(Phase::Main, self);
+        let turn_player = self
+            .get_player_mut(self.turn_player_id())
+            .ok_or(Error::PlayerNotFound)?;
+        Ok(())
     }
 
     pub(crate) fn add_effects(
@@ -175,14 +212,13 @@ impl GameContext {
     ) -> Result<(), BoardError> {
         self.board.remove_effects(effect, tiles)
     }
-
     pub fn draw_board(&self) {
         self.board.draw();
     }
-
     pub fn is_legal_move(&self, from: I16Vec2, to: I16Vec2, card: &Card) -> bool {
         card.movement.contains(&(from - to))
     }
+
     pub fn move_card(
         &mut self,
         from: I16Vec2,
@@ -252,6 +288,8 @@ impl GameContext {
             .find(|x| x.0.id == id)
             .map(|x| x.1.to_owned())
     }
-}
 
-impl crate::engine::janet_handler::types::janetenum::ToVoidPointer for GameContext {}
+    pub(crate) fn get_turn_player(&self) -> Option<&Player> {
+        self.players.get(self.turn_player.index())
+    }
+}

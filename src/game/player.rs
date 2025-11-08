@@ -11,6 +11,9 @@ impl PlayerID {
     pub fn new(id: u16) -> Self {
         Self(id)
     }
+    pub fn index(&self) -> usize {
+        self.0 as usize
+    }
 
     pub fn get(&self) -> u16 {
         self.0
@@ -74,5 +77,17 @@ impl Player {
 
     pub fn get_gold(&self) -> i64 {
         self.money
+    }
+
+    pub(crate) fn remove_card_from_hand(&mut self, card_index: usize) -> Option<CardID> {
+        if card_index < self.hand.len() {
+            Some(self.hand.remove(card_index))
+        } else {
+            None
+        }
+    }
+
+    pub fn hand_size(&self) -> usize {
+        self.hand.len()
     }
 }

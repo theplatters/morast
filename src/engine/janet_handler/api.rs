@@ -133,9 +133,11 @@ pub unsafe extern "C" fn cfun_shuffle_deck(argc: i32, argv: *mut Janet) -> Janet
     let player_id = PlayerID::new(janet_getuinteger16(argv, 0));
     (janet_getpointer(argv, 1) as *mut GameContext)
         .as_mut()
-        .map_or(janet_wrap_nil(), |game| match game.shuffe_deck(player_id) {
-            Some(_) => janet_wrap_boolean(1),
-            None => janet_wrap_boolean(0),
+        .map_or(janet_wrap_nil(), |game| {
+            match game.shuffle_deck(player_id) {
+                Some(_) => janet_wrap_boolean(1),
+                None => janet_wrap_boolean(0),
+            }
         })
 }
 

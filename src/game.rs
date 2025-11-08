@@ -68,27 +68,22 @@ impl Game {
         self.context.turn_player_id()
     }
 
-    pub fn game_loop(&mut self) {
+    pub fn game_loop(&mut self) -> Result<(), Error> {
         loop {
-            self.advance_turn();
+            self.context.advance_turn(&mut self.scheduler);
+            self.context
+                .process_turn_begin(&mut self.scheduler, &self.card_registry)?;
 
             //TODO: implement Main Phase
-            self.end_turn();
+            self.context
+                .process_main_phase(&mut self.scheduler, &self.card_registry)?;
+            self.context
+                .process_turn_end(&mut self.scheduler, &self.card_registry)?;
         }
     }
 
     pub fn other_player_id(&self) -> PlayerID {
         self.context.other_player_id()
-    }
-
-    pub fn advance_turn(&mut self) {
-        self.context
-            .process_turn_begin(&mut self.scheduler, &self.card_registry);
-    }
-
-    pub fn end_turn(&mut self) {
-        self.context
-            .process_turn_end(&mut self.scheduler, &self.card_registry);
     }
 
     pub fn move_card(&mut self, from: I16Vec2, to: I16Vec2) -> Result<(), Error> {

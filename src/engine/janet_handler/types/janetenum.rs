@@ -25,7 +25,6 @@ use crate::{
 
 use super::{function::Function, table::Table};
 
-pub trait ToVoidPointer {}
 pub trait JanetItem {
     fn to_janet(&self) -> Janet;
 }
