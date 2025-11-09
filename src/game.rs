@@ -2,8 +2,10 @@ use card::card_registry::CardRegistry;
 use error::Error;
 use events::event_scheduler::GameScheduler;
 use game_context::GameContext;
-use macroquad::window::next_frame;
-use player::{Player, PlayerID};
+use macroquad::{
+    input::{is_key_down, is_key_pressed, KeyCode},
+    window::next_frame,
+};
 
 use crate::engine::{
     asset_loader::AssetLoader, janet_handler::controller::Environment, renderer::Renderer,
@@ -35,22 +37,23 @@ impl Game {
         let mut env = Environment::new();
         env.read_script("scripts/loader.janet")
             .expect("Could not find file");
-        let players = [Player::new(PlayerID::new(0)), Player::new(PlayerID::new(1))];
-        let card_registry = CardRegistry::new(&mut env, &mut asset_loader).await;
+        let mut card_registry = CardRegistry::new();
+        card_registry.init(&mut env, &mut asset_loader).await;
         println!("Card Registry: {:?}", card_registry);
         Self {
             env,
             scheduler: GameScheduler::new(),
-            context: GameContext::new(players),
+            context: GameContext::new(&card_registry),
             card_registry,
             asset_loader,
-            renderer: Renderer {},
+            renderer: Renderer::new(),
         }
     }
 
     pub async fn main_loop(&mut self) -> Result<(), Error> {
         loop {
             self.context.advance_turn(&mut self.scheduler);
+
             self.context
                 .process_turn_begin(&mut self.scheduler, &self.card_registry)?;
 
@@ -60,8 +63,14 @@ impl Game {
             self.context
                 .process_turn_end(&mut self.scheduler, &self.card_registry)?;
 
-            self.renderer.render(&self.context, &self.asset_loader);
-            next_frame().await
+            while !is_key_pressed(KeyCode::Enter) {
+                self.renderer
+                    .render(&self.context, &self.asset_loader, &self.card_registry);
+                next_frame().await
+            }
+            while is_key_down(KeyCode::Enter) {
+                next_frame().await;
+            }
         }
     }
 }

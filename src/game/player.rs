@@ -2,6 +2,8 @@ use std::cmp;
 
 use macroquad::rand::ChooseRandom;
 
+use crate::game::card::Card;
+
 use super::card::card_id::CardID;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
@@ -35,11 +37,11 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new(id: PlayerID) -> Self {
+    pub fn new(id: PlayerID, deck: Vec<CardID>) -> Self {
         Self {
             id,
             money: 0,
-            deck: Vec::new(),
+            deck,
             hand: Vec::new(),
             discard_pile: Vec::new(),
         }
@@ -53,13 +55,10 @@ impl Player {
         self.deck.shuffle();
     }
 
-    pub fn peek_deck(&self) -> Option<CardID> {
-        self.deck.last().cloned()
-    }
-
     pub fn add_to_deck_top(&mut self, card: CardID) {
         self.hand.push(card)
     }
+
     pub fn draw_from_deck(&mut self) -> Option<CardID> {
         self.deck.pop()
     }
@@ -81,6 +80,10 @@ impl Player {
 
     pub fn get_gold(&self) -> i64 {
         self.money
+    }
+
+    pub fn get_hand(&self) -> &Vec<CardID> {
+        &self.hand
     }
 
     pub(crate) fn remove_card_from_hand(&mut self, card_index: usize) -> Option<CardID> {

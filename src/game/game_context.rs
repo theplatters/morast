@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use log::debug;
-use macroquad::math::I16Vec2;
+use macroquad::{math::I16Vec2, miniquad::Context, rand::ChooseRandom};
 
-use crate::game::phases::Phase;
+use crate::game::{card, phases::Phase};
 
 use super::{
     board::{card_on_board::CardOnBoard, effect::Effect, place_error::BoardError, Board},
@@ -23,7 +23,20 @@ pub struct GameContext {
 }
 
 impl GameContext {
-    pub fn new(players: [Player; 2]) -> Self {
+    pub fn standard_deck(card_registry: &CardRegistry) -> Vec<CardID> {
+        let mut deck = Vec::new();
+        for key in card_registry.registered_ids() {
+            deck.extend(std::iter::repeat_n(*key, 4));
+        }
+        deck.shuffle();
+        deck
+    }
+
+    pub fn new(card_registry: &CardRegistry) -> Self {
+        let players = [
+            Player::new(PlayerID::new(0), GameContext::standard_deck(card_registry)),
+            Player::new(PlayerID::new(1), GameContext::standard_deck(card_registry)),
+        ];
         Self {
             players,
             board: Board::new(),
@@ -31,6 +44,7 @@ impl GameContext {
             cards_placed: HashMap::new(),
         }
     }
+
     pub fn get_board(&self) -> &Board {
         &self.board
     }

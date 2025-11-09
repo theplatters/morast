@@ -29,7 +29,7 @@ pub struct Board {
 impl Board {
     pub fn new() -> Self {
         let mut tiles = HashMap::new();
-        let x_size: i16 = 12;
+        let x_size: i16 = 24;
         let y_size: i16 = 12;
         for x in 0..=x_size {
             for y in 0..=y_size {
@@ -228,6 +228,7 @@ impl Board {
     pub fn get_tile(&self, pos: &I16Vec2) -> Option<&Tile> {
         self.tiles.get(pos)
     }
+
     pub fn move_card(&mut self, from: I16Vec2, to: I16Vec2) -> Result<CardOnBoard, BoardError> {
         // Check if 'from' and 'to' are valid
         let from_tile = self.tiles.get(&from).ok_or(BoardError::Index)?;

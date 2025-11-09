@@ -1,15 +1,51 @@
-use macroquad::{math::I16Vec2, text::draw_text};
-
-use crate::{
-    engine::asset_loader::AssetLoader,
-    game::{board::Board, error::Error, game_context::GameContext, player::Player},
+use macroquad::{
+    color::*,
+    input::mouse_position,
+    math::{I16Vec2, Vec2},
+    shapes::draw_rectangle,
+    text::draw_text,
 };
 
-pub struct Renderer {}
+mod card_render;
 
-impl Renderer {
+use crate::{
+    engine::{asset_loader::AssetLoader, renderer::card_render::CardRenderer},
+    game::{
+        board::Board,
+        card::{card_registry::CardRegistry, Card},
+        error::Error,
+        game_context::GameContext,
+    },
+};
+
+pub struct Renderer {
+    cards_to_draw: Vec<CardRenderer>,
+}
+
+impl<'a> Renderer {
+    pub fn new() -> Self {
+        Self {
+            cards_to_draw: Vec::new(),
+        }
+    }
+    pub fn update_cards(&mut self, game_cards: &[&Card], assets: &'a AssetLoader) {
+        self.cards_to_draw.clear();
+
+        for (i, card) in game_cards.iter().enumerate() {
+            let card = CardRenderer::new(
+                Vec2::new(i as f32 * 190.0, 700.0),
+                card.cost,
+                card.attack_strength,
+                card.defense,
+                card.name.clone(),
+            );
+
+            self.cards_to_draw.push(card)
+        }
+    }
+
     pub fn draw_board(&self, board: &Board, _asset_loader: &AssetLoader) {
-        const TILE_SIZE: f32 = 64.0;
+        const TILE_SIZE: f32 = 50.0;
 
         for x in 0i16..=board.width() {
             for y in 0i16..=board.height() {
@@ -25,7 +61,7 @@ impl Renderer {
 
                 // Calculate screen position
                 let screen_x = x as f32 * TILE_SIZE;
-                let screen_y = y as f32 * TILE_SIZE + 200.0;
+                let screen_y = y as f32 * TILE_SIZE;
 
                 // Draw tile background
                 macroquad::shapes::draw_rectangle(screen_x, screen_y, TILE_SIZE, TILE_SIZE, color);
@@ -71,16 +107,28 @@ impl Renderer {
         }
     }
 
-    fn draw_hand(&self, player: &Player, _asset_loader: &AssetLoader) {}
+    fn draw_hand(&self) {
+        for card in self.cards_to_draw.iter() {
+            card.draw_card();
+        }
+    }
 
     pub(crate) fn render(
-        &self,
+        &mut self,
         context: &GameContext,
-        asset_loader: &AssetLoader,
+        asset_loader: &'a AssetLoader,
+        card_registry: &CardRegistry,
     ) -> Result<(), Error> {
-        let turn_player = context.get_turn_player().ok_or(Error::PlayerNotFound)?;
-        self.draw_hand(turn_player, asset_loader);
+        let player = context.get_turn_player().ok_or(Error::PlayerNotFound)?;
+        let hand = player.get_hand();
+        let cards: Vec<_> = hand
+            .iter()
+            .filter_map(|card| card_registry.get(card))
+            .collect();
+
+        self.update_cards(cards.as_slice(), asset_loader);
         self.draw_board(context.get_board(), asset_loader);
+        self.draw_hand();
         Ok(())
     }
 }
