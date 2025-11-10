@@ -140,8 +140,9 @@ impl GameContext {
             .ok_or(Error::CardNotFound)?;
 
         let card = card_registry.get(&card_id).ok_or(Error::CardNotFound)?;
+
         if player.get_gold() <= card.cost.into() {
-            return Err(Error::InsufficientGold);
+            //return Err(Error::InsufficientGold);
         }
 
         player.remove_gold(card.cost.into());
@@ -151,11 +152,11 @@ impl GameContext {
     }
 
     fn is_on_player_side(&self, pos: I16Vec2, player_id: PlayerID) -> bool {
-        let board_height = self.board.height();
+        let board_width = self.board.width();
         if player_id.get() == 0 {
-            pos.y < board_height / 2
+            pos.x < board_width / 4
         } else {
-            pos.y >= board_height / 2
+            pos.x >= board_width - board_width / 4
         }
     }
 

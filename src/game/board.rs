@@ -2,10 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use card_on_board::CardOnBoard;
 use effect::Effect;
-use macroquad::{
-    math::{I16Vec2, U16Vec2},
-    text::draw_text,
-};
+use macroquad::math::{I16Vec2, U16Vec2};
 use place_error::BoardError;
 use tile::Tile;
 

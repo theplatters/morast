@@ -1,15 +1,19 @@
+use std::sync::Arc;
+
 use macroquad::{
-    color::*,
-    input::mouse_position,
     math::{I16Vec2, Vec2},
-    shapes::draw_rectangle,
+    shapes::draw_rectangle_lines,
     text::draw_text,
 };
 
 mod card_render;
+pub mod render_config;
 
 use crate::{
-    engine::{asset_loader::AssetLoader, renderer::card_render::CardRenderer},
+    engine::{
+        asset_loader::AssetLoader,
+        renderer::{card_render::CardRenderer, render_config::RenderConfig},
+    },
     game::{
         board::Board,
         card::{card_registry::CardRegistry, Card},
@@ -20,24 +24,29 @@ use crate::{
 
 pub struct Renderer {
     cards_to_draw: Vec<CardRenderer>,
+    render_config: Arc<RenderConfig>,
 }
 
 impl<'a> Renderer {
-    pub fn new() -> Self {
+    pub fn new(render_config: Arc<RenderConfig>) -> Self {
         Self {
             cards_to_draw: Vec::new(),
+            render_config,
         }
     }
-    pub fn update_cards(&mut self, game_cards: &[&Card], assets: &'a AssetLoader) {
+    pub fn update_cards(&mut self, game_cards: &[&Card], assets: &AssetLoader) {
         self.cards_to_draw.clear();
 
         for (i, card) in game_cards.iter().enumerate() {
+            let pos_x =
+                i as f32 * (self.render_config.card_width + self.render_config.card_padding);
             let card = CardRenderer::new(
-                Vec2::new(i as f32 * 190.0, 700.0),
+                Vec2::new(pos_x, self.render_config.hand_y),
                 card.cost,
                 card.attack_strength,
                 card.defense,
                 card.name.clone(),
+                self.render_config.clone(),
             );
 
             self.cards_to_draw.push(card)
@@ -45,10 +54,10 @@ impl<'a> Renderer {
     }
 
     pub fn draw_board(&self, board: &Board, _asset_loader: &AssetLoader) {
-        const TILE_SIZE: f32 = 50.0;
+        let tile_size: f32 = self.render_config.tile_size;
 
-        for x in 0i16..=board.width() {
-            for y in 0i16..=board.height() {
+        for x in 0i16..board.width() {
+            for y in 0i16..board.height() {
                 let pos = I16Vec2::new(x, y);
                 let tile = board.get_tile(&pos).unwrap();
 
@@ -60,11 +69,19 @@ impl<'a> Renderer {
                 };
 
                 // Calculate screen position
-                let screen_x = x as f32 * TILE_SIZE;
-                let screen_y = y as f32 * TILE_SIZE;
+                let screen_x = x as f32 * tile_size;
+                let screen_y = y as f32 * tile_size;
 
                 // Draw tile background
-                macroquad::shapes::draw_rectangle(screen_x, screen_y, TILE_SIZE, TILE_SIZE, color);
+                macroquad::shapes::draw_rectangle(screen_x, screen_y, tile_size, tile_size, color);
+                draw_rectangle_lines(
+                    screen_x,
+                    screen_y,
+                    tile_size,
+                    tile_size,
+                    1.0,
+                    macroquad::color::BLACK,
+                );
 
                 // Draw attack values
                 let attack_x = tile.attack_on_tile.x;
@@ -89,15 +106,15 @@ impl<'a> Renderer {
                     macroquad::shapes::draw_line(
                         screen_x + padding,
                         screen_y + padding,
-                        screen_x + TILE_SIZE - padding,
-                        screen_y + TILE_SIZE - padding,
+                        screen_x + tile_size - padding,
+                        screen_y + tile_size - padding,
                         thickness,
                         macroquad::color::BLACK,
                     );
                     macroquad::shapes::draw_line(
                         screen_x + padding,
-                        screen_y + TILE_SIZE - padding,
-                        screen_x + TILE_SIZE - padding,
+                        screen_y + tile_size - padding,
+                        screen_x + tile_size - padding,
                         screen_y + padding,
                         thickness,
                         macroquad::color::BLACK,

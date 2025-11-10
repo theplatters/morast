@@ -1,0 +1,24 @@
+#[derive(Debug)]
+pub struct RenderConfig {
+    pub card_width: f32,
+    pub card_height: f32,
+    pub hand_y: f32,
+    pub card_padding: f32,
+    pub tile_size: f32,
+    pub board_width: f32,
+    pub board_height: f32,
+}
+
+impl Default for RenderConfig {
+    fn default() -> Self {
+        Self {
+            card_width: 200.0,
+            card_height: 220.0,
+            hand_y: 700.0,
+            card_padding: 10.0,
+            tile_size: 50.0,
+            board_width: 1200.0,
+            board_height: 600.0,
+        }
+    }
+}

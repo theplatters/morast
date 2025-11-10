@@ -9,5 +9,7 @@ mod game;
 async fn main() {
     let mut game = Game::new().await;
 
-    game.main_loop().await;
+    game.main_loop()
+        .await
+        .map_err(|e| println!("Error: {:?}", e));
 }
