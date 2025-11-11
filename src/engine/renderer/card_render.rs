@@ -15,6 +15,7 @@ pub struct CardRenderer {
     attack: u16,
     defense: u16,
     name: String,
+    highlighted: bool,
     render_config: Arc<RenderConfig>,
 }
 
@@ -25,11 +26,13 @@ impl CardRenderer {
         attack: u16,
         defense: u16,
         name: String,
+        highlighted: bool,
         render_config: Arc<RenderConfig>,
     ) -> Self {
         Self {
             position,
             cost,
+            highlighted,
             attack,
             defense,
             name,
@@ -38,7 +41,11 @@ impl CardRenderer {
     }
 
     pub fn draw_card(&self) {
+
+        let offset =  if highlighted  {Vec2::new(20.0 0.0)} else  {Vec2::ZERO};
         // Card background
+        let position = self.position.x + offset.x;
+        let position = self.position.x + offset.y;
         draw_rectangle(
             self.position.x,
             self.position.y,

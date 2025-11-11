@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use log::debug;
-use macroquad::{math::I16Vec2, miniquad::Context, rand::ChooseRandom};
+use macroquad::{math::I16Vec2, rand::ChooseRandom};
 
-use crate::game::{card, phases::Phase};
+use crate::game::phases::Phase;
 
 use super::{
     board::{card_on_board::CardOnBoard, effect::Effect, place_error::BoardError, Board},
@@ -136,14 +136,16 @@ impl GameContext {
             .ok_or(Error::PlayerNotFound)?;
 
         let card_id = player
-            .remove_card_from_hand(card_index)
+            .get_card_in_hand(card_index)
             .ok_or(Error::CardNotFound)?;
 
         let card = card_registry.get(&card_id).ok_or(Error::CardNotFound)?;
 
         if player.get_gold() <= card.cost.into() {
-            //return Err(Error::InsufficientGold);
+            return Err(Error::InsufficientGold);
         }
+
+        player.remove_card_from_hand(card_index);
 
         player.remove_gold(card.cost.into());
         // Place onto the board
@@ -151,7 +153,7 @@ impl GameContext {
         Ok(())
     }
 
-    fn is_on_player_side(&self, pos: I16Vec2, player_id: PlayerID) -> bool {
+    pub fn is_on_player_side(&self, pos: I16Vec2, player_id: PlayerID) -> bool {
         let board_width = self.board.width();
         if player_id.get() == 0 {
             pos.x < board_width / 4

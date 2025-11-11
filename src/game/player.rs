@@ -40,7 +40,7 @@ impl Player {
     pub fn new(id: PlayerID, deck: Vec<CardID>) -> Self {
         Self {
             id,
-            money: 0,
+            money: 10000,
             deck,
             hand: Vec::new(),
             discard_pile: Vec::new(),
@@ -96,5 +96,9 @@ impl Player {
 
     pub fn hand_size(&self) -> usize {
         self.hand.len()
+    }
+
+    pub(crate) fn get_card_in_hand(&self, card_index: usize) -> Option<CardID> {
+        self.hand.get(card_index).map(|card_id| *card_id)
     }
 }

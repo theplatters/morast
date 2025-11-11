@@ -24,7 +24,7 @@ pub mod game_context;
 pub mod game_objects;
 mod phases;
 pub mod player;
-mod turn_controller;
+pub mod turn_controller;
 
 pub struct Game {
     pub context: GameContext,
@@ -70,14 +70,18 @@ impl Game {
                 .process_main_phase(&mut self.scheduler, &self.card_registry)?;
 
             while !self.turn_controller.turn_over() {
-                self.turn_controller.update(
+                let turn_step = self.turn_controller.update(
                     &mut self.context,
                     &self.card_registry,
                     &mut self.scheduler,
                 )?;
 
-                self.renderer
-                    .render(&self.context, &self.asset_loader, &self.card_registry)?;
+                self.renderer.render(
+                    &self.context,
+                    &turn_step,
+                    &self.asset_loader,
+                    &self.card_registry,
+                )?;
 
                 next_frame().await;
             }

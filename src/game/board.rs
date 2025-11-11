@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{hash_map::Keys, HashMap, HashSet};
 
 use card_on_board::CardOnBoard;
 use effect::Effect;
@@ -28,8 +28,8 @@ impl Board {
         let mut tiles = HashMap::new();
         let x_size: i16 = 24;
         let y_size: i16 = 12;
-        for x in 0..=x_size {
-            for y in 0..=y_size {
+        for x in 0..x_size {
+            for y in 0..y_size {
                 let position = I16Vec2::new(x, y);
                 tiles.insert(position, Tile::new());
             }
@@ -206,6 +206,10 @@ impl Board {
                 .add_effect(effect);
         }
         Ok(())
+    }
+
+    pub fn tile_pos_iter(&self) -> impl Iterator<Item = I16Vec2> + '_ {
+        self.tiles.keys().copied()
     }
 
     pub(crate) fn remove_effects(

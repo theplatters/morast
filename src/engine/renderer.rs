@@ -1,29 +1,30 @@
 use std::sync::Arc;
 
-use macroquad::{
-    math::{I16Vec2, Vec2},
-    shapes::draw_rectangle_lines,
-    text::draw_text,
-};
+use macroquad::math::{I16Vec2, Vec2};
 
+mod board_renderer;
 mod card_render;
 pub mod render_config;
 
 use crate::{
     engine::{
         asset_loader::AssetLoader,
-        renderer::{card_render::CardRenderer, render_config::RenderConfig},
+        renderer::{
+            board_renderer::BoardRenderer, card_render::CardRenderer, render_config::RenderConfig,
+        },
     },
     game::{
-        board::Board,
+        board::{place_error::BoardError, Board},
         card::{card_registry::CardRegistry, Card},
         error::Error,
         game_context::GameContext,
+        turn_controller::TurnStep,
     },
 };
 
 pub struct Renderer {
     cards_to_draw: Vec<CardRenderer>,
+    board_renderer: BoardRenderer,
     render_config: Arc<RenderConfig>,
 }
 
@@ -31,21 +32,32 @@ impl<'a> Renderer {
     pub fn new(render_config: Arc<RenderConfig>) -> Self {
         Self {
             cards_to_draw: Vec::new(),
+            board_renderer: BoardRenderer::new(render_config.clone()),
             render_config,
         }
     }
-    pub fn update_cards(&mut self, game_cards: &[&Card], assets: &AssetLoader) {
+    pub fn update_cards(
+        &mut self,
+        game_cards: &[&Card],
+        turn_step: &TurnStep,
+        assets: &AssetLoader,
+    ) {
         self.cards_to_draw.clear();
 
         for (i, card) in game_cards.iter().enumerate() {
             let pos_x =
                 i as f32 * (self.render_config.card_width + self.render_config.card_padding);
+            let highlighted = match turn_step {
+                TurnStep::Cardchoosen(card_chosen_index) => *card_chosen_index == i,
+                _ => false,
+            };
             let card = CardRenderer::new(
                 Vec2::new(pos_x, self.render_config.hand_y),
                 card.cost,
                 card.attack_strength,
                 card.defense,
                 card.name.clone(),
+                highlighted,
                 self.render_config.clone(),
             );
 
@@ -53,75 +65,37 @@ impl<'a> Renderer {
         }
     }
 
-    pub fn draw_board(&self, board: &Board, _asset_loader: &AssetLoader) {
-        let tile_size: f32 = self.render_config.tile_size;
+    pub fn draw_turn_state(
+        &self,
+        turn_step: &TurnStep,
+        context: &GameContext,
+        card_registy: &CardRegistry,
+    ) -> Result<(), Error> {
+        match turn_step {
+            TurnStep::Figurechosen(pos) => {
+                let board = context.get_board();
+                let card_id = board
+                    .get_tile(pos)
+                    .ok_or(Error::PlaceError(BoardError::TileNotFound))?
+                    .ontile
+                    .ok_or(Error::TileEmpty)?
+                    .card_id;
+                let movement_pattern = card_registy
+                    .get(&card_id)
+                    .ok_or(Error::CardNotFound)?
+                    .get_movement_pattern();
 
-        for x in 0i16..board.width() {
-            for y in 0i16..board.height() {
-                let pos = I16Vec2::new(x, y);
-                let tile = board.get_tile(&pos).unwrap();
+                let highlights: Vec<I16Vec2> =
+                    movement_pattern.iter().map(|tile| *tile + *pos).collect();
 
-                // Determine tile color
-                let color = if tile.has_effects() {
-                    macroquad::color::GREEN
-                } else {
-                    macroquad::color::WHITE
-                };
-
-                // Calculate screen position
-                let screen_x = x as f32 * tile_size;
-                let screen_y = y as f32 * tile_size;
-
-                // Draw tile background
-                macroquad::shapes::draw_rectangle(screen_x, screen_y, tile_size, tile_size, color);
-                draw_rectangle_lines(
-                    screen_x,
-                    screen_y,
-                    tile_size,
-                    tile_size,
-                    1.0,
-                    macroquad::color::BLACK,
-                );
-
-                // Draw attack values
-                let attack_x = tile.attack_on_tile.x;
-                let attack_y = tile.attack_on_tile.y;
-                let attack_text = format!("{:}, {:}", attack_x, attack_y);
-                if attack_x != 0 || attack_y != 0 {
-                    draw_text(
-                        &attack_text,
-                        screen_x + 8.0,
-                        screen_y + 20.0,
-                        14.0,
-                        macroquad::color::BLACK,
-                    );
-                }
-
-                // Draw X if occupied
-                if tile.ontile.is_some() {
-                    let thickness = 2.0;
-                    let padding = 4.0;
-
-                    // Draw two crossing lines for X
-                    macroquad::shapes::draw_line(
-                        screen_x + padding,
-                        screen_y + padding,
-                        screen_x + tile_size - padding,
-                        screen_y + tile_size - padding,
-                        thickness,
-                        macroquad::color::BLACK,
-                    );
-                    macroquad::shapes::draw_line(
-                        screen_x + padding,
-                        screen_y + tile_size - padding,
-                        screen_x + tile_size - padding,
-                        screen_y + padding,
-                        thickness,
-                        macroquad::color::BLACK,
-                    );
-                }
+                self.board_renderer.draw_highlights(&highlights);
             }
-        }
+            TurnStep::Cardchoosen(card_pos) => {
+                self.board_renderer.draw_available_place_positions(context);
+            }
+            _ => {}
+        };
+        Ok(())
     }
 
     fn draw_hand(&self) {
@@ -133,7 +107,8 @@ impl<'a> Renderer {
     pub(crate) fn render(
         &mut self,
         context: &GameContext,
-        asset_loader: &'a AssetLoader,
+        turn_step: &TurnStep,
+        asset_loader: &AssetLoader,
         card_registry: &CardRegistry,
     ) -> Result<(), Error> {
         let player = context.get_turn_player().ok_or(Error::PlayerNotFound)?;
@@ -144,7 +119,9 @@ impl<'a> Renderer {
             .collect();
 
         self.update_cards(cards.as_slice(), asset_loader);
-        self.draw_board(context.get_board(), asset_loader);
+        self.board_renderer
+            .draw_board(context.get_board(), asset_loader);
+        self.draw_turn_state(turn_step, context, card_registry)?;
         self.draw_hand();
         Ok(())
     }

@@ -1,22 +1,17 @@
 use std::sync::Arc;
 
-use macroquad::{
-    input::KeyCode,
-    math::{I16Vec2, IVec2},
-};
+use macroquad::{input::KeyCode, math::I16Vec2};
 
 use crate::{
     engine::{input_handler::InputHandler, renderer::render_config::RenderConfig},
     game::{
-        board::{card_on_board::CardOnBoard, place_error::BoardError},
-        card::card_registry::CardRegistry,
-        error::Error,
-        events::event_scheduler::GameScheduler,
-        game_context::GameContext,
+        board::place_error::BoardError, card::card_registry::CardRegistry, error::Error,
+        events::event_scheduler::GameScheduler, game_context::GameContext,
     },
 };
 
-enum TurnStep {
+#[derive(Clone, Copy)]
+pub enum TurnStep {
     Blank,
     Cardchoosen(usize),
     Figurechosen(I16Vec2),
@@ -51,7 +46,7 @@ impl TurnController {
         context: &mut GameContext,
         card_registry: &CardRegistry,
         scheduler: &mut GameScheduler,
-    ) -> Result<(), Error> {
+    ) -> Result<TurnStep, Error> {
         if let Some(key) = self.input_handler.get_key_press() {
             if key == KeyCode::Enter {
                 self.step = TurnStep::EndTurn;
@@ -71,13 +66,25 @@ impl TurnController {
                 .ok_or(Error::PlaceError(BoardError::TileNotFound))?;
             match self.step {
                 TurnStep::Cardchoosen(card_pos) => {
-                    context.place_card_from_hand(
+                    match context.place_card_from_hand(
                         context.turn_player_id(),
                         card_pos,
                         pos,
                         card_registry,
                         scheduler,
-                    )?;
+                    ) {
+                        Err(Error::InsufficientGold) | Err(Error::InvalidMove) => {
+                            self.step = TurnStep::Blank;
+                        }
+
+                        Ok(_) => {
+                            self.step = TurnStep::Blank;
+                        }
+
+                        Err(err) => {
+                            return Err(err);
+                        }
+                    };
                     self.step = TurnStep::Blank;
                 }
 
@@ -85,14 +92,18 @@ impl TurnController {
                     self.step = TurnStep::Figurechosen(pos);
                 }
                 TurnStep::Figurechosen(card_on_board) => {
-                    context.move_card(card_on_board, pos, card_registry)?;
-                    self.step = TurnStep::Blank;
+                    match context.move_card(card_on_board, pos, card_registry) {
+                        Err(Error::InsufficientGold) | Err(Error::InvalidMove) | Ok(_) => {
+                            self.step = TurnStep::Blank;
+                        }
+                        Err(err) => return Err(err),
+                    };
                 }
                 _ => {}
             }
         };
 
-        Ok(())
+        Ok(self.step)
     }
 
     pub(crate) fn turn_over(&self) -> bool {

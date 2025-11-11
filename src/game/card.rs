@@ -77,4 +77,8 @@ impl Card {
     pub fn get_attack_pattern(&self) -> &Vec<I16Vec2> {
         &self.attack
     }
+
+    pub(crate) fn get_movement_pattern(&self) -> &Vec<I16Vec2> {
+        &self.movement
+    }
 }
