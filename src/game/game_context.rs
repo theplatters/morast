@@ -93,6 +93,7 @@ impl GameContext {
         }
         Ok(())
     }
+
     pub fn get_player_gold(&self, player_id: PlayerID) -> Result<i64, Error> {
         let player = self.get_player(player_id).ok_or(Error::PlayerNotFound)?;
         Ok(player.get_gold())
@@ -243,10 +244,6 @@ impl GameContext {
         card_registry: &CardRegistry,
     ) -> Result<(), Error> {
         scheduler.advance_to_phase(Phase::Main, self);
-        let turn_player = self
-            .get_player_mut(self.turn_player_id())
-            .ok_or(Error::PlayerNotFound)?;
-
         Ok(())
     }
 
@@ -289,8 +286,7 @@ impl GameContext {
             .or_insert(I16Vec2::new(0, 0));
         *new_index = to;
 
-        self.update_attack_values_for_card(card_at_start, from, to, card_registry);
-
+        self.update_attack_values(card_registry);
         Ok(())
     }
 
@@ -298,23 +294,6 @@ impl GameContext {
         let mut removed = self.board.update_attack_values(card_registry);
         while !removed.is_empty() {
             removed = self.board.update_attack_values(card_registry);
-        }
-    }
-
-    pub(crate) fn update_attack_values_for_card(
-        &mut self,
-        card_info: CardOnBoard,
-        from: I16Vec2,
-        to: I16Vec2,
-        card_registry: &CardRegistry,
-    ) {
-        let removed = self
-            .board
-            .update_attack_values_for_card(card_info, from, to, card_registry);
-        self.cards_placed.retain(|k, _| !removed.contains(k));
-        //update the attack values for the cards affected by the removed cards
-        if !removed.is_empty() {
-            self.update_attack_values(card_registry);
         }
     }
 

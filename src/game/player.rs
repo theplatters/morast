@@ -2,8 +2,6 @@ use std::cmp;
 
 use macroquad::rand::ChooseRandom;
 
-use crate::game::card::Card;
-
 use super::card::card_id::CardID;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
@@ -55,10 +53,6 @@ impl Player {
         self.deck.shuffle();
     }
 
-    pub fn add_to_deck_top(&mut self, card: CardID) {
-        self.hand.push(card)
-    }
-
     pub fn draw_from_deck(&mut self) -> Option<CardID> {
         self.deck.pop()
     }
@@ -99,6 +93,6 @@ impl Player {
     }
 
     pub(crate) fn get_card_in_hand(&self, card_index: usize) -> Option<CardID> {
-        self.hand.get(card_index).map(|card_id| *card_id)
+        self.hand.get(card_index).copied()
     }
 }
