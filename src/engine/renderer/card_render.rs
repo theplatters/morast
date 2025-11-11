@@ -41,14 +41,17 @@ impl CardRenderer {
     }
 
     pub fn draw_card(&self) {
-
-        let offset =  if highlighted  {Vec2::new(20.0 0.0)} else  {Vec2::ZERO};
+        let offset = if self.highlighted {
+            self.render_config.select_offset
+        } else {
+            Vec2::ZERO
+        };
         // Card background
-        let position = self.position.x + offset.x;
-        let position = self.position.x + offset.y;
+        //
+        let position = self.position + offset;
         draw_rectangle(
-            self.position.x,
-            self.position.y,
+            position.x,
+            position.y,
             self.render_config.card_width,
             self.render_config.card_height,
             RED,
@@ -56,8 +59,8 @@ impl CardRenderer {
 
         // Card border
         draw_rectangle_lines(
-            self.position.x,
-            self.position.y,
+            position.x,
+            position.y,
             self.render_config.card_width,
             self.render_config.card_height,
             2.0,
@@ -65,15 +68,15 @@ impl CardRenderer {
         );
 
         // Name at the top center
-        let name_x = self.position.x + self.render_config.card_width
+        let name_x = position.x + self.render_config.card_width
             - measure_text(&self.name, None, 24, 1.0).width * 2.0;
-        draw_text(&self.name, name_x, self.position.y + 30.0, 24.0, WHITE);
+        draw_text(&self.name, name_x, position.y + 30.0, 24.0, WHITE);
 
         // Cost in top-left
         draw_text(
             &format!("Cost: {}", self.cost),
-            self.position.x + 10.0,
-            self.position.y + 60.0,
+            position.x + 10.0,
+            position.y + 60.0,
             20.0,
             YELLOW,
         );
@@ -81,21 +84,21 @@ impl CardRenderer {
         // Attack in bottom-left
         draw_text(
             &format!("Atk: {}", self.attack),
-            self.position.x + 10.0,
-            self.position.y + self.render_config.card_height - 20.0,
+            position.x + 10.0,
+            position.y + self.render_config.card_height - 20.0,
             20.0,
             GREEN,
         );
 
         // Defense in bottom-right
         let defense_text = format!("Def: {}", self.defense);
-        let def_x = self.position.x + self.render_config.card_width
+        let def_x = position.x + self.render_config.card_width
             - measure_text(&defense_text, None, 20, 1.0).width
             - 10.0;
         draw_text(
             &defense_text,
             def_x,
-            self.position.y + self.render_config.card_height - 20.0,
+            position.y + self.render_config.card_height - 20.0,
             20.0,
             BLUE,
         );

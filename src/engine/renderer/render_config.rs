@@ -1,3 +1,5 @@
+use macroquad::math::Vec2;
+
 #[derive(Debug)]
 pub struct RenderConfig {
     pub card_width: f32,
@@ -7,6 +9,7 @@ pub struct RenderConfig {
     pub tile_size: f32,
     pub board_width: f32,
     pub board_height: f32,
+    pub select_offset: Vec2,
 }
 
 impl Default for RenderConfig {
@@ -19,6 +22,7 @@ impl Default for RenderConfig {
             tile_size: 50.0,
             board_width: 1200.0,
             board_height: 600.0,
+            select_offset: Vec2::new(0.0, -10.0),
         }
     }
 }

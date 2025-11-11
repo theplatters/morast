@@ -90,7 +90,7 @@ impl<'a> Renderer {
 
                 self.board_renderer.draw_highlights(&highlights);
             }
-            TurnStep::Cardchoosen(card_pos) => {
+            TurnStep::Cardchoosen(_) => {
                 self.board_renderer.draw_available_place_positions(context);
             }
             _ => {}
@@ -118,7 +118,7 @@ impl<'a> Renderer {
             .filter_map(|card| card_registry.get(card))
             .collect();
 
-        self.update_cards(cards.as_slice(), asset_loader);
+        self.update_cards(cards.as_slice(), turn_step, asset_loader);
         self.board_renderer
             .draw_board(context.get_board(), asset_loader);
         self.draw_turn_state(turn_step, context, card_registry)?;
