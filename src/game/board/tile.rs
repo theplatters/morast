@@ -1,12 +1,14 @@
 use macroquad::math::U16Vec2;
 
-use crate::game::{game_objects::player_base::PlayerBase, player::PlayerID};
+use crate::game::{
+    card::in_play_id::InPlayID, game_objects::player_base::PlayerBase, player::PlayerID,
+};
 
-use super::{card_on_board::CardOnBoard, effect::Effect};
+use super::effect::Effect;
 
 #[derive(Debug)]
 pub struct Tile {
-    pub ontile: Option<CardOnBoard>,
+    pub ontile: Option<InPlayID>,
     player_base: Option<PlayerBase>,
     effects: Vec<Effect>,
     pub attack_on_tile: U16Vec2,
@@ -34,7 +36,7 @@ impl Tile {
             .for_each(|effect| effect.decrease_duration());
     }
 
-    pub fn place(&mut self, card: CardOnBoard) {
+    pub fn place(&mut self, card: InPlayID) {
         self.ontile = Some(card);
     }
 
