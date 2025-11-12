@@ -1,4 +1,5 @@
 (def cost 3)
+(def movement-points 2)
 (def card-image "assets/image.png")
 
 (def movement (std/plus 1))

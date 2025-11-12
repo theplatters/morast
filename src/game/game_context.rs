@@ -172,14 +172,13 @@ impl GameContext {
         scheduler: &mut GameScheduler,
     ) -> Result<(), Error> {
         println!("Placing card {:?} at index {:?}", card_id, index);
-        match self.board.place(card_id, player_id, index) {
+
+        let card = card_registry.get(&card_id).ok_or(Error::CardNotFound)?;
+        match self.board.place(card_id, player_id, index, card) {
             Ok(id) => {
-                let key = CardOnBoard::new(id, card_id, player_id);
+                let key = CardOnBoard::new(id, card_id, player_id, card.movement_points);
                 self.cards_placed.insert(key, index);
-                card_registry
-                    .get(&card_id)
-                    .ok_or(Error::CardNotFound)?
-                    .on_place(scheduler, self.turn_player_id(), id);
+                card.on_place(scheduler, self.turn_player_id(), id);
                 scheduler.process_events(self)?;
             }
             Err(err) => Err(Error::PlaceError(err))?,
@@ -241,7 +240,6 @@ impl GameContext {
     pub(crate) fn process_main_phase(
         &mut self,
         scheduler: &mut GameScheduler,
-        card_registry: &CardRegistry,
     ) -> Result<(), Error> {
         scheduler.advance_to_phase(Phase::Main, self);
         Ok(())
@@ -254,7 +252,7 @@ impl GameContext {
     ) -> Result<(), BoardError> {
         self.board.add_effects(effect, tiles)
     }
-    pub(crate) fn remove_effects(
+    pub(crate) fn _remove_effects(
         &mut self,
         effect: Effect,
         tiles: &[I16Vec2],
@@ -315,5 +313,9 @@ impl GameContext {
             .iter()
             .find(|x| x.0.id == id)
             .map(|x| x.1.to_owned())
+    }
+
+    pub(crate) fn get_turn_player_mut(&mut self) -> Option<&mut Player> {
+        self.players.get_mut(self.turn_player.index())
     }
 }

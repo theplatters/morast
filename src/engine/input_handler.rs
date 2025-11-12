@@ -1,9 +1,6 @@
 use std::sync::Arc;
 
-use macroquad::{
-    input::*,
-    math::{I16Vec2, IVec2},
-};
+use macroquad::{input::*, math::I16Vec2};
 
 use crate::engine::renderer::render_config::RenderConfig;
 
@@ -16,10 +13,9 @@ impl InputHandler {
     pub fn new(render_config: Arc<RenderConfig>) -> Self {
         InputHandler { render_config }
     }
-    /// Checks if a card was clicked in the player's hand.
-    /// Returns `Some(index)` for the clicked card, or `None` if none clicked.
-    pub fn get_card_click(&self, hand_size: usize) -> Option<usize> {
-        if !is_mouse_button_pressed(MouseButton::Left) {
+
+    pub fn get_mouse_click(&self, hand_size: usize, click: MouseButton) -> Option<usize> {
+        if !is_mouse_button_pressed(click) {
             return None;
         }
         let (mouse_x, mouse_y) = mouse_position();
@@ -42,6 +38,15 @@ impl InputHandler {
         }
 
         None
+    }
+
+    pub fn get_card_right_click(&self, hand_size: usize) -> Option<usize> {
+        self.get_mouse_click(hand_size, MouseButton::Right)
+    }
+    /// Checks if a card was clicked in the player's hand.
+    /// Returns `Some(index)` for the clicked card, or `None` if none clicked.
+    pub fn get_card_left_click(&self, hand_size: usize) -> Option<usize> {
+        self.get_mouse_click(hand_size, MouseButton::Left)
     }
 
     pub(crate) fn get_board_click(&self) -> Option<I16Vec2> {

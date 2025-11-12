@@ -133,6 +133,11 @@ pub async fn read_card(
         return Err(Error::Cast("Defense strength not found".into()));
     };
 
+    let Some(JanetEnum::_Int(movement_points)) = JanetEnum::get(env, "movement-points", Some(name))
+    else {
+        return Err(Error::Cast("Movement Points not found".into()));
+    };
+
     let abilities: Vec<Abilities> = match JanetEnum::get(env, "abilities", Some(name)) {
         Some(JanetEnum::_Array(abilities)) => abilities
             .iter()
@@ -155,6 +160,7 @@ pub async fn read_card(
         attack,
         attack_strength: attack_strength as u16,
         defense: defense as u16,
+        movement_points: movement_points as u16,
         cost: cost as u16,
         movement,
         abilities,

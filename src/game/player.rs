@@ -2,6 +2,8 @@ use std::cmp;
 
 use macroquad::rand::ChooseRandom;
 
+use crate::game::{card::card_registry::CardRegistry, error::Error};
+
 use super::card::card_id::CardID;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
@@ -94,5 +96,16 @@ impl Player {
 
     pub(crate) fn get_card_in_hand(&self, card_index: usize) -> Option<CardID> {
         self.hand.get(card_index).copied()
+    }
+
+    pub(crate) fn sell_card(
+        &mut self,
+        pos: usize,
+        card_registry: &CardRegistry,
+    ) -> Result<(), Error> {
+        let card_id = self.hand.remove(pos);
+        let card = card_registry.get(&card_id).ok_or(Error::CardNotFound)?;
+        self.add_gold(card.cost.into());
+        Ok(())
     }
 }

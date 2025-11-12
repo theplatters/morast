@@ -18,7 +18,7 @@ impl GameAction {
         Self { function, speed }
     }
 
-    pub fn eval(
+    pub fn _eval(
         &self,
         argv: &[crate::engine::janet_handler::bindings::Janet],
     ) -> Result<crate::engine::janet_handler::types::janetenum::JanetEnum, Error> {

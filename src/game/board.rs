@@ -6,7 +6,7 @@ use macroquad::math::{I16Vec2, U16Vec2};
 use place_error::BoardError;
 use tile::Tile;
 
-use crate::game::game_objects::player_base::PlayerBase;
+use crate::game::{card::Card, game_objects::player_base::PlayerBase};
 
 use super::{
     card::{card_id::CardID, card_registry::CardRegistry, in_play_id::InPlayID},
@@ -171,6 +171,7 @@ impl Board {
         card_id: CardID,
         player_id: PlayerID,
         index: I16Vec2,
+        card: &Card,
     ) -> Result<InPlayID, BoardError> {
         let Some(tile) = self.tiles.get_mut(&index) else {
             return Err(BoardError::Index);
@@ -180,7 +181,12 @@ impl Board {
             return Err(BoardError::TileOccupied);
         }
 
-        tile.place(CardOnBoard::new(self.next_id, card_id, player_id));
+        tile.place(CardOnBoard::new(
+            self.next_id,
+            card_id,
+            player_id,
+            card.movement_points,
+        ));
         let id = self.next_id;
         self.next_id = self.next_id.next();
         Ok(id)

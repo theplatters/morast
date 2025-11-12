@@ -13,6 +13,7 @@ pub mod in_play_id;
 pub struct Card {
     pub name: String,
     pub movement: Vec<I16Vec2>,
+    pub movement_points: u16,
     pub attack: Vec<I16Vec2>,
     pub attack_strength: u16,
     pub defense: u16,

@@ -2,6 +2,7 @@
 (def card-image "assets/image3.png")
 
 (def movement @[])
+(def movement-points 0)
 
 (def attack (array/join (std/cross 1 ) (std/cross 2) (std/plus 2) (std/plus 1)))
 

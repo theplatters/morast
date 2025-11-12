@@ -55,8 +55,15 @@ impl TurnController {
         let turn_player = context.get_turn_player().ok_or(Error::PlayerNotFound)?;
 
         let hand_size = turn_player.hand_size();
-        if let Some(pos) = self.input_handler.get_card_click(hand_size) {
+        if let Some(pos) = self.input_handler.get_card_left_click(hand_size) {
             self.step = TurnStep::Cardchoosen(pos);
+        };
+
+        if let Some(pos) = self.input_handler.get_card_right_click(hand_size) {
+            context
+                .get_turn_player_mut()
+                .ok_or(Error::PlayerNotFound)?
+                .sell_card(pos, card_registry)?;
         };
 
         if let Some(pos) = self.input_handler.get_board_click() {

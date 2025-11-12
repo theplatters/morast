@@ -9,14 +9,16 @@ pub struct CardOnBoard {
     pub id: InPlayID,
     pub card_id: CardID,
     pub player_id: PlayerID,
+    movement_points: u16,
 }
 
 impl CardOnBoard {
-    pub fn new(id: InPlayID, card_id: CardID, player_id: PlayerID) -> Self {
+    pub fn new(id: InPlayID, card_id: CardID, player_id: PlayerID, movement_points: u16) -> Self {
         Self {
             id,
             card_id,
             player_id,
+            movement_points,
         }
     }
 }

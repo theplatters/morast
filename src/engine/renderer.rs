@@ -28,7 +28,7 @@ pub struct Renderer {
     render_config: Arc<RenderConfig>,
 }
 
-impl<'a> Renderer {
+impl Renderer {
     pub fn new(render_config: Arc<RenderConfig>) -> Self {
         Self {
             cards_to_draw: Vec::new(),

@@ -1,7 +1,8 @@
 (def cost 1)
 (def card-image "assets/image2.png")
+(def movement-points 3)
 
-(def movement (array/join (std/plus 1) (std/plus 2)))
+(def movement(std/plus 1))
 (def attack (std/plus 1))
 
 (def abilities @["fly" "dig"])

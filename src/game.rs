@@ -66,8 +66,7 @@ impl Game {
             self.context
                 .process_turn_begin(&mut self.scheduler, &self.card_registry)?;
 
-            self.context
-                .process_main_phase(&mut self.scheduler, &self.card_registry)?;
+            self.context.process_main_phase(&mut self.scheduler)?;
 
             while !self.turn_controller.turn_over() {
                 let turn_step = self.turn_controller.update(
