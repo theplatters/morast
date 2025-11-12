@@ -35,6 +35,10 @@ impl Effect {
     pub fn decrease_duration(&mut self) {
         self.duration = self.duration.saturating_sub(1);
     }
+
+    pub(crate) fn get_owner(&self) -> PlayerID {
+        self.owner
+    }
 }
 
 impl FromStr for EffectType {

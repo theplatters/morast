@@ -117,7 +117,15 @@ impl BoardRenderer {
         let tiles: Vec<_> = context
             .get_board()
             .tile_pos_iter()
-            .filter(|tile| context.is_on_player_side(*tile, turn_player))
+            .filter(|tile| {
+                context.is_on_player_side(*tile, turn_player)
+                    && !context
+                        .get_board()
+                        .get_tile(tile)
+                        .ok_or(Error::PlaceError(BoardError::TileNotFound))
+                        .expect("Tile not found")
+                        .is_occupied()
+            })
             .collect();
         self.draw_highlights(&tiles);
     }

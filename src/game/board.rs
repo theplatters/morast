@@ -6,6 +6,8 @@ use macroquad::math::{I16Vec2, U16Vec2};
 use place_error::BoardError;
 use tile::Tile;
 
+use crate::game::game_objects::player_base::PlayerBase;
+
 use super::{
     card::{card_id::CardID, card_registry::CardRegistry, in_play_id::InPlayID},
     player::PlayerID,
@@ -31,7 +33,16 @@ impl Board {
         for x in 0..x_size {
             for y in 0..y_size {
                 let position = I16Vec2::new(x, y);
-                tiles.insert(position, Tile::new());
+
+                let tile = if x == 2 && y == y_size / 2 {
+                    Tile::new().with_player_base(PlayerBase::new(PlayerID(0)))
+                } else if x == x_size - 3 && y == y_size / 2 {
+                    Tile::new().with_player_base(PlayerBase::new(PlayerID(1)))
+                } else {
+                    Tile::new()
+                };
+
+                tiles.insert(position, tile);
             }
         }
         Self {
@@ -254,9 +265,9 @@ impl Board {
         Ok(card)
     }
 
-    pub(crate) fn update_effects(&mut self) {
+    pub(crate) fn update_effects(&mut self, turn_player: PlayerID) {
         for (_, tile) in self.tiles.iter_mut() {
-            tile.process_effects();
+            tile.process_effects(turn_player);
         }
     }
 }

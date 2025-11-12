@@ -233,7 +233,7 @@ impl GameContext {
                 .on_turn_end(scheduler, self.turn_player_id(), card.id);
         }
 
-        self.board.update_effects();
+        self.board.update_effects(self.turn_player);
         scheduler.process_events(self)?;
         Ok(())
     }
