@@ -23,6 +23,7 @@ pub struct Board {
     tiles: HashMap<I16Vec2, Tile>,
     next_id: InPlayID,
     board_size: I16Vec2,
+    pub cards_placed: HashMap<InPlayID, CardOnBoard>,
 }
 
 impl Board {
@@ -49,6 +50,7 @@ impl Board {
             tiles,
             next_id: InPlayID::new(0),
             board_size: I16Vec2::new(x_size, y_size),
+            cards_placed: HashMap::new(),
         }
     }
 
@@ -60,7 +62,6 @@ impl Board {
 
     pub(crate) fn update_attack_values(
         &mut self,
-        cards_on_board: &HashMap<InPlayID, CardOnBoard>,
         card_registry: &CardRegistry,
     ) -> Result<HashSet<InPlayID>, Error> {
         self.zero_out_attack();
@@ -71,7 +72,10 @@ impl Board {
         // Immutable phase - collect data
         for (index, curr_tile) in self.tiles.iter() {
             if let Some(in_play_id) = &curr_tile.ontile {
-                let card_on_board = cards_on_board.get(in_play_id).ok_or(Error::CardNotFound)?;
+                let card_on_board = self
+                    .cards_placed
+                    .get(in_play_id)
+                    .ok_or(Error::CardNotFound)?;
                 let card = card_registry
                     .get(&card_on_board.card_id)
                     .ok_or(Error::CardNotFound)?;
@@ -102,7 +106,10 @@ impl Board {
         let mut removed = HashSet::new();
         for tile in self.tiles.values_mut() {
             if let Some(in_play_id) = &tile.ontile {
-                let card = cards_on_board.get(in_play_id).ok_or(Error::CardNotFound)?;
+                let card = self
+                    .cards_placed
+                    .get(in_play_id)
+                    .ok_or(Error::CardNotFound)?;
                 let defense = card_registry
                     .get(&card.card_id)
                     .ok_or(Error::CardNotFound)?
@@ -124,7 +131,6 @@ impl Board {
         attacking_card: CardOnBoard,
         old_pos: I16Vec2,
         new_pos: I16Vec2,
-        cards_on_board: &HashMap<InPlayID, CardOnBoard>,
         card_registry: &CardRegistry,
     ) -> Result<HashSet<InPlayID>, Error> {
         let card_info = card_registry
@@ -153,12 +159,14 @@ impl Board {
                 match tile.ontile {
                     Some(attacked_card_id)
                         if attacking_card.player_id
-                            != cards_on_board
+                            != self
+                                .cards_placed
                                 .get(&attacked_card_id)
                                 .ok_or(Error::CardNotFound)?
                                 .player_id =>
                     {
-                        let attacked_card = cards_on_board
+                        let attacked_card = self
+                            .cards_placed
                             .get(&attacked_card_id)
                             .ok_or(Error::CardNotFound)?;
 
@@ -180,7 +188,16 @@ impl Board {
         Ok(removed)
     }
 
-    pub fn place(&mut self, index: I16Vec2) -> Result<InPlayID, BoardError> {
+    pub(crate) fn get_card_at_index(&self, from: &I16Vec2) -> Option<&CardOnBoard> {
+        let card_on_tile = self.get_tile(from)?.ontile?;
+        self.cards_placed.get(&card_on_tile)
+    }
+
+    pub fn place(
+        &mut self,
+        index: I16Vec2,
+        card_on_board: CardOnBoard,
+    ) -> Result<InPlayID, BoardError> {
         let Some(tile) = self.tiles.get_mut(&index) else {
             return Err(BoardError::Index);
         };
@@ -192,6 +209,8 @@ impl Board {
         tile.place(self.next_id);
         let id = self.next_id;
         self.next_id = self.next_id.next();
+
+        self.cards_placed.insert(id, card_on_board);
         Ok(id)
     }
 
@@ -270,7 +289,6 @@ impl Board {
 
         let to_tile = self.tiles.get_mut(&to).unwrap();
         to_tile.ontile = Some(card);
-
         Ok(())
     }
 
@@ -278,5 +296,25 @@ impl Board {
         for (_, tile) in self.tiles.iter_mut() {
             tile.process_effects(turn_player);
         }
+    }
+
+    pub(crate) fn get_card_on_tile(&self, pos: &I16Vec2) -> Result<&CardOnBoard, Error> {
+        let card_id = self
+            .tiles
+            .get(pos)
+            .ok_or(Error::PlaceError(BoardError::TileNotFound))?
+            .ontile
+            .ok_or(Error::TileEmpty)?;
+
+        self.cards_placed.get(&card_id).ok_or(Error::CardNotFound)
+    }
+
+    pub(crate) fn get_card_index(&self, id: InPlayID) -> Option<I16Vec2> {
+        for (pos, tile) in &self.tiles {
+            if tile.ontile? == id {
+                return Some(*pos);
+            }
+        }
+        None
     }
 }

@@ -162,7 +162,7 @@ pub unsafe extern "C" fn cfun_get_current_index(argc: i32, argv: *mut Janet) -> 
     (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()
         .map_or(janet_wrap_nil(), |game| {
-            match game.get_card_index(id.into()) {
+            match game.get_board().get_card_index(id.into()) {
                 Some(index) => {
                     let arr = janet_array(2);
                     janet_array_push(arr, janet_wrap_integer(index.x as i32));
@@ -219,7 +219,7 @@ pub unsafe extern "C" fn cfun_from_current_position(argc: i32, argv: *mut Janet)
 
     let card_id = janet_getinteger64(argv, 1);
 
-    let Some(card_index) = context.get_card_index(card_id.into()) else {
+    let Some(card_index) = context.get_board().get_card_index(card_id.into()) else {
         return janet_wrap_nil();
     };
 

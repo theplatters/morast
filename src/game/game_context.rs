@@ -1,12 +1,10 @@
-use std::collections::HashMap;
-
 use log::debug;
 use macroquad::{math::I16Vec2, rand::ChooseRandom};
 
-use crate::game::phases::Phase;
+use crate::game::{board::card_on_board::CardOnBoard, phases::Phase};
 
 use super::{
-    board::{card_on_board::CardOnBoard, effect::Effect, place_error::BoardError, Board},
+    board::{effect::Effect, place_error::BoardError, Board},
     card::{card_id::CardID, card_registry::CardRegistry, in_play_id::InPlayID, Card},
     error::Error,
     events::event_scheduler::GameScheduler,
@@ -126,7 +124,7 @@ impl GameContext {
         }
 
         // Ensure the tile is empty
-        if self.get_card_at_index(&position).is_some() {
+        if self.board.get_card_at_index(&position).is_some() {
             return Err(Error::PlaceError(BoardError::TileOccupied));
         }
 
@@ -148,7 +146,7 @@ impl GameContext {
 
         player.remove_gold(card.cost.into());
         // Place onto the board
-        self.place(card_id, position, player_id, card_registry, scheduler)?;
+        self.place(card_id, position, card_registry, scheduler)?;
         Ok(())
     }
 
@@ -165,24 +163,22 @@ impl GameContext {
         &mut self,
         card_id: CardID,
         index: I16Vec2,
-        player_id: PlayerID,
         card_registry: &CardRegistry,
         scheduler: &mut GameScheduler,
     ) -> Result<(), Error> {
         println!("Placing card {:?} at index {:?}", card_id, index);
 
         let card = card_registry.get(&card_id).ok_or(Error::CardNotFound)?;
-        match self.board.place(index) {
+        let card_on_board = CardOnBoard::new(card_id, self.turn_player_id(), card.movement_points);
+        match self.board.place(index, card_on_board) {
             Ok(id) => {
-                let card_on_board = CardOnBoard::new(id, card_id, player_id, card.movement_points);
-                self.cards_placed.insert(id, card_on_board);
                 card.on_place(scheduler, self.turn_player_id(), id);
                 scheduler.process_events(self)?;
             }
             Err(err) => Err(Error::PlaceError(err))?,
         }
 
-        self.update_attack_values(card_registry);
+        self.update_attack_values(card_registry)?;
         Ok(())
     }
 
@@ -200,11 +196,11 @@ impl GameContext {
             scheduler.get_turn_count()
         );
         scheduler.advance_to_phase(Phase::End, self);
-        for card in self.cards_placed.values() {
+        for (id, card) in &self.board.cards_placed {
             card_registry
                 .get(&card.card_id)
                 .ok_or(Error::CardNotFound)?
-                .on_turn_start(scheduler, self.turn_player_id(), card.id);
+                .on_turn_start(scheduler, self.turn_player_id(), *id);
         }
 
         scheduler.process_events(self)?;
@@ -222,12 +218,12 @@ impl GameContext {
         card_registry: &CardRegistry,
     ) -> Result<(), Error> {
         self.draw_cards(self.turn_player_id(), NUM_CARDS_AT_START)?;
-        for card in self.cards_placed.values() {
+        for (id, card) in &self.board.cards_placed {
             println!("Processing card {:?}", card);
             card_registry
                 .get(&card.card_id)
                 .ok_or(Error::CardNotFound)?
-                .on_turn_end(scheduler, self.turn_player_id(), card.id);
+                .on_turn_end(scheduler, self.turn_player_id(), *id);
         }
 
         self.board.update_effects(self.turn_player);
@@ -267,16 +263,20 @@ impl GameContext {
         to: I16Vec2,
         card_registry: &CardRegistry,
     ) -> Result<(), Error> {
-        let card_at_start = *self.get_card_at_index(&from).ok_or(Error::TileEmpty)?;
+        let card_at_start = *self
+            .board
+            .get_card_at_index(&from)
+            .ok_or(Error::TileEmpty)?;
 
         let card = card_registry
             .get(&card_at_start.card_id)
             .ok_or(Error::CardNotFound)?;
+
         if !self.is_legal_move(from, to, card) {
             return Err(Error::InvalidMove);
         }
         self.board.move_card(from, to).map_err(Error::PlaceError)?;
-        self.update_attack_values(card_registry);
+        self.update_attack_values(card_registry)?;
         Ok(())
     }
 
@@ -284,32 +284,20 @@ impl GameContext {
         &mut self,
         card_registry: &CardRegistry,
     ) -> Result<(), Error> {
-        let mut removed = self
-            .board
-            .update_attack_values(&self.cards_placed, card_registry)?;
+        let mut removed = self.board.update_attack_values(card_registry)?;
 
         while !removed.is_empty() {
-            removed = self
-                .board
-                .update_attack_values(&self.cards_placed, card_registry)?;
+            removed = self.board.update_attack_values(card_registry)?;
         }
         Ok(())
     }
 
-    pub(crate) fn get_card_at_index(&self, from: &I16Vec2) -> Option<&CardOnBoard> {
-        let card_on_tile = self.board.get_tile(from)?.ontile?;
-        self.cards_placed.get(&card_on_tile)
-    }
-
     pub(crate) fn get_card_owner(&self, id: InPlayID) -> Option<PlayerID> {
-        self.cards_placed
+        self.board
+            .cards_placed
             .iter()
-            .find(|x| x.1.id == id)
+            .find(|x| *x.0 == id)
             .map(|x| x.1.player_id)
-    }
-
-    pub(crate) fn get_card_index(&self, id: InPlayID) -> Option<I16Vec2> {
-        todo!()
     }
 
     pub(crate) fn get_turn_player_mut(&mut self) -> Option<&mut Player> {

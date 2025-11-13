@@ -6,25 +6,17 @@ use crate::game::{
 use std::hash::{Hash, Hasher};
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Copy, Clone)]
 pub struct CardOnBoard {
-    pub id: InPlayID,
     pub card_id: CardID,
     pub player_id: PlayerID,
     movement_points: u16,
 }
 
 impl CardOnBoard {
-    pub fn new(id: InPlayID, card_id: CardID, player_id: PlayerID, movement_points: u16) -> Self {
+    pub fn new(card_id: CardID, player_id: PlayerID, movement_points: u16) -> Self {
         Self {
-            id,
             card_id,
             player_id,
             movement_points,
         }
-    }
-}
-
-impl Hash for CardOnBoard {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
     }
 }

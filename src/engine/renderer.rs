@@ -74,14 +74,9 @@ impl Renderer {
         match turn_step {
             TurnStep::Figurechosen(pos) => {
                 let board = context.get_board();
-                let card_id = board
-                    .get_tile(pos)
-                    .ok_or(Error::PlaceError(BoardError::TileNotFound))?
-                    .ontile
-                    .ok_or(Error::TileEmpty)?
-                    .card_id;
+                let card_id = board.get_card_on_tile(pos)?;
                 let movement_pattern = card_registy
-                    .get(&card_id)
+                    .get(&card_id.card_id)
                     .ok_or(Error::CardNotFound)?
                     .get_movement_pattern();
 
