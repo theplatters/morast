@@ -226,6 +226,8 @@ impl GameContext {
                 .on_turn_end(scheduler, self.turn_player_id(), *id);
         }
 
+        self.board
+            .refresh_movement_points(self.turn_player_id(), card_registry)?;
         self.board.update_effects(self.turn_player);
         scheduler.process_events(self)?;
         Ok(())
@@ -266,7 +268,7 @@ impl GameContext {
         let card_at_start = *self
             .board
             .get_card_at_index(&from)
-            .ok_or(Error::TileEmpty)?;
+            .ok_or(Error::PlaceError(BoardError::TileEmpty))?;
 
         let card = card_registry
             .get(&card_at_start.card_id)

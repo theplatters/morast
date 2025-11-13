@@ -108,7 +108,7 @@ impl Environment {
                 "Get's the current index of the card",
             ),
         (
-                "from_current_position",
+                "from-current-position",
                 cfun_from_current_position as JanetRawCFunction,
                 "Maps an array relative to a position",
             ),

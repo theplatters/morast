@@ -1,5 +1,13 @@
+use std::fmt::{write, Display};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct InPlayID(u32);
+
+impl Display for InPlayID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ID {}", self.0)
+    }
+}
 impl InPlayID {
     // Existing methods
     pub fn new(id: u32) -> Self {

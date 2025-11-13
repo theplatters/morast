@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use macroquad::math::U16Vec2;
 
 use crate::game::{
@@ -12,6 +14,27 @@ pub struct Tile {
     player_base: Option<PlayerBase>,
     effects: Vec<Effect>,
     pub attack_on_tile: U16Vec2,
+}
+
+impl Display for Tile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Tile {{ ")?;
+
+        // Display ontile
+        match &self.ontile {
+            Some(id) => write!(f, "ontile: Some({}), ", id)?,
+            None => write!(f, "ontile: None, ")?,
+        }
+
+        // Display player_base
+        match &self.player_base {
+            Some(base) => write!(f, "has player base")?,
+            None => write!(f, "player_base: None, ")?,
+        }
+
+        // Display attack_on_tile
+        write!(f, "attack_on_tile: {} }}", self.attack_on_tile)
+    }
 }
 
 impl Tile {

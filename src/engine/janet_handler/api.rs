@@ -4,10 +4,7 @@ use log::debug;
 use macroquad::math::I16Vec2;
 
 use crate::{
-    engine::janet_handler::{
-        bindings::{janet_getsymbol, JanetArray},
-        types::janetenum::ptr_to_i16_vec,
-    },
+    engine::janet_handler::{bindings::janet_getsymbol, types::janetenum::ptr_to_i16_vec},
     game::{
         board::effect::{Effect, EffectType},
         events::event_scheduler::GameScheduler,
@@ -22,7 +19,7 @@ use super::{
         janet_getpointer, janet_getuinteger16, janet_wrap_array, janet_wrap_boolean,
         janet_wrap_integer, janet_wrap_nil, janet_wrap_u64, Janet,
     },
-    types::janetenum::{to_i16_vec, vec_to_janet_array},
+    types::janetenum::vec_to_janet_array,
 };
 
 pub unsafe extern "C" fn cfun_draw(argc: i32, argv: *mut Janet) -> Janet {
@@ -218,8 +215,8 @@ pub unsafe extern "C" fn cfun_from_current_position(argc: i32, argv: *mut Janet)
         .expect("Failed to cast reference to GameContext");
 
     let card_id = janet_getinteger64(argv, 1);
-
-    let Some(card_index) = context.get_board().get_card_index(card_id.into()) else {
+    let board = context.get_board();
+    let Some(card_index) = board.get_card_index(card_id.into()) else {
         return janet_wrap_nil();
     };
 

@@ -71,6 +71,7 @@ impl TurnController {
                 .get_board()
                 .get_tile(&pos)
                 .ok_or(Error::PlaceError(BoardError::TileNotFound))?;
+
             match self.step {
                 TurnStep::Cardchoosen(card_pos) => {
                     match context.place_card_from_hand(
@@ -100,7 +101,10 @@ impl TurnController {
                 }
                 TurnStep::Figurechosen(card_on_board) => {
                     match context.move_card(card_on_board, pos, card_registry) {
-                        Err(Error::InsufficientGold) | Err(Error::InvalidMove) | Ok(_) => {
+                        Err(Error::InsufficientGold)
+                        | Err(Error::InvalidMove)
+                        | Ok(_)
+                        | Err(Error::PlaceError(BoardError::NoMovementPoints)) => {
                             self.step = TurnStep::Blank;
                         }
                         Err(err) => return Err(err),

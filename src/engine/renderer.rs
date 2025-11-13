@@ -14,7 +14,6 @@ use crate::{
         },
     },
     game::{
-        board::{place_error::BoardError, Board},
         card::{card_registry::CardRegistry, Card},
         error::Error,
         game_context::GameContext,
@@ -82,8 +81,9 @@ impl Renderer {
 
                 let highlights: Vec<I16Vec2> =
                     movement_pattern.iter().map(|tile| *tile + *pos).collect();
-
-                self.board_renderer.draw_highlights(&highlights);
+                if context.get_board().can_card_move(pos) {
+                    self.board_renderer.draw_highlights(&highlights);
+                }
             }
             TurnStep::Cardchoosen(_) => {
                 self.board_renderer.draw_available_place_positions(context);

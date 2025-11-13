@@ -6,10 +6,10 @@ use macroquad::math::{I16Vec2, U16Vec2};
 use place_error::BoardError;
 use tile::Tile;
 
-use crate::game::{card::Card, error::Error, game_objects::player_base::PlayerBase};
+use crate::game::{error::Error, game_objects::player_base::PlayerBase};
 
 use super::{
-    card::{card_id::CardID, card_registry::CardRegistry, in_play_id::InPlayID},
+    card::{card_registry::CardRegistry, in_play_id::InPlayID},
     player::PlayerID,
 };
 
@@ -269,14 +269,47 @@ impl Board {
         self.tiles.get(pos)
     }
 
+    pub(crate) fn refresh_movement_points(
+        &mut self,
+        player_id: PlayerID,
+        card_registry: &CardRegistry,
+    ) -> Result<(), Error> {
+        for (_, card_on_board) in self.cards_placed.iter_mut() {
+            if card_on_board.player_id == player_id {
+                let card = card_registry
+                    .get(&card_on_board.card_id)
+                    .ok_or(Error::CardNotFound)?;
+                card_on_board.movement_points = card.movement_points;
+            }
+        }
+        Ok(())
+    }
+
+    // Helper method to check if a card can move
+    pub fn can_card_move(&self, from: &I16Vec2) -> bool {
+        if let Some(card_on_board) = self.get_card_at_index(from) {
+            card_on_board.movement_points > 0
+        } else {
+            false
+        }
+    }
+
     pub fn move_card(&mut self, from: I16Vec2, to: I16Vec2) -> Result<(), BoardError> {
         // Check if 'from' and 'to' are valid
         let from_tile = self.tiles.get(&from).ok_or(BoardError::Index)?;
-        let card = match &from_tile.ontile {
+        let card_id = match &from_tile.ontile {
             Some(c) => *c,
             _ => return Err(BoardError::TileEmpty),
         };
         let to_tile = self.tiles.get(&to).ok_or(BoardError::Index)?;
+        // Check if the card has movement points left
+        let card_on_board = self
+            .cards_placed
+            .get_mut(&card_id)
+            .ok_or(BoardError::CardNotFound)?;
+        if card_on_board.movement_points == 0 {
+            return Err(BoardError::NoMovementPoints);
+        }
 
         // Check if 'to' tile is valid
         if to_tile.is_occupied() {
@@ -288,7 +321,8 @@ impl Board {
         from_tile.ontile = None;
 
         let to_tile = self.tiles.get_mut(&to).unwrap();
-        to_tile.ontile = Some(card);
+        to_tile.ontile = Some(card_id);
+        card_on_board.movement_points -= 1;
         Ok(())
     }
 
@@ -302,19 +336,15 @@ impl Board {
         let card_id = self
             .tiles
             .get(pos)
-            .ok_or(Error::PlaceError(BoardError::TileNotFound))?
-            .ontile
+            .and_then(|tile| tile.ontile)
             .ok_or(Error::TileEmpty)?;
 
         self.cards_placed.get(&card_id).ok_or(Error::CardNotFound)
     }
 
-    pub(crate) fn get_card_index(&self, id: InPlayID) -> Option<I16Vec2> {
-        for (pos, tile) in &self.tiles {
-            if tile.ontile? == id {
-                return Some(*pos);
-            }
-        }
-        None
+    pub(crate) fn get_card_index(&self, searched_for_id: InPlayID) -> Option<I16Vec2> {
+        self.tiles
+            .iter()
+            .find_map(|(pos, tile)| (tile.ontile == Some(searched_for_id)).then_some(*pos))
     }
 }
