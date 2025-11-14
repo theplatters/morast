@@ -81,6 +81,7 @@ pub async fn read_card(
     asset_loader: &mut AssetLoader,
 ) -> Result<Card, Error> {
     println!("Reading card: {}", name);
+
     let draw_action = match JanetEnum::get(env, "on-draw", Some(name)) {
         Some(value) => destructure_action(value)?,
         None => return Err(Error::NotFound("on-draw".into())),
@@ -106,10 +107,17 @@ pub async fn read_card(
         None => return Err(Error::NotFound("on-discard".into())),
     };
 
+    let JanetEnum::_String(description) = JanetEnum::get(env, "description", Some(name))
+        .ok_or(Error::NotFound("card-image".into()))?
+    else {
+        return Err(Error::Cast("Asset is not a string".into()));
+    };
+
     let attack = convert_to_i16_vec(env, "attack", name)
         .ok_or(Error::NotFound(format!("{}, attack", name)))?;
     let movement = convert_to_i16_vec(env, "movement", name)
         .ok_or(Error::NotFound(format!("{}, attack", name)))?;
+
     let JanetEnum::_String(asset_string) = JanetEnum::get(env, "card-image", Some(name))
         .ok_or(Error::NotFound("card-image".into()))?
     else {
@@ -164,6 +172,7 @@ pub async fn read_card(
         cost: cost as u16,
         movement,
         abilities,
+        description,
     })
 }
 

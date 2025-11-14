@@ -24,3 +24,5 @@
   'action get-gold
   'timing @['now]
   }])
+
+(def description "Get 4 gold at the start and end of a turn")

@@ -15,3 +15,5 @@
 (def on-ability @[])
 (def on-turn-begin @[])
 (def on-turn-end @[])
+
+(def description "A soldier drafted from the finest of peasents")

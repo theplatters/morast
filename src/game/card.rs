@@ -24,6 +24,7 @@ pub struct Card {
     draw_action: Vec<GameAction>,
     discard_action: Vec<GameAction>,
     abilities: Vec<Abilities>,
+    pub description: String,
 }
 
 impl Card {
