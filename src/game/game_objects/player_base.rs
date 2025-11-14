@@ -1,8 +1,14 @@
 use crate::game::player::PlayerID;
 
+#[derive(Clone, Copy)]
 pub enum PlayerBaseStatus {
     Alive,
     Destroyed,
+}
+impl PlayerBaseStatus {
+    pub(crate) fn default() -> PlayerBaseStatus {
+        PlayerBaseStatus::Alive
+    }
 }
 
 #[derive(Debug)]

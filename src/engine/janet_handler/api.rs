@@ -5,8 +5,8 @@ use macroquad::math::I16Vec2;
 
 use crate::{
     engine::janet_handler::{
-        bindings::{janet_getsymbol, JanetArray},
-        types::janetenum::ptr_to_i16_vec,
+        bindings::janet_getsymbol,
+        types::{function, janetenum::ptr_to_i16_vec},
     },
     game::{
         board::effect::{Effect, EffectType},
@@ -22,7 +22,7 @@ use super::{
         janet_getpointer, janet_getuinteger16, janet_wrap_array, janet_wrap_boolean,
         janet_wrap_integer, janet_wrap_nil, janet_wrap_u64, Janet,
     },
-    types::janetenum::{to_i16_vec, vec_to_janet_array},
+    types::janetenum::vec_to_janet_array,
 };
 
 pub unsafe extern "C" fn cfun_draw(argc: i32, argv: *mut Janet) -> Janet {
@@ -133,9 +133,11 @@ pub unsafe extern "C" fn cfun_shuffle_deck(argc: i32, argv: *mut Janet) -> Janet
     let player_id = PlayerID::new(janet_getuinteger16(argv, 0));
     (janet_getpointer(argv, 1) as *mut GameContext)
         .as_mut()
-        .map_or(janet_wrap_nil(), |game| match game.shuffe_deck(player_id) {
-            Some(_) => janet_wrap_boolean(1),
-            None => janet_wrap_boolean(0),
+        .map_or(janet_wrap_nil(), |game| {
+            match game.shuffle_deck(player_id) {
+                Some(_) => janet_wrap_boolean(1),
+                None => janet_wrap_boolean(0),
+            }
         })
 }
 
@@ -160,7 +162,7 @@ pub unsafe extern "C" fn cfun_get_current_index(argc: i32, argv: *mut Janet) -> 
     (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()
         .map_or(janet_wrap_nil(), |game| {
-            match game.get_card_index(id.into()) {
+            match game.get_board().get_card_index(id.into()) {
                 Some(index) => {
                     let arr = janet_array(2);
                     janet_array_push(arr, janet_wrap_integer(index.x as i32));
@@ -216,8 +218,8 @@ pub unsafe extern "C" fn cfun_from_current_position(argc: i32, argv: *mut Janet)
         .expect("Failed to cast reference to GameContext");
 
     let card_id = janet_getinteger64(argv, 1);
-
-    let Some(card_index) = context.get_card_index(card_id.into()) else {
+    let board = context.get_board();
+    let Some(card_index) = board.get_card_index(card_id.into()) else {
         return janet_wrap_nil();
     };
 
@@ -228,4 +230,20 @@ pub unsafe extern "C" fn cfun_from_current_position(argc: i32, argv: *mut Janet)
 
     let remaped_tiles: Vec<I16Vec2> = tiles.iter().map(|tile| *tile + card_index).collect();
     janet_wrap_array(vec_to_janet_array(&remaped_tiles))
+}
+
+pub unsafe extern "C" fn cfun_is_owners_turn(argc: i32, argv: *mut Janet) -> Janet {
+    janet_fixarity(argc, 2);
+
+    let context = (janet_getpointer(argv, 0) as *mut GameContext)
+        .as_mut()
+        .expect("Failed to cast reference to GameContext");
+
+    let card_id = janet_getinteger64(argv, 1);
+    let board = context.get_board();
+    let Some(card_owner) = board.get_card_owner(&card_id.into()) else {
+        return janet_wrap_nil();
+    };
+    let is_turn = card_owner == context.turn_player_id();
+    janet_wrap_boolean(is_turn.into())
 }

@@ -5,12 +5,6 @@ impl CardID {
     pub fn new(id: u32) -> Self {
         Self(id)
     }
-
-    pub fn as_u32(&self) -> u32 {
-        self.0
-    }
-
-    // New next method with overflow protection
     pub fn next(&self) -> Self {
         Self(self.0 + 1)
     }

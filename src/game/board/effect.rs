@@ -10,9 +10,9 @@ pub enum EffectType {
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
 pub struct Effect {
-    effect_type: EffectType,
+    pub effect_type: EffectType,
     duration: u16,
-    owner: PlayerID,
+    pub owner: PlayerID,
 }
 
 impl Effect {
@@ -34,6 +34,10 @@ impl Effect {
 
     pub fn decrease_duration(&mut self) {
         self.duration = self.duration.saturating_sub(1);
+    }
+
+    pub(crate) fn get_owner(&self) -> PlayerID {
+        self.owner
     }
 }
 

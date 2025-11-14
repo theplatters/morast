@@ -100,7 +100,6 @@ impl GameScheduler {
 
     // Advance the game state (call this when progressing phases/turns)
     pub fn process_events(&mut self, context: &mut GameContext) -> Result<(), Error> {
-        print!("Processing events, {:?}", self);
         // Process all deferred events from previous cycle first
         while let Some(event) = self.deferred_events.pop() {
             unsafe {

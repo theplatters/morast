@@ -1,4 +1,4 @@
-use crate::engine::janet_handler::types::function::Function;
+use crate::{engine::janet_handler::types::function::Function, game::error::Error};
 
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub enum Timing {
@@ -18,10 +18,10 @@ impl GameAction {
         Self { function, speed }
     }
 
-    pub fn eval(
+    pub fn _eval(
         &self,
         argv: &[crate::engine::janet_handler::bindings::Janet],
-    ) -> Result<crate::engine::janet_handler::types::janetenum::JanetEnum, String> {
-        self.function.eval(argv)
+    ) -> Result<crate::engine::janet_handler::types::janetenum::JanetEnum, Error> {
+        self.function.eval(argv).map_err(Error::EngineError)
     }
 }

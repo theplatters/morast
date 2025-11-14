@@ -2,6 +2,8 @@ use std::cmp;
 
 use macroquad::rand::ChooseRandom;
 
+use crate::game::{card::card_registry::CardRegistry, error::Error};
+
 use super::card::card_id::CardID;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
@@ -10,6 +12,9 @@ impl PlayerID {
     // Existing methods
     pub fn new(id: u16) -> Self {
         Self(id)
+    }
+    pub fn index(&self) -> usize {
+        self.0 as usize
     }
 
     pub fn get(&self) -> u16 {
@@ -32,11 +37,11 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new(id: PlayerID) -> Self {
+    pub fn new(id: PlayerID, deck: Vec<CardID>) -> Self {
         Self {
             id,
-            money: 0,
-            deck: Vec::new(),
+            money: 10000,
+            deck,
             hand: Vec::new(),
             discard_pile: Vec::new(),
         }
@@ -50,13 +55,6 @@ impl Player {
         self.deck.shuffle();
     }
 
-    pub fn peek_deck(&self) -> Option<CardID> {
-        self.deck.last().cloned()
-    }
-
-    pub fn add_to_deck_top(&mut self, card: CardID) {
-        self.hand.push(card)
-    }
     pub fn draw_from_deck(&mut self) -> Option<CardID> {
         self.deck.pop()
     }
@@ -72,7 +70,42 @@ impl Player {
         self.money = cmp::max(self.money + amount, 0)
     }
 
+    pub fn remove_gold(&mut self, amount: i64) {
+        self.money -= amount;
+    }
+
     pub fn get_gold(&self) -> i64 {
         self.money
+    }
+
+    pub fn get_hand(&self) -> &Vec<CardID> {
+        &self.hand
+    }
+
+    pub(crate) fn remove_card_from_hand(&mut self, card_index: usize) -> Option<CardID> {
+        if card_index < self.hand.len() {
+            Some(self.hand.remove(card_index))
+        } else {
+            None
+        }
+    }
+
+    pub fn hand_size(&self) -> usize {
+        self.hand.len()
+    }
+
+    pub(crate) fn get_card_in_hand(&self, card_index: usize) -> Option<CardID> {
+        self.hand.get(card_index).copied()
+    }
+
+    pub(crate) fn sell_card(
+        &mut self,
+        pos: usize,
+        card_registry: &CardRegistry,
+    ) -> Result<(), Error> {
+        let card_id = self.hand.remove(pos);
+        let card = card_registry.get(&card_id).ok_or(Error::CardNotFound)?;
+        self.add_gold(card.cost.into());
+        Ok(())
     }
 }

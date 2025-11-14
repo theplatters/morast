@@ -1,11 +1,19 @@
-use card::{card_id::CardID, card_registry::CardRegistry};
+use std::sync::Arc;
+
+use card::card_registry::CardRegistry;
 use error::Error;
 use events::event_scheduler::GameScheduler;
 use game_context::GameContext;
-use macroquad::math::I16Vec2;
-use player::{Player, PlayerID};
+use macroquad::window::next_frame;
 
-use crate::engine::{asset_loader::AssetLoader, janet_handler::controller::Environment};
+use crate::{
+    engine::{
+        asset_loader::AssetLoader,
+        janet_handler::controller::Environment,
+        renderer::{render_config::RenderConfig, Renderer},
+    },
+    game::turn_controller::TurnController,
+};
 
 pub mod board;
 pub mod card;
@@ -16,6 +24,7 @@ pub mod game_context;
 pub mod game_objects;
 mod phases;
 pub mod player;
+pub mod turn_controller;
 
 pub struct Game {
     pub context: GameContext,
@@ -23,6 +32,8 @@ pub struct Game {
     pub card_registry: CardRegistry,
     env: Environment,
     asset_loader: AssetLoader,
+    turn_controller: TurnController,
+    renderer: Renderer,
 }
 
 impl Game {
@@ -32,68 +43,50 @@ impl Game {
         let mut env = Environment::new();
         env.read_script("scripts/loader.janet")
             .expect("Could not find file");
-        let players = [Player::new(PlayerID::new(0)), Player::new(PlayerID::new(1))];
-        let card_registry = CardRegistry::new(&mut env, &mut asset_loader).await;
+        let mut card_registry = CardRegistry::new();
+        card_registry.init(&mut env, &mut asset_loader).await;
         println!("Card Registry: {:?}", card_registry);
+        let render_config = Arc::new(RenderConfig::default());
         Self {
             env,
             scheduler: GameScheduler::new(),
-            context: GameContext::new(players),
+            context: GameContext::new(&card_registry),
             card_registry,
             asset_loader,
+            turn_controller: TurnController::new(render_config.clone()),
+            renderer: Renderer::new(render_config),
         }
     }
 
-    pub fn place(
-        &mut self,
-        card_id: CardID,
-        index: I16Vec2,
-        player_id: PlayerID,
-    ) -> Result<(), Error> {
-        self.context
-            .place(
-                card_id,
-                index,
-                player_id,
-                &self.card_registry,
-                &mut self.scheduler,
-            )
-            .expect("Placing card failed");
-
-        self.context.update_attack_values(&self.card_registry);
-        Ok(())
-    }
-
-    pub fn turn_player_id(&self) -> PlayerID {
-        self.context.turn_player_id()
-    }
-
-    pub fn game_loop(&mut self) {
+    pub async fn main_loop(&mut self) -> Result<(), Error> {
         loop {
-            self.advance_turn();
+            self.turn_controller.reset_state();
+            self.context.advance_turn(&mut self.scheduler);
 
-            //TODO: implement Main Phase
-            self.end_turn();
+            self.context
+                .process_turn_begin(&mut self.scheduler, &self.card_registry)?;
+
+            self.context.process_main_phase(&mut self.scheduler)?;
+
+            while !self.turn_controller.turn_over() {
+                let turn_step = self.turn_controller.update(
+                    &mut self.context,
+                    &self.card_registry,
+                    &mut self.scheduler,
+                )?;
+
+                self.renderer.render(
+                    &self.context,
+                    &turn_step,
+                    &self.asset_loader,
+                    &self.card_registry,
+                )?;
+
+                next_frame().await;
+            }
+
+            self.context
+                .process_turn_end(&mut self.scheduler, &self.card_registry)?;
         }
-    }
-
-    pub fn other_player_id(&self) -> PlayerID {
-        self.context.other_player_id()
-    }
-
-    pub fn advance_turn(&mut self) {
-        self.context
-            .process_turn_begin(&mut self.scheduler, &self.card_registry);
-    }
-
-    pub fn end_turn(&mut self) {
-        self.context
-            .process_turn_end(&mut self.scheduler, &self.card_registry);
-    }
-
-    pub fn move_card(&mut self, from: I16Vec2, to: I16Vec2) -> Result<(), Error> {
-        self.context.move_card(from, to, &self.card_registry)?;
-        self.scheduler.process_events(&mut self.context)?;
-        Ok(())
     }
 }

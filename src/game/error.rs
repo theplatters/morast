@@ -1,3 +1,5 @@
+use crate::engine::error::EngineError;
+
 use super::board::place_error::BoardError;
 
 #[derive(Debug)]
@@ -11,4 +13,6 @@ pub enum Error {
     NotFound(String),
     Cast(String),
     MacroquadError(macroquad::Error),
+    InsufficientGold,
+    EngineError(EngineError),
 }

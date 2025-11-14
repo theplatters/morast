@@ -4,4 +4,7 @@ pub enum BoardError {
     TileOccupied,
     TileEmpty,
     InvalidMove,
+    TileNotFound,
+    NoMovementPoints,
+    CardNotFound,
 }

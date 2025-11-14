@@ -1,9 +1,12 @@
-use crate::engine::janet_handler::{
-    bindings::{
-        janet_checktype, janet_pcall, janet_resolve, janet_unwrap_function, janet_wrap_nil, Janet,
-        JanetFunction, JanetSignal, JANET_TYPE_JANET_FUNCTION,
+use crate::engine::{
+    error::EngineError,
+    janet_handler::{
+        bindings::{
+            janet_checktype, janet_pcall, janet_resolve, janet_unwrap_function, janet_wrap_nil,
+            Janet, JanetFunction, JanetSignal, JANET_TYPE_JANET_FUNCTION,
+        },
+        controller::Environment,
     },
-    controller::Environment,
 };
 
 use super::janetenum::JanetEnum;
@@ -18,7 +21,7 @@ impl Function {
         Self { janet_fun }
     }
 
-    pub fn eval(&self, argv: &[Janet]) -> Result<JanetEnum, String> {
+    pub fn eval(&self, argv: &[Janet]) -> Result<JanetEnum, EngineError> {
         let signal: JanetSignal;
         unsafe {
             let mut out: Janet = janet_wrap_nil();
@@ -31,10 +34,10 @@ impl Function {
             );
 
             if signal != 0 {
-                return Err(format!("Got signal {}", signal));
+                return Err(EngineError::Signal(format!("Got signal {}", signal)));
             }
 
-            JanetEnum::from(out).map_err(|e| e.to_string())
+            JanetEnum::from(out)
         }
     }
 

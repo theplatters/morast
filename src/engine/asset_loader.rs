@@ -7,6 +7,8 @@ use macroquad::{
     texture::{load_texture, FilterMode, Texture2D},
 };
 
+use crate::engine::error::EngineError;
+
 pub struct AssetLoader {
     root_path: String,
     textures: HashMap<String, Texture2D>,
@@ -25,30 +27,28 @@ impl AssetLoader {
     }
 
     // Load a texture and store it in the HashMap
-    pub async fn load_texture(&mut self, path: &str, key: &str) -> Result<(), macroquad::Error> {
+    pub async fn load_texture(&mut self, path: &str, key: &str) -> Result<(), EngineError> {
         let full_path = format!("{}/{}", self.root_path, path);
         println!("Path: {:?}", self.root_path);
-        let texture = load_texture(&full_path)
-            .await
-            .unwrap_or_else(|err| panic!("{:?}", err));
+        let texture = load_texture(&full_path).await.map_err(EngineError::Load)?;
         texture.set_filter(FilterMode::Nearest);
         self.textures.insert(key.to_string(), texture);
         Ok(())
     }
 
     // Load a sound and store it in the HashMap
-    pub async fn load_sound(&mut self, path: &str, key: &str) -> Result<(), macroquad::Error> {
+    pub async fn load_sound(&mut self, path: &str, key: &str) -> Result<(), EngineError> {
         let full_path = format!("{}/{}", self.root_path, path);
-        let sound = load_sound(&full_path).await?;
+        let sound = load_sound(&full_path).await.map_err(EngineError::Load)?;
         self.sounds.insert(key.to_string(), sound);
         Ok(())
     }
 
     // Load a font and store it in the HashMap
-    pub async fn load_font(&mut self, path: &str, key: &str) -> Result<(), macroquad::Error> {
+    pub async fn load_font(&mut self, path: &str, key: &str) -> Result<(), EngineError> {
         let full_path = format!("{}/{}", self.root_path, path);
-        let bytes = load_file(&full_path).await?;
-        let font = load_ttf_font_from_bytes(&bytes)?;
+        let bytes = load_file(&full_path).await.map_err(EngineError::Load)?;
+        let font = load_ttf_font_from_bytes(&bytes).map_err(EngineError::Load)?;
         self.fonts.insert(key.to_string(), font);
         Ok(())
     }

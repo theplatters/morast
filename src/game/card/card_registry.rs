@@ -19,14 +19,16 @@ pub struct CardRegistry {
 }
 
 impl CardRegistry {
-    pub async fn new(env: &mut Environment, asset_loader: &mut AssetLoader) -> Self {
-        let mut s = Self {
+    pub fn new() -> Self {
+        Self {
             cards: HashMap::new(),
             id_counter: CardID::new(0),
             names: HashMap::new(),
-        };
-        s.init(env, asset_loader).await;
-        s
+        }
+    }
+
+    pub fn registered_ids(&self) -> std::collections::hash_map::Keys<'_, CardID, Card> {
+        self.cards.keys()
     }
 
     pub async fn init(&mut self, env: &mut Environment, asset_loader: &mut AssetLoader) {

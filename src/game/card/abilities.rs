@@ -17,7 +17,7 @@ impl FromStr for Abilities {
             "fly" => Ok(Self::Flying),
             "jump" => Ok(Self::Jumping),
             "dig" => Ok(Self::Digging),
-            _ => Err(Error::Cast(format!("Ability not found {:}", s))),
+            _ => Err(Error::Cast(format!("Ability not found {}", s))),
         }
     }
 }

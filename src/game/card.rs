@@ -13,9 +13,11 @@ pub mod in_play_id;
 pub struct Card {
     pub name: String,
     pub movement: Vec<I16Vec2>,
+    pub movement_points: u16,
     pub attack: Vec<I16Vec2>,
     pub attack_strength: u16,
     pub defense: u16,
+    pub cost: u16,
     play_action: Vec<GameAction>,
     turn_begin_action: Vec<GameAction>,
     turn_end_action: Vec<GameAction>,
@@ -76,5 +78,8 @@ impl Card {
     pub fn get_attack_pattern(&self) -> &Vec<I16Vec2> {
         &self.attack
     }
+
+    pub(crate) fn get_movement_pattern(&self) -> &Vec<I16Vec2> {
+        &self.movement
+    }
 }
-impl crate::engine::janet_handler::types::janetenum::ToVoidPointer for Card {}

@@ -5,7 +5,7 @@ use crate::{
         asset_loader::AssetLoader,
         janet_handler::{
             controller::Environment,
-            types::janetenum::{convert_to_i16_vec, to_i16_vec, JanetEnum},
+            types::janetenum::{convert_to_i16_vec, JanetEnum},
         },
     },
     game::{
@@ -118,25 +118,35 @@ pub async fn read_card(
     asset_loader
         .load_texture(asset_string.as_str(), name)
         .await
-        .map_err(Error::MacroquadError)?;
+        .map_err(Error::EngineError)?;
 
     let Some(JanetEnum::_Int(attack_strength)) = JanetEnum::get(env, "attack-strength", Some(name))
     else {
         return Err(Error::Cast("Attack strength not found".into()));
     };
 
+    let Some(JanetEnum::_Int(cost)) = JanetEnum::get(env, "cost", Some(name)) else {
+        return Err(Error::Cast("Cost not found".into()));
+    };
+
     let Some(JanetEnum::_Int(defense)) = JanetEnum::get(env, "defense", Some(name)) else {
         return Err(Error::Cast("Defense strength not found".into()));
+    };
+
+    let Some(JanetEnum::_Int(movement_points)) = JanetEnum::get(env, "movement-points", Some(name))
+    else {
+        return Err(Error::Cast("Movement Points not found".into()));
     };
 
     let abilities: Vec<Abilities> = match JanetEnum::get(env, "abilities", Some(name)) {
         Some(JanetEnum::_Array(abilities)) => abilities
             .iter()
             .map(|el| {
-                el.try_into()
-                    .map_or_else(Err, |el: String| Abilities::from_str(el.as_str()))
+                let s: String = el.try_into().map_err(Error::EngineError)?; // try convert to String
+                Abilities::from_str(&s)
             })
             .collect::<Result<_, Error>>()?,
+
         _ => Vec::new(),
     };
 
@@ -150,6 +160,8 @@ pub async fn read_card(
         attack,
         attack_strength: attack_strength as u16,
         defense: defense as u16,
+        movement_points: movement_points as u16,
+        cost: cost as u16,
         movement,
         abilities,
     })
