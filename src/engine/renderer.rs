@@ -56,6 +56,7 @@ impl Renderer {
                 card.attack_strength,
                 card.defense,
                 card.name.clone(),
+                card.description.clone(),
                 highlighted,
                 self.render_config.clone(),
             );

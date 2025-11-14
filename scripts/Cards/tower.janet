@@ -17,3 +17,5 @@
 (def on-ability @[])
 (def on-turn-begin @[])
 (def on-turn-end @[])
+
+(def description "Stands tall over the lands")

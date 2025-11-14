@@ -15,3 +15,4 @@
 (def on-ability @[])
 (def on-turn-begin @[])
 (def on-turn-end @[])
+(def description "A bowmen. He has a bow a few arrors and a mission")
