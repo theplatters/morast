@@ -1,6 +1,10 @@
 use std::sync::Arc;
 
-use macroquad::{math::I16Vec2, shapes::draw_rectangle_lines, text::draw_text};
+use macroquad::{
+    math::I16Vec2,
+    shapes::{draw_circle, draw_rectangle_lines},
+    text::draw_text,
+};
 
 use crate::{
     engine::{asset_loader::AssetLoader, renderer::render_config::RenderConfig},
@@ -8,6 +12,7 @@ use crate::{
         board::{self, place_error::BoardError, Board},
         card::card_registry::CardRegistry,
         error::Error,
+        game_objects::player_base::PlayerBase,
         turn_controller::TurnStep,
     },
 };
@@ -59,6 +64,7 @@ impl BoardRenderer {
 
                 // Draw tile background
                 macroquad::shapes::draw_rectangle(screen_x, screen_y, tile_size, tile_size, color);
+
                 draw_rectangle_lines(
                     screen_x,
                     screen_y,
@@ -67,6 +73,14 @@ impl BoardRenderer {
                     1.0,
                     macroquad::color::BLACK,
                 );
+
+                if tile.has_player_base() {
+                    self.draw_playerbase(
+                        tile.get_player_base().expect("This should not happen"),
+                        screen_x,
+                        screen_y,
+                    )
+                }
 
                 // Draw attack values
                 let attack_x = tile.attack_on_tile.x;
@@ -128,5 +142,24 @@ impl BoardRenderer {
             })
             .collect();
         self.draw_highlights(&tiles);
+    }
+
+    fn draw_playerbase(&self, player_base: &PlayerBase, x: f32, y: f32) {
+        let screen_x = x + self.render_config.tile_size / 2.0;
+        let screen_y = y + self.render_config.tile_size / 2.0;
+        draw_circle(
+            screen_x,
+            screen_y,
+            self.render_config.tile_size / 2.0,
+            macroquad::color::BLACK,
+        );
+
+        draw_text(
+            format!("{}", player_base.health).as_str(),
+            screen_x,
+            screen_y,
+            12.0,
+            macroquad::color::WHITE,
+        );
     }
 }

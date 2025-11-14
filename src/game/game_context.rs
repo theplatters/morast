@@ -1,7 +1,9 @@
 use log::debug;
 use macroquad::{math::I16Vec2, rand::ChooseRandom};
 
-use crate::game::{board::card_on_board::CardOnBoard, phases::Phase};
+use crate::game::{
+    board::card_on_board::CardOnBoard, game_objects::player_base::PlayerBaseStatus, phases::Phase,
+};
 
 use super::{
     board::{effect::Effect, place_error::BoardError, Board},
@@ -204,6 +206,23 @@ impl GameContext {
         }
 
         scheduler.process_events(self)?;
+        match self.board.player_base_take_damage() {
+            [PlayerBaseStatus::Alive, PlayerBaseStatus::Destroyed] => {
+                println!("Player 1 wins");
+                return Ok(());
+            }
+
+            [PlayerBaseStatus::Destroyed, PlayerBaseStatus::Alive] => {
+                println!("Player 2 wins");
+                return Ok(());
+            }
+            [PlayerBaseStatus::Destroyed, PlayerBaseStatus::Destroyed] => {
+                println!("Draw");
+                return Ok(());
+            }
+
+            _ => {}
+        }
         Ok(())
     }
 
@@ -277,7 +296,9 @@ impl GameContext {
         if !self.is_legal_move(from, to, card) {
             return Err(Error::InvalidMove);
         }
-        self.board.move_card(from, to).map_err(Error::PlaceError)?;
+        self.board
+            .move_card(from, to, self.turn_player)
+            .map_err(Error::PlaceError)?;
         self.update_attack_values(card_registry)?;
         Ok(())
     }

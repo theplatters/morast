@@ -6,7 +6,11 @@ use macroquad::math::{I16Vec2, U16Vec2};
 use place_error::BoardError;
 use tile::Tile;
 
-use crate::game::{error::Error, game_objects::player_base::PlayerBase};
+use crate::game::{
+    error::Error,
+    game_objects::player_base::{PlayerBase, PlayerBaseStatus},
+    player,
+};
 
 use super::{
     card::{card_registry::CardRegistry, in_play_id::InPlayID},
@@ -24,6 +28,7 @@ pub struct Board {
     next_id: InPlayID,
     board_size: I16Vec2,
     pub cards_placed: HashMap<InPlayID, CardOnBoard>,
+    player_bases_positions: [I16Vec2; 2],
 }
 
 impl Board {
@@ -51,6 +56,10 @@ impl Board {
             next_id: InPlayID::new(0),
             board_size: I16Vec2::new(x_size, y_size),
             cards_placed: HashMap::new(),
+            player_bases_positions: [
+                I16Vec2::new(2, y_size / 2),
+                I16Vec2::new(x_size - 3, y_size / 2),
+            ],
         }
     }
 
@@ -81,8 +90,22 @@ impl Board {
                     .ok_or(Error::CardNotFound)?;
 
                 let attack_vector = match card_on_board.player_id {
-                    PlayerID(0) => U16Vec2::X * card.attack_strength,
-                    _ => U16Vec2::Y * card.attack_strength,
+                    PlayerID(0) => {
+                        U16Vec2::X
+                            * if curr_tile.has_effect(PlayerID(1), effect::EffectType::Weakening) {
+                                card.attack_strength / 2
+                            } else {
+                                card.attack_strength
+                            }
+                    }
+                    _ => {
+                        U16Vec2::Y
+                            * if curr_tile.has_effect(PlayerID(0), effect::EffectType::Weakening) {
+                                card.attack_strength / 2
+                            } else {
+                                card.attack_strength
+                            }
+                    }
                 };
 
                 for attack in card.get_attack_pattern() {
@@ -123,68 +146,6 @@ impl Board {
             }
         }
 
-        Ok(removed)
-    }
-
-    pub(crate) fn update_attack_values_for_card(
-        &mut self,
-        attacking_card: CardOnBoard,
-        old_pos: I16Vec2,
-        new_pos: I16Vec2,
-        card_registry: &CardRegistry,
-    ) -> Result<HashSet<InPlayID>, Error> {
-        let card_info = card_registry
-            .get(&attacking_card.card_id)
-            .unwrap_or_else(|| panic!("Card not found {:?}", attacking_card.card_id));
-
-        let attack_vector = match attacking_card.player_id {
-            PlayerID(0) => U16Vec2::X * card_info.attack_strength,
-            _ => U16Vec2::Y * card_info.attack_strength,
-        };
-
-        // Remove attack contributions from the old position.
-        for attack in card_info.get_attack_pattern() {
-            let old_target = old_pos.wrapping_add(*attack);
-            if let Some(tile) = self.tiles.get_mut(&old_target) {
-                // Use saturating_sub to ensure no underflow.
-                tile.attack_on_tile = tile.attack_on_tile.saturating_sub(attack_vector);
-            }
-        }
-        let mut removed = HashSet::new();
-        // Add attack contributions from the new position.
-        for attack in card_info.get_attack_pattern() {
-            let new_target = new_pos.wrapping_add(*attack);
-            if let Some(tile) = self.tiles.get_mut(&new_target) {
-                tile.attack_on_tile += attack_vector;
-                match tile.ontile {
-                    Some(attacked_card_id)
-                        if attacking_card.player_id
-                            != self
-                                .cards_placed
-                                .get(&attacked_card_id)
-                                .ok_or(Error::CardNotFound)?
-                                .player_id =>
-                    {
-                        let attacked_card = self
-                            .cards_placed
-                            .get(&attacked_card_id)
-                            .ok_or(Error::CardNotFound)?;
-
-                        let attacked_card_health = card_registry
-                            .get(&attacked_card.card_id)
-                            .expect("Fatal: Card not found in card_registry")
-                            .defense;
-                        if attacked_card_health
-                            < tile.attack_on_tile[attacking_card.player_id.get() as usize]
-                        {
-                            removed.insert(attacked_card_id);
-                            tile.ontile = None;
-                        }
-                    }
-                    _ => {}
-                }
-            } // Calculate attack vector once
-        }
         Ok(removed)
     }
 
@@ -286,43 +247,56 @@ impl Board {
     }
 
     // Helper method to check if a card can move
-    pub fn can_card_move(&self, from: &I16Vec2) -> bool {
+    pub fn can_card_move(&self, move_player: PlayerID, from: &I16Vec2) -> bool {
+        let from_tile = self.tiles.get(from).unwrap();
         if let Some(card_on_board) = self.get_card_at_index(from) {
             card_on_board.movement_points > 0
+                || (from_tile.has_effect(move_player, effect::EffectType::Slow)
+                    && card_on_board.movement_points > 1)
         } else {
             false
         }
     }
 
-    pub fn move_card(&mut self, from: I16Vec2, to: I16Vec2) -> Result<(), BoardError> {
+    pub fn move_card(
+        &mut self,
+        from: I16Vec2,
+        to: I16Vec2,
+        move_player: PlayerID,
+    ) -> Result<(), BoardError> {
         // Check if 'from' and 'to' are valid
         let from_tile = self.tiles.get(&from).ok_or(BoardError::Index)?;
         let card_id = match &from_tile.ontile {
             Some(c) => *c,
             _ => return Err(BoardError::TileEmpty),
         };
-        let to_tile = self.tiles.get(&to).ok_or(BoardError::Index)?;
         // Check if the card has movement points left
+        if !self.can_card_move(move_player.next(), &from) {
+            return Err(BoardError::NoMovementPoints);
+        }
+
+        let to_tile = self.tiles.get(&to).ok_or(BoardError::Index)?;
         let card_on_board = self
             .cards_placed
             .get_mut(&card_id)
             .ok_or(BoardError::CardNotFound)?;
-        if card_on_board.movement_points == 0 {
-            return Err(BoardError::NoMovementPoints);
-        }
 
         // Check if 'to' tile is valid
         if to_tile.is_occupied() {
             return Err(BoardError::TileOccupied);
         }
 
+        if from_tile.has_effect(move_player.next(), effect::EffectType::Slow) {
+            card_on_board.movement_points -= 2;
+        } else {
+            card_on_board.movement_points -= 1;
+        }
         // Move the card
         let from_tile = self.tiles.get_mut(&from).unwrap();
         from_tile.ontile = None;
 
         let to_tile = self.tiles.get_mut(&to).unwrap();
         to_tile.ontile = Some(card_id);
-        card_on_board.movement_points -= 1;
         Ok(())
     }
 
@@ -346,5 +320,27 @@ impl Board {
         self.tiles
             .iter()
             .find_map(|(pos, tile)| (tile.ontile == Some(searched_for_id)).then_some(*pos))
+    }
+
+    pub(crate) fn player_base_take_damage(&mut self) -> [PlayerBaseStatus; 2] {
+        let mut results = [PlayerBaseStatus::default(); 2]; // Assuming Default is implemented
+
+        for (i, &pos) in self.player_bases_positions.iter().enumerate() {
+            let tile = self
+                .tiles
+                .get_mut(&pos)
+                .expect("Fatal error: Tile not found");
+            let attack = if i == 1 {
+                tile.attack_on_tile.x
+            } else {
+                tile.attack_on_tile.y
+            };
+            results[i] = tile
+                .get_player_base_mut()
+                .expect("Fatal base: Player base is not where it should be")
+                .damage(attack);
+        }
+
+        results
     }
 }

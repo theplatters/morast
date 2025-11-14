@@ -3,7 +3,8 @@ use std::fmt::Display;
 use macroquad::math::U16Vec2;
 
 use crate::game::{
-    card::in_play_id::InPlayID, game_objects::player_base::PlayerBase, player::PlayerID,
+    board::effect::EffectType, card::in_play_id::InPlayID, game_objects::player_base::PlayerBase,
+    player::PlayerID,
 };
 
 use super::effect::Effect;
@@ -28,7 +29,7 @@ impl Display for Tile {
 
         // Display player_base
         match &self.player_base {
-            Some(base) => write!(f, "has player base")?,
+            Some(_) => write!(f, "has player base")?,
             None => write!(f, "player_base: None, ")?,
         }
 
@@ -81,5 +82,19 @@ impl Tile {
 
     pub(crate) fn remove_effect(&mut self, effect: Effect) {
         self.effects.retain(|&x| x != effect);
+    }
+
+    pub(crate) fn get_player_base(&self) -> Option<&PlayerBase> {
+        self.player_base.as_ref()
+    }
+
+    pub(crate) fn get_player_base_mut(&mut self) -> Option<&mut PlayerBase> {
+        self.player_base.as_mut()
+    }
+
+    pub(crate) fn has_effect(&self, effect_owner: PlayerID, effect_type: EffectType) -> bool {
+        self.effects
+            .iter()
+            .any(|ef| ef.owner == effect_owner && ef.effect_type == effect_type)
     }
 }

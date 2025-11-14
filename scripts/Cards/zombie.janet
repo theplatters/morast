@@ -19,6 +19,11 @@
   )])
 (def on-discard @[])
 (def on-ability @[])
-(def on-turn-begin @[])
+(def on-turn-begin 
+ @[(table
+  'action (fn [game card-id] (std/apply-effect game 'weakening 2 (std/from-current-position game card-id (std/plus 1))))
+  'timing @['now]
+  )])
+
 (def on-turn-end @[])
 

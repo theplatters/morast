@@ -81,7 +81,10 @@ impl Renderer {
 
                 let highlights: Vec<I16Vec2> =
                     movement_pattern.iter().map(|tile| *tile + *pos).collect();
-                if context.get_board().can_card_move(pos) {
+                if context
+                    .get_board()
+                    .can_card_move(context.turn_player_id(), pos)
+                {
                     self.board_renderer.draw_highlights(&highlights);
                 }
             }
