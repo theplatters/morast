@@ -4,7 +4,10 @@ use log::debug;
 use macroquad::math::I16Vec2;
 
 use crate::{
-    engine::janet_handler::{bindings::janet_getsymbol, types::janetenum::ptr_to_i16_vec},
+    engine::janet_handler::{
+        bindings::janet_getsymbol,
+        types::{function, janetenum::ptr_to_i16_vec},
+    },
     game::{
         board::effect::{Effect, EffectType},
         events::event_scheduler::GameScheduler,
@@ -227,4 +230,20 @@ pub unsafe extern "C" fn cfun_from_current_position(argc: i32, argv: *mut Janet)
 
     let remaped_tiles: Vec<I16Vec2> = tiles.iter().map(|tile| *tile + card_index).collect();
     janet_wrap_array(vec_to_janet_array(&remaped_tiles))
+}
+
+pub unsafe extern "C" fn cfun_is_owners_turn(argc: i32, argv: *mut Janet) -> Janet {
+    janet_fixarity(argc, 2);
+
+    let context = (janet_getpointer(argv, 0) as *mut GameContext)
+        .as_mut()
+        .expect("Failed to cast reference to GameContext");
+
+    let card_id = janet_getinteger64(argv, 1);
+    let board = context.get_board();
+    let Some(card_owner) = board.get_card_owner(&card_id.into()) else {
+        return janet_wrap_nil();
+    };
+    let is_turn = card_owner == context.turn_player_id();
+    janet_wrap_boolean(is_turn.into())
 }

@@ -343,4 +343,10 @@ impl Board {
 
         results
     }
+
+    pub(crate) fn get_card_owner(&self, card_id: &InPlayID) -> Option<PlayerID> {
+        self.cards_placed
+            .get(&card_id)
+            .and_then(|card_on_board| Some(card_on_board.player_id))
+    }
 }

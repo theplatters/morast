@@ -3,7 +3,10 @@ use std::{
     str::FromStr,
 };
 
-use crate::engine::{error::EngineError, janet_handler::api::cfun_from_current_position};
+use crate::engine::{
+    error::EngineError,
+    janet_handler::api::{cfun_from_current_position, cfun_is_owners_turn},
+};
 
 use super::{
     api::{
@@ -112,6 +115,9 @@ impl Environment {
                 cfun_from_current_position as JanetRawCFunction,
                 "Maps an array relative to a position",
             ),
+            ( "is-owners-turn?", 
+                cfun_is_owners_turn as JanetRawCFunction,
+                "returns true if the turn player is the owner of the card")
         ];
 
         for (name, fun, desc) in functions {
