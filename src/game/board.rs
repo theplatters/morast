@@ -7,6 +7,7 @@ use place_error::BoardError;
 use tile::Tile;
 
 use crate::game::{
+    card::Card,
     error::Error,
     game_objects::player_base::{PlayerBase, PlayerBaseStatus},
     player,
@@ -69,12 +70,45 @@ impl Board {
             .for_each(|tile| tile.attack_on_tile = U16Vec2::ZERO);
     }
 
-    pub(crate) fn update_attack_values(
-        &mut self,
-        card_registry: &CardRegistry,
-    ) -> Result<HashSet<InPlayID>, Error> {
-        self.zero_out_attack();
+    fn get_attack_vector(
+        &self,
+        card_on_board: &CardOnBoard,
+        tile: &Tile,
+        card: &Card,
+    ) -> Result<U16Vec2, Error> {
+        let effective_attack = self.calculate_effective_attack_strength(
+            card.attack_strength,
+            card_on_board.player_id,
+            tile,
+        );
 
+        let attack_vector = match card_on_board.player_id {
+            PlayerID(0) => U16Vec2::X,
+            _ => U16Vec2::Y,
+        };
+
+        Ok(attack_vector * effective_attack)
+    }
+
+    fn calculate_effective_attack_strength(
+        &self,
+        base_attack: u16,
+        player_id: PlayerID,
+        tile: &Tile,
+    ) -> u16 {
+        let opponent = player_id.next();
+
+        if tile.has_effect(opponent, effect::EffectType::Weakening) {
+            base_attack / 2
+        } else {
+            base_attack
+        }
+    }
+
+    fn get_attack_updates(
+        &self,
+        card_registry: &CardRegistry,
+    ) -> Result<HashMap<I16Vec2, U16Vec2>, Error> {
         // First collect all attack contributions
         let mut attack_updates = HashMap::new();
 
@@ -89,27 +123,14 @@ impl Board {
                     .get(&card_on_board.card_id)
                     .ok_or(Error::CardNotFound)?;
 
-                let attack_vector = match card_on_board.player_id {
-                    PlayerID(0) => {
-                        U16Vec2::X
-                            * if curr_tile.has_effect(PlayerID(1), effect::EffectType::Weakening) {
-                                card.attack_strength / 2
-                            } else {
-                                card.attack_strength
-                            }
-                    }
-                    _ => {
-                        U16Vec2::Y
-                            * if curr_tile.has_effect(PlayerID(0), effect::EffectType::Weakening) {
-                                card.attack_strength / 2
-                            } else {
-                                card.attack_strength
-                            }
-                    }
-                };
-
+                let attack_vector = self.get_attack_vector(card_on_board, curr_tile, card)?;
                 for attack in card.get_attack_pattern() {
-                    let target_index = index.wrapping_add(*attack);
+                    let adjusted_attack = if card_on_board.player_id == PlayerID(1) {
+                        I16Vec2::new(-attack.x, attack.y)
+                    } else {
+                        *attack
+                    };
+                    let target_index = index.wrapping_add(adjusted_attack);
                     attack_updates
                         .entry(target_index)
                         .and_modify(|v| *v += attack_vector)
@@ -117,13 +138,28 @@ impl Board {
                 }
             }
         }
+        Ok(attack_updates)
+    }
 
-        // Mutable phase - apply updates
+    fn apply_attack_updates(&mut self, attack_updates: &HashMap<I16Vec2, U16Vec2>) {
         for (index, attack) in attack_updates {
-            if let Some(tile) = self.tiles.get_mut(&index) {
-                tile.attack_on_tile += attack;
+            if let Some(tile) = self.tiles.get_mut(index) {
+                tile.attack_on_tile += *attack;
             }
         }
+    }
+
+    pub(crate) fn update_attack_values(
+        &mut self,
+        card_registry: &CardRegistry,
+    ) -> Result<HashSet<InPlayID>, Error> {
+        self.zero_out_attack();
+
+        //Get new attack updates
+        let attack_updates = self.get_attack_updates(card_registry)?;
+
+        // Mutable phase - apply updates
+        self.apply_attack_updates(&attack_updates);
 
         // Now handle card removal in a separate pass
         let mut removed = HashSet::new();
@@ -346,7 +382,7 @@ impl Board {
 
     pub(crate) fn get_card_owner(&self, card_id: &InPlayID) -> Option<PlayerID> {
         self.cards_placed
-            .get(&card_id)
-            .and_then(|card_on_board| Some(card_on_board.player_id))
+            .get(card_id)
+            .map(|card_on_board| card_on_board.player_id)
     }
 }

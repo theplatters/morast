@@ -9,17 +9,18 @@
 (def attack-strength 1)
 (def defense 1)
 
+(defn get-gold [game card-id] (if (std/is-owners-turn? game card-id) 
+      (std/get-gold game 4 (std/owner game card-id))))
+
 (def on-draw @[])
 (def on-play @[])
 (def on-discard @[])
 (def on-ability @[])
 (def on-turn-begin @[@{
-  'action (fn [game card-id] (if (std/is-owners-turn? game card-id) 
-      (std/get-gold game 4 (std/owner game card-id))))
+  'action get-gold 
   'timing @['now]
   }])
 (def on-turn-end @[@{
-  'action (fn [game card-id] (if (std/is-owners-turn? game card-id) 
-      (std/get-gold game 4 (std/owner game card-id))))
+  'action get-gold
   'timing @['now]
   }])
