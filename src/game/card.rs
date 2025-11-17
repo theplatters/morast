@@ -9,6 +9,7 @@ pub mod abilities;
 pub mod card_id;
 pub mod card_reader;
 pub mod card_registry;
+pub mod card_type;
 pub mod creature;
 pub mod in_play_id;
 pub mod spell_card;

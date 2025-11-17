@@ -1,13 +1,14 @@
 use crate::game::{
     card::{Named, Placeable},
     game_action::{self, GameAction},
+    Game,
 };
 
 #[derive(Debug)]
 pub struct Trap {
-    pub name: String,
-    pub place_action: Vec<GameAction>,
-    pub reveal_action: Vec<GameAction>,
+    name: String,
+    place_action: Vec<GameAction>,
+    reveal_action: Vec<GameAction>,
     cost: u16,
 }
 
@@ -41,5 +42,21 @@ impl Placeable for Trap {
 impl Named for Trap {
     fn name(&self) -> &str {
         &self.name
+    }
+}
+
+impl Trap {
+    pub fn new(
+        name: &str,
+        cost: u16,
+        place_action: Vec<GameAction>,
+        reveal_action: Vec<GameAction>,
+    ) -> Self {
+        Self {
+            name: name.to_owned(),
+            cost,
+            place_action,
+            reveal_action,
+        }
     }
 }

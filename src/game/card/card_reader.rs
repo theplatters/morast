@@ -9,7 +9,9 @@ use crate::{
         },
     },
     game::{
-        card::{abilities::Abilities, creature::Creature, Card},
+        card::{
+            abilities::Abilities, creature::Creature, spell_card::Spell, trap_card::Trap, Card,
+        },
         error::Error,
         game_action::{GameAction, Timing},
     },
@@ -73,7 +75,7 @@ fn destructure_action(action: JanetEnum) -> Result<Vec<GameAction>, Error> {
     }
 }
 
-pub async fn read_card(
+pub async fn read_creature(
     env: &Environment,
     name: &str,
     asset_loader: &mut AssetLoader,
@@ -172,6 +174,49 @@ pub async fn read_card(
         abilities,
         description,
     }))
+}
+
+pub async fn read_spell(
+    env: &Environment,
+    name: &str,
+    asset_loader: &mut AssetLoader,
+) -> Result<Card, Error> {
+    let Some(JanetEnum::_Int(cost)) = JanetEnum::get(env, "cost", Some(name)) else {
+        return Err(Error::Cast("Cost not found".into()));
+    };
+
+    let play_action = match JanetEnum::get(env, "on-play", Some(name)) {
+        Some(value) => destructure_action(value)?,
+        None => return Err(Error::NotFound("on-play".into())),
+    };
+    Ok(Card::Spell(Spell::new(name, cost as u16, play_action)))
+}
+
+pub async fn read_trap(
+    env: &Environment,
+    name: &str,
+    asset_loader: &mut AssetLoader,
+) -> Result<Card, Error> {
+    let Some(JanetEnum::_Int(cost)) = JanetEnum::get(env, "cost", Some(name)) else {
+        return Err(Error::Cast("Cost not found".into()));
+    };
+
+    let place_action = match JanetEnum::get(env, "on-play", Some(name)) {
+        Some(value) => destructure_action(value)?,
+        None => return Err(Error::NotFound("on-play".into())),
+    };
+
+    let reveal_action = match JanetEnum::get(env, "on-reveal", Some(name)) {
+        Some(value) => destructure_action(value)?,
+        None => return Err(Error::NotFound("on-reveal".into())),
+    };
+
+    Ok(Card::Trap(Trap::new(
+        name,
+        cost as u16,
+        place_action,
+        reveal_action,
+    )))
 }
 
 pub fn get_card_list(env: &Environment) -> Option<(Vec<String>, Vec<String>, Vec<String>)> {
