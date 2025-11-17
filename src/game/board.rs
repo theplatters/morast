@@ -7,10 +7,9 @@ use place_error::BoardError;
 use tile::Tile;
 
 use crate::game::{
-    card::Card,
+    card::creature::Creature,
     error::Error,
     game_objects::player_base::{PlayerBase, PlayerBaseStatus},
-    player,
 };
 
 use super::{
@@ -74,7 +73,7 @@ impl Board {
         &self,
         card_on_board: &CardOnBoard,
         tile: &Tile,
-        card: &Card,
+        card: &Creature,
     ) -> Result<U16Vec2, Error> {
         let effective_attack = self.calculate_effective_attack_strength(
             card.attack_strength,
@@ -120,7 +119,7 @@ impl Board {
                     .get(in_play_id)
                     .ok_or(Error::CardNotFound)?;
                 let card = card_registry
-                    .get(&card_on_board.card_id)
+                    .get_creature(&card_on_board.card_id)
                     .ok_or(Error::CardNotFound)?;
 
                 let attack_vector = self.get_attack_vector(card_on_board, curr_tile, card)?;
@@ -170,7 +169,7 @@ impl Board {
                     .get(in_play_id)
                     .ok_or(Error::CardNotFound)?;
                 let defense = card_registry
-                    .get(&card.card_id)
+                    .get_creature(&card.card_id)
                     .ok_or(Error::CardNotFound)?
                     .defense;
 
@@ -274,7 +273,7 @@ impl Board {
         for (_, card_on_board) in self.cards_placed.iter_mut() {
             if card_on_board.player_id == player_id {
                 let card = card_registry
-                    .get(&card_on_board.card_id)
+                    .get_creature(&card_on_board.card_id)
                     .ok_or(Error::CardNotFound)?;
                 card_on_board.movement_points = card.movement_points;
             }

@@ -2,12 +2,15 @@ use log::debug;
 use macroquad::{math::I16Vec2, rand::ChooseRandom};
 
 use crate::game::{
-    board::card_on_board::CardOnBoard, game_objects::player_base::PlayerBaseStatus, phases::Phase,
+    board::card_on_board::CardOnBoard,
+    card::{creature::Creature, Placeable},
+    game_objects::player_base::PlayerBaseStatus,
+    phases::Phase,
 };
 
 use super::{
     board::{effect::Effect, place_error::BoardError, Board},
-    card::{card_id::CardID, card_registry::CardRegistry, in_play_id::InPlayID, Card},
+    card::{card_id::CardID, card_registry::CardRegistry, in_play_id::InPlayID},
     error::Error,
     events::event_scheduler::GameScheduler,
     player::{Player, PlayerID},
@@ -170,7 +173,9 @@ impl GameContext {
     ) -> Result<(), Error> {
         println!("Placing card {:?} at index {:?}", card_id, index);
 
-        let card = card_registry.get(&card_id).ok_or(Error::CardNotFound)?;
+        let card = card_registry
+            .get_creature(&card_id)
+            .ok_or(Error::CardNotFound)?;
         let card_on_board = CardOnBoard::new(card_id, self.turn_player_id(), card.movement_points);
         match self.board.place(index, card_on_board) {
             Ok(id) => {
@@ -200,7 +205,7 @@ impl GameContext {
         scheduler.advance_to_phase(Phase::End, self);
         for (id, card) in &self.board.cards_placed {
             card_registry
-                .get(&card.card_id)
+                .get_creature(&card.card_id)
                 .ok_or(Error::CardNotFound)?
                 .on_turn_start(scheduler, self.turn_player_id(), *id);
         }
@@ -240,7 +245,7 @@ impl GameContext {
         for (id, card) in &self.board.cards_placed {
             println!("Processing card {:?}", card);
             card_registry
-                .get(&card.card_id)
+                .get_creature(&card.card_id)
                 .ok_or(Error::CardNotFound)?
                 .on_turn_end(scheduler, self.turn_player_id(), *id);
         }
@@ -274,7 +279,7 @@ impl GameContext {
     ) -> Result<(), BoardError> {
         self.board.remove_effects(effect, tiles)
     }
-    pub fn is_legal_move(&self, from: I16Vec2, to: I16Vec2, card: &Card) -> bool {
+    pub fn is_legal_move(&self, from: I16Vec2, to: I16Vec2, card: &Creature) -> bool {
         card.movement.contains(&(from - to))
     }
 
@@ -290,7 +295,7 @@ impl GameContext {
             .ok_or(Error::PlaceError(BoardError::TileEmpty))?;
 
         let card = card_registry
-            .get(&card_at_start.card_id)
+            .get_creature(&card_at_start.card_id)
             .ok_or(Error::CardNotFound)?;
 
         if !self.is_legal_move(from, to, card) {

@@ -2,13 +2,15 @@ use std::collections::HashMap;
 
 use crate::{
     engine::{asset_loader::AssetLoader, janet_handler::controller::Environment},
-    game::error::Error,
+    game::{
+        card::{creature::Creature, Card, Named, Placeable},
+        error::Error,
+    },
 };
 
 use super::{
     card_id::CardID,
     card_reader::{get_card_list, read_card},
-    Card,
 };
 
 #[derive(Debug)]
@@ -47,7 +49,7 @@ impl CardRegistry {
         asset_loader: &mut AssetLoader,
     ) -> Result<CardID, Error> {
         let card = read_card(env, name, asset_loader).await?;
-        self.names.insert(card.name.clone(), self.id_counter);
+        self.names.insert(card.name().to_owned(), self.id_counter);
         self.cards.insert(self.id_counter, card);
         let current_id = self.id_counter;
         self.id_counter = self.id_counter.next();
@@ -56,5 +58,20 @@ impl CardRegistry {
 
     pub fn get(&self, card_id: &CardID) -> Option<&Card> {
         self.cards.get(card_id)
+    }
+
+    pub fn get_creature(&self, card_id: &CardID) -> Option<&Creature> {
+        let Some(Card::Creature(card)) = self.cards.get(card_id) else {
+            return None;
+        };
+        Some(card)
+    }
+
+    pub fn get_placeable(&self, card_id: &CardID) -> Option<&dyn Placeable> {
+        match self.cards.get(card_id) {
+            Some(Card::Creature(c)) = > Some(c)
+            Some(Card::Spell(_)) || None => None,
+
+        }
     }
 }

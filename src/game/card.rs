@@ -1,86 +1,40 @@
-use abilities::Abilities;
-use in_play_id::InPlayID;
-use macroquad::math::I16Vec2;
+use crate::game::card::creature::Creature;
+use crate::game::card::in_play_id::InPlayID;
+use crate::game::card::spell_card::Spell;
+use crate::game::card::trap_card::Trap;
+use crate::game::events::event_scheduler::GameScheduler;
+use crate::game::player::PlayerID;
 
-use super::{events::event_scheduler::GameScheduler, game_action::GameAction, player::PlayerID};
 pub mod abilities;
 pub mod card_id;
 pub mod card_reader;
 pub mod card_registry;
+pub mod creature;
 pub mod in_play_id;
+pub mod spell_card;
+pub mod trap_card;
 
 #[derive(Debug)]
-pub struct Card {
-    pub name: String,
-    pub movement: Vec<I16Vec2>,
-    pub movement_points: u16,
-    pub attack: Vec<I16Vec2>,
-    pub attack_strength: u16,
-    pub defense: u16,
-    pub cost: u16,
-    play_action: Vec<GameAction>,
-    turn_begin_action: Vec<GameAction>,
-    turn_end_action: Vec<GameAction>,
-    draw_action: Vec<GameAction>,
-    discard_action: Vec<GameAction>,
-    abilities: Vec<Abilities>,
-    pub description: String,
+pub enum Card {
+    Creature(Creature),
+    Spell(Spell),
+    Trap(Trap),
 }
 
-impl Card {
-    pub fn on_turn_start(&self, scheduler: &mut GameScheduler, owner: PlayerID, id: InPlayID) {
-        for GameAction { function, speed } in &self.turn_begin_action {
-            match speed {
-                super::game_action::Timing::Now => {
-                    scheduler.schedule_now(owner, id, function.to_owned(), 1)
-                }
-                super::game_action::Timing::End(timing) => {
-                    scheduler.schedule_at_end(*timing, owner, id, function.to_owned(), 1)
-                }
-                super::game_action::Timing::Start(timing) => {
-                    scheduler.schedule_at_start(*timing, owner, id, function.to_owned(), 1)
-                }
-            }
+pub trait Named {
+    fn name(&self) -> &str;
+}
+
+pub trait Placeable {
+    fn on_place(&self, scheduler: &mut GameScheduler, owner: PlayerID, id: InPlayID);
+}
+
+impl Named for Card {
+    fn name(&self) -> &str {
+        match self {
+            Card::Creature(c) => c.name(),
+            Card::Spell(c) => c.name(),
+            Card::Trap(c) => c.name(),
         }
-    }
-
-    pub fn on_turn_end(&self, scheduler: &mut GameScheduler, owner: PlayerID, id: InPlayID) {
-        for GameAction { function, speed } in &self.turn_end_action {
-            match speed {
-                super::game_action::Timing::Now => {
-                    scheduler.schedule_now(owner, id, function.to_owned(), 1)
-                }
-                super::game_action::Timing::End(timing) => {
-                    scheduler.schedule_at_end(*timing, owner, id, function.to_owned(), 1)
-                }
-                super::game_action::Timing::Start(timing) => {
-                    scheduler.schedule_at_start(*timing, owner, id, function.to_owned(), 1)
-                }
-            }
-        }
-    }
-
-    pub fn on_place(&self, scheduler: &mut GameScheduler, owner: PlayerID, id: InPlayID) {
-        for GameAction { function, speed } in &self.play_action {
-            match speed {
-                super::game_action::Timing::Now => {
-                    scheduler.schedule_now(owner, id, function.to_owned(), 1)
-                }
-                super::game_action::Timing::End(timing) => {
-                    scheduler.schedule_at_end(*timing, owner, id, function.to_owned(), 1)
-                }
-                super::game_action::Timing::Start(timing) => {
-                    scheduler.schedule_at_start(*timing, owner, id, function.to_owned(), 1)
-                }
-            }
-        }
-    }
-
-    pub fn get_attack_pattern(&self) -> &Vec<I16Vec2> {
-        &self.attack
-    }
-
-    pub(crate) fn get_movement_pattern(&self) -> &Vec<I16Vec2> {
-        &self.movement
     }
 }

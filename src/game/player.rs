@@ -104,7 +104,9 @@ impl Player {
         card_registry: &CardRegistry,
     ) -> Result<(), Error> {
         let card_id = self.hand.remove(pos);
-        let card = card_registry.get(&card_id).ok_or(Error::CardNotFound)?;
+        let card = card_registry
+            .get_creature(&card_id)
+            .ok_or(Error::CardNotFound)?;
         self.add_gold(card.cost.into());
         Ok(())
     }

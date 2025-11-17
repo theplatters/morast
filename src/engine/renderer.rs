@@ -14,7 +14,7 @@ use crate::{
         },
     },
     game::{
-        card::{card_registry::CardRegistry, Card},
+        card::{card_registry::CardRegistry, creature::Creature},
         error::Error,
         game_context::GameContext,
         turn_controller::TurnStep,
@@ -37,7 +37,7 @@ impl Renderer {
     }
     pub fn update_cards(
         &mut self,
-        game_cards: &[&Card],
+        game_cards: &[&Creature],
         turn_step: &TurnStep,
         assets: &AssetLoader,
     ) {
@@ -76,7 +76,7 @@ impl Renderer {
                 let board = context.get_board();
                 let card_id = board.get_card_on_tile(pos)?;
                 let movement_pattern = card_registy
-                    .get(&card_id.card_id)
+                    .get_creature(&card_id.card_id)
                     .ok_or(Error::CardNotFound)?
                     .get_movement_pattern();
 
@@ -114,7 +114,7 @@ impl Renderer {
         let hand = player.get_hand();
         let cards: Vec<_> = hand
             .iter()
-            .filter_map(|card| card_registry.get(card))
+            .filter_map(|card| card_registry.get_creature(card))
             .collect();
 
         self.update_cards(cards.as_slice(), turn_step, asset_loader);

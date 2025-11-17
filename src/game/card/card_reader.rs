@@ -9,13 +9,11 @@ use crate::{
         },
     },
     game::{
-        card::abilities::Abilities,
+        card::{abilities::Abilities, creature::Creature, Card},
         error::Error,
         game_action::{GameAction, Timing},
     },
 };
-
-use super::Card;
 
 fn destructure_action(action: JanetEnum) -> Result<Vec<GameAction>, Error> {
     if let JanetEnum::_Array(elements) = action {
@@ -158,7 +156,7 @@ pub async fn read_card(
         _ => Vec::new(),
     };
 
-    Ok(Card {
+    Ok(Card::Creature(Creature {
         draw_action,
         play_action,
         turn_begin_action,
@@ -173,7 +171,7 @@ pub async fn read_card(
         movement,
         abilities,
         description,
-    })
+    }))
 }
 
 pub fn get_card_list(env: &Environment) -> Option<Vec<String>> {
