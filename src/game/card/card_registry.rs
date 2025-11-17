@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     engine::{asset_loader::AssetLoader, janet_handler::controller::Environment},
     game::{
-        card::{creature::Creature, Card, Named, Placeable},
+        card::{creature::Creature, Card, Named},
         error::Error,
     },
 };
@@ -34,8 +34,9 @@ impl CardRegistry {
     }
 
     pub async fn init(&mut self, env: &mut Environment, asset_loader: &mut AssetLoader) {
-        let cards = get_card_list(env).expect("Could not get list of cards");
-        for card in cards {
+        let (creature_names, spell_names, trap_names) =
+            get_card_list(env).expect("Could not get list of cards");
+        for card in creature_names {
             self.add_janet_card(env, card.as_str(), asset_loader)
                 .await
                 .expect("Could not read card");

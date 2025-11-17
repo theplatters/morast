@@ -1,6 +1,16 @@
-(os/cd "scripts/Cards/")
-(def card-path (os/cwd))
-(defn strip-extension [file] (string "./" (string/replace ".janet"  "" file)))
-(each file (os/dir card-path) (import* (strip-extension file)) (printf "loaded %s" file))
-(import* "../cards")
+(defn strip-extension [file] 
+  (string "./" (string/replace ".janet"  "" file)))
+
+(def base-dir (os/cwd))
+
+(os/cd "scripts/Cards/Creatures")
+(def creature-path (os/cwd))
+(each file (os/dir creature-path) (import* (strip-extension file)) (printf "loaded %s" file))
+
+(os/cd base-dir)
+(os/cd "scripts/Cards/Spells")
+(def spell-path (os/cwd))
+(each file (os/dir spell-path) (import* (strip-extension file)) (printf "loaded %s" file))
+(os/cd base-dir)
+(import* "/scripts/cards")
 (print "Loaded")

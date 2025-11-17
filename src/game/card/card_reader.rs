@@ -174,16 +174,42 @@ pub async fn read_card(
     }))
 }
 
-pub fn get_card_list(env: &Environment) -> Option<Vec<String>> {
-    let Some(JanetEnum::_Array(cards)) = JanetEnum::get(env, "cards", Some("cards")) else {
+pub fn get_card_list(env: &Environment) -> Option<(Vec<String>, Vec<String>, Vec<String>)> {
+    let Some(JanetEnum::_Array(creatures)) = JanetEnum::get(env, "creatures", Some("cards")) else {
         return None;
     };
 
-    cards
+    let creature_names: Vec<String> = creatures
         .into_iter()
         .map(|x| match x {
             JanetEnum::_String(s) => Some(s),
             _ => None,
         })
-        .collect()
+        .collect::<Option<Vec<String>>>()?;
+
+    let Some(JanetEnum::_Array(spells)) = JanetEnum::get(env, "spells", Some("cards")) else {
+        return None;
+    };
+
+    let spell_names: Vec<String> = spells
+        .into_iter()
+        .map(|x| match x {
+            JanetEnum::_String(s) => Some(s),
+            _ => None,
+        })
+        .collect::<Option<Vec<String>>>()?;
+
+    let Some(JanetEnum::_Array(traps)) = JanetEnum::get(env, "traps", Some("cards")) else {
+        return None;
+    };
+
+    let trap_names: Vec<String> = traps
+        .into_iter()
+        .map(|x| match x {
+            JanetEnum::_String(s) => Some(s),
+            _ => None,
+        })
+        .collect::<Option<Vec<String>>>()?;
+
+    Some((creature_names, spell_names, trap_names))
 }
