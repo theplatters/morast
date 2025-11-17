@@ -158,7 +158,7 @@ pub async fn read_card(
 
     Ok(Card::Creature(Creature {
         draw_action,
-        play_action,
+        place_action: play_action,
         turn_begin_action,
         turn_end_action,
         discard_action,

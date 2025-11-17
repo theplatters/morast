@@ -66,12 +66,4 @@ impl CardRegistry {
         };
         Some(card)
     }
-
-    pub fn get_placeable(&self, card_id: &CardID) -> Option<&dyn Placeable> {
-        match self.cards.get(card_id) {
-            Some(Card::Creature(c)) = > Some(c)
-            Some(Card::Spell(_)) || None => None,
-
-        }
-    }
 }

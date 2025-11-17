@@ -15,4 +15,6 @@ pub enum Error {
     MacroquadError(macroquad::Error),
     InsufficientGold,
     EngineError(EngineError),
+    NotPlaceable,
+    InvalidHandPosition(usize),
 }

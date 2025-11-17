@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use card_on_board::CardOnBoard;
+use card_on_board::CreatureOnBoard;
 use effect::Effect;
 use macroquad::math::{I16Vec2, U16Vec2};
 use place_error::BoardError;
@@ -20,14 +20,14 @@ use super::{
 pub mod card_on_board;
 pub mod effect;
 pub mod place_error;
-mod tile;
+pub mod tile;
 
 #[derive(Debug)]
 pub struct Board {
     tiles: HashMap<I16Vec2, Tile>,
     next_id: InPlayID,
     board_size: I16Vec2,
-    pub cards_placed: HashMap<InPlayID, CardOnBoard>,
+    pub cards_placed: HashMap<InPlayID, CreatureOnBoard>,
     player_bases_positions: [I16Vec2; 2],
 }
 
@@ -71,7 +71,7 @@ impl Board {
 
     fn get_attack_vector(
         &self,
-        card_on_board: &CardOnBoard,
+        card_on_board: &CreatureOnBoard,
         tile: &Tile,
         card: &Creature,
     ) -> Result<U16Vec2, Error> {
@@ -184,7 +184,7 @@ impl Board {
         Ok(removed)
     }
 
-    pub(crate) fn get_card_at_index(&self, from: &I16Vec2) -> Option<&CardOnBoard> {
+    pub(crate) fn get_card_at_index(&self, from: &I16Vec2) -> Option<&CreatureOnBoard> {
         let card_on_tile = self.get_tile(from)?.ontile?;
         self.cards_placed.get(&card_on_tile)
     }
@@ -192,7 +192,7 @@ impl Board {
     pub fn place(
         &mut self,
         index: I16Vec2,
-        card_on_board: CardOnBoard,
+        card_on_board: CreatureOnBoard,
     ) -> Result<InPlayID, BoardError> {
         let Some(tile) = self.tiles.get_mut(&index) else {
             return Err(BoardError::Index);
@@ -217,6 +217,7 @@ impl Board {
     pub fn height(&self) -> i16 {
         self.board_size.y
     }
+
     pub fn add_effect(&mut self, effect: Effect, index: I16Vec2) -> Result<(), BoardError> {
         let tile = self.tiles.get_mut(&index).ok_or(BoardError::Index)?;
         tile.add_effect(effect);
@@ -341,7 +342,7 @@ impl Board {
         }
     }
 
-    pub(crate) fn get_card_on_tile(&self, pos: &I16Vec2) -> Result<&CardOnBoard, Error> {
+    pub(crate) fn get_card_on_tile(&self, pos: &I16Vec2) -> Result<&CreatureOnBoard, Error> {
         let card_id = self
             .tiles
             .get(pos)

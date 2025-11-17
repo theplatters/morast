@@ -27,6 +27,8 @@ pub trait Named {
 
 pub trait Placeable {
     fn on_place(&self, scheduler: &mut GameScheduler, owner: PlayerID, id: InPlayID);
+
+    fn cost(&self) -> u16;
 }
 
 impl Named for Card {
@@ -35,6 +37,20 @@ impl Named for Card {
             Card::Creature(c) => c.name(),
             Card::Spell(c) => c.name(),
             Card::Trap(c) => c.name(),
+        }
+    }
+}
+
+impl Card {
+    fn can_be_placed(&self) -> bool {
+        matches!(self, Card::Creature(_) | Card::Trap(_))
+    }
+
+    pub fn cost(&self) -> u16 {
+        match self {
+            Card::Creature(c) => c.cost(),
+            Card::Spell(c) => c.cost(),
+            Card::Trap(c) => c.cost(),
         }
     }
 }

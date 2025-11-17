@@ -2,8 +2,8 @@ use log::debug;
 use macroquad::{math::I16Vec2, rand::ChooseRandom};
 
 use crate::game::{
-    board::card_on_board::CardOnBoard,
-    card::{creature::Creature, Placeable},
+    board::card_on_board::CreatureOnBoard,
+    card::{creature::Creature, Card, Named, Placeable},
     game_objects::player_base::PlayerBaseStatus,
     phases::Phase,
 };
@@ -22,6 +22,79 @@ pub struct GameContext {
     players: [Player; 2],
     board: Board,
     turn_player: PlayerID,
+}
+
+impl GameContext {
+    pub fn place_creature(
+        &mut self,
+        card_id: CardID,
+        creature: &Creature,
+        index: I16Vec2,
+        card_registry: &CardRegistry,
+        scheduler: &mut GameScheduler,
+    ) -> Result<(), Error> {
+        println!("Placing card {:?} at index {:?}", creature.name, index);
+
+        // Ensure the tile is empty
+        if self.board.get_card_at_index(&index).is_some() {
+            return Err(Error::PlaceError(BoardError::TileOccupied));
+        }
+
+        let card_on_board =
+            CreatureOnBoard::new(card_id, self.turn_player_id(), creature.movement_points);
+        match self.board.place(index, card_on_board) {
+            Ok(id) => {
+                creature.on_place(scheduler, self.turn_player_id(), id);
+                scheduler.process_events(self)?;
+            }
+            Err(err) => Err(Error::PlaceError(err))?,
+        }
+
+        self.update_attack_values(card_registry)?;
+        Ok(())
+    }
+
+    fn place_trap(
+        &self,
+        card_id: CardID,
+        t: &super::card::trap_card::Trap,
+        position: I16Vec2,
+        card_registry: &CardRegistry,
+        scheduler: &mut GameScheduler,
+    ) -> Result<(), Error> {
+        todo!()
+    }
+
+    fn play_spell(
+        &self,
+        card_id: CardID,
+        s: &super::card::spell_card::Spell,
+        card_registry: &CardRegistry,
+        scheduler: &mut GameScheduler,
+    ) -> Result<(), Error> {
+        todo!()
+    }
+    fn validate_card_play(
+        &self,
+        player_id: PlayerID,
+        card_index: usize,
+        card_registry: &CardRegistry,
+    ) -> Result<(CardID, u16), Error> {
+        let player = self.get_player(player_id).ok_or(Error::PlayerNotFound)?;
+
+        let card_id = player
+            .get_card_in_hand(card_index)
+            .ok_or(Error::InvalidHandPosition(card_index))?;
+
+        let card = card_registry.get(&card_id).ok_or(Error::CardNotFound)?;
+        let cost = card.cost();
+
+        if player.get_gold() <= cost.into() {
+            return Err(Error::InsufficientGold);
+        }
+
+        Ok((card_id, cost))
+    }
 }
 
 impl GameContext {
@@ -115,7 +188,7 @@ impl GameContext {
         Some(())
     }
 
-    pub fn place_card_from_hand(
+    pub fn play_card_from_hand(
         &mut self,
         player_id: PlayerID,
         card_index: usize,
@@ -123,35 +196,21 @@ impl GameContext {
         card_registry: &CardRegistry,
         scheduler: &mut GameScheduler,
     ) -> Result<(), Error> {
-        // Validate side of the board
-        if !self.is_on_player_side(position, player_id) {
-            return Err(Error::InvalidMove);
-        }
-
-        // Ensure the tile is empty
-        if self.board.get_card_at_index(&position).is_some() {
-            return Err(Error::PlaceError(BoardError::TileOccupied));
-        }
+        let (card_id, cost) = self.validate_card_play(player_id, card_index, card_registry)?;
+        let card = card_registry.get(&card_id).ok_or(Error::CardNotFound)?;
+        match card {
+            Card::Creature(c) => {
+                self.place_creature(card_id, c, position, card_registry, scheduler)?
+            }
+            Card::Trap(t) => self.place_trap(card_id, t, position, card_registry, scheduler)?,
+            Card::Spell(s) => self.play_spell(card_id, s, card_registry, scheduler)?,
+        };
 
         let player = self
             .get_player_mut(player_id)
             .ok_or(Error::PlayerNotFound)?;
-
-        let card_id = player
-            .get_card_in_hand(card_index)
-            .ok_or(Error::CardNotFound)?;
-
-        let card = card_registry.get(&card_id).ok_or(Error::CardNotFound)?;
-
-        if player.get_gold() <= card.cost.into() {
-            return Err(Error::InsufficientGold);
-        }
-
         player.remove_card_from_hand(card_index);
-
-        player.remove_gold(card.cost.into());
-        // Place onto the board
-        self.place(card_id, position, card_registry, scheduler)?;
+        player.remove_gold(cost.into());
         Ok(())
     }
 
@@ -162,31 +221,6 @@ impl GameContext {
         } else {
             pos.x >= board_width - board_width / 4
         }
-    }
-
-    pub fn place(
-        &mut self,
-        card_id: CardID,
-        index: I16Vec2,
-        card_registry: &CardRegistry,
-        scheduler: &mut GameScheduler,
-    ) -> Result<(), Error> {
-        println!("Placing card {:?} at index {:?}", card_id, index);
-
-        let card = card_registry
-            .get_creature(&card_id)
-            .ok_or(Error::CardNotFound)?;
-        let card_on_board = CardOnBoard::new(card_id, self.turn_player_id(), card.movement_points);
-        match self.board.place(index, card_on_board) {
-            Ok(id) => {
-                card.on_place(scheduler, self.turn_player_id(), id);
-                scheduler.process_events(self)?;
-            }
-            Err(err) => Err(Error::PlaceError(err))?,
-        }
-
-        self.update_attack_values(card_registry)?;
-        Ok(())
     }
 
     pub fn get_turn_player(&self) -> Option<&Player> {
@@ -312,10 +346,10 @@ impl GameContext {
         &mut self,
         card_registry: &CardRegistry,
     ) -> Result<(), Error> {
-        let mut removed = self.board.update_attack_values(card_registry)?;
+        let mut removed_cards = self.board.update_attack_values(card_registry)?;
 
-        while !removed.is_empty() {
-            removed = self.board.update_attack_values(card_registry)?;
+        while !removed_cards.is_empty() {
+            removed_cards = self.board.update_attack_values(card_registry)?;
         }
         Ok(())
     }

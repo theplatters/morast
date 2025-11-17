@@ -16,7 +16,7 @@ pub struct Creature {
     pub attack_strength: u16,
     pub defense: u16,
     pub cost: u16,
-    pub play_action: Vec<GameAction>,
+    pub place_action: Vec<GameAction>,
     pub turn_begin_action: Vec<GameAction>,
     pub turn_end_action: Vec<GameAction>,
     pub draw_action: Vec<GameAction>,
@@ -31,8 +31,12 @@ impl Named for Creature {
     }
 }
 impl Placeable for Creature {
+    fn cost(&self) -> u16 {
+        self.cost
+    }
+
     fn on_place(&self, scheduler: &mut GameScheduler, owner: PlayerID, id: InPlayID) {
-        for GameAction { function, speed } in &self.play_action {
+        for GameAction { function, speed } in &self.place_action {
             match speed {
                 game_action::Timing::Now => {
                     scheduler.schedule_now(owner, id, function.to_owned(), 1)
