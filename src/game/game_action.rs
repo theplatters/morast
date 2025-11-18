@@ -7,15 +7,30 @@ pub enum Timing {
     Start(u32),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub enum TargetingType {
+    None,                // No targeting needed
+    SingleTile,          // Click a tile
+    Area { radius: u8 }, // Area around clicked tile
+    Line { length: u8 }, // Line from caster
+    Self_,               // Targets the card itself
+    AllEnemies,          // All enemy units
+}
+
 #[derive(Debug)]
 pub struct GameAction {
     pub function: Function,
     pub speed: Timing,
+    pub targeting: TargetingType,
 }
 
 impl GameAction {
-    pub fn new(function: Function, speed: Timing) -> Self {
-        Self { function, speed }
+    pub fn new(function: Function, speed: Timing, targeting: TargetingType) -> Self {
+        Self {
+            function,
+            speed,
+            targeting,
+        }
     }
 
     pub fn _eval(

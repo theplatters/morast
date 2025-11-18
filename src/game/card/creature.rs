@@ -103,7 +103,12 @@ impl Creature {
         id: InPlayID,
         actions: &[GameAction],
     ) {
-        for GameAction { function, speed } in actions {
+        for GameAction {
+            function,
+            speed,
+            targeting,
+        } in actions
+        {
             match speed {
                 game_action::Timing::Now => {
                     scheduler.schedule_now(owner, id, function.to_owned(), 1)

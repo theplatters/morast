@@ -1,7 +1,8 @@
 use crate::game::{
     card::{in_play_id::InPlayID, CardBehavior},
+    error::Error,
     events::event_scheduler::GameScheduler,
-    game_action::{self, GameAction},
+    game_action::{self, GameAction, TargetingType},
     player::PlayerID,
 };
 
@@ -66,5 +67,13 @@ impl Spell {
                 }
             }
         }
+    }
+
+    pub(crate) fn get_targeting_type(&self) -> TargetingType {
+        // Return the targeting type of the primary action
+        self.on_play_action
+            .first()
+            .map(|action| action.targeting.clone())
+            .unwrap_or(TargetingType::None)
     }
 }

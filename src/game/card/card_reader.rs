@@ -9,10 +9,7 @@ use crate::{
         },
     },
     game::{
-        card::{
-            abilities::Abilities, card_builder::CardBuilder, spell_card::Spell, trap_card::Trap,
-            Card,
-        },
+        card::{abilities::Abilities, card_builder::CardBuilder, Card},
         error::Error,
         game_action::{GameAction, Timing},
     },
@@ -65,6 +62,9 @@ fn destructure_action(action: JanetEnum) -> Result<Vec<GameAction>, Error> {
 
         let Some(JanetEnum::_Array(timing_arr)) = map.get("timing") else {
             return Err(Error::Cast("Timing not found in table".into()));
+        };
+        let Some(JanetEnum::_Table(targeting_type)) = map.get("targeting") else {
+            return Err(Error::Cast("Targeting Type not found".into()));
         };
 
         let timing = parse_timing(timing_arr.as_slice())?;
