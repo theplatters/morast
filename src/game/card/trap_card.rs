@@ -37,7 +37,12 @@ impl Placeable for Trap {
         owner: crate::game::player::PlayerID,
         id: super::in_play_id::InPlayID,
     ) {
-        for GameAction { function, speed } in &self.place_action {
+        for GameAction {
+            function,
+            speed,
+            targeting: _,
+        } in &self.place_action
+        {
             match speed {
                 game_action::Timing::Now => {
                     scheduler.schedule_now(owner, id, function.to_owned(), 1)

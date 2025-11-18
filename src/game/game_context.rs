@@ -98,6 +98,39 @@ impl GameContext {
 
         Ok((card_id, cost))
     }
+
+    pub(crate) fn execute_creature_placement(
+        &mut self,
+        player_id: PlayerID,
+        card_index: usize,
+        position: I16Vec2,
+        card_registry: &CardRegistry,
+        scheduler: &mut GameScheduler,
+    ) -> Result<(), Error> {
+        todo!()
+    }
+
+    pub(crate) fn execute_spell_cast(
+        &mut self,
+        player_id: PlayerID,
+        card_index: usize,
+        targets: &[I16Vec2],
+        card_registry: &CardRegistry,
+        scheduler: &mut GameScheduler,
+    ) -> Result<(), Error> {
+        todo!()
+    }
+
+    pub(crate) fn execute_trap_placement(
+        &mut self,
+        player_id: PlayerID,
+        card_index: usize,
+        position: I16Vec2,
+        card_registry: &CardRegistry,
+        scheduler: &mut GameScheduler,
+    ) -> Result<(), Error> {
+        todo!()
+    }
 }
 
 impl GameContext {

@@ -68,16 +68,24 @@ impl Game {
 
             self.context.process_main_phase(&mut self.scheduler)?;
 
+            let turn_player = self.context.turn_player_id();
             while !self.turn_controller.turn_over() {
-                let turn_step = self.turn_controller.update(
+                if let Some(play_command) = self.turn_controller.update(
                     &mut self.context,
                     &self.card_registry,
                     &mut self.scheduler,
-                )?;
+                )? {
+                    play_command.execute(
+                        &mut self.context,
+                        turn_player,
+                        &self.card_registry,
+                        &mut self.scheduler,
+                    );
+                }
 
                 self.renderer.render(
                     &self.context,
-                    &turn_step,
+                    &self.turn_controller.state,
                     &self.asset_loader,
                     &self.card_registry,
                 )?;

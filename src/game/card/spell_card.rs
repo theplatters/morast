@@ -54,7 +54,12 @@ impl Spell {
     }
 
     pub fn on_play(&self, scheduler: &mut GameScheduler, owner: PlayerID, id: InPlayID) {
-        for GameAction { function, speed } in &self.on_play_action {
+        for GameAction {
+            function,
+            speed,
+            targeting: _,
+        } in &self.on_play_action
+        {
             match speed {
                 game_action::Timing::Now => {
                     scheduler.schedule_now(owner, id, function.to_owned(), 1)

@@ -1,6 +1,7 @@
 use std::{collections::BinaryHeap, ffi::c_void};
 
 use log::debug;
+use macroquad::math::U16Vec2;
 
 use super::event::{Event, EventTiming, ScheduledEvent};
 use crate::{
@@ -13,6 +14,13 @@ use crate::{
         player::PlayerID,
     },
 };
+
+enum When {
+    Now,
+    Start(u32),
+    Main(u32),
+    End(u32),
+}
 
 #[derive(Debug)]
 pub struct GameScheduler {
@@ -36,6 +44,52 @@ impl GameScheduler {
         }
     }
 
+    pub fn schedule(
+        &mut self,
+        timing: When,
+        priority: u32,
+        owner: PlayerID,
+        by_id: InPlayID,
+        action: Function,
+        targets: Option<Vec<U16Vec2>>,
+    ) {
+        let timing = match timing {
+            When::Now => {
+                let event = match targets {
+                    None => Event::new(priority, owner, by_id, action),
+                    Some(target) => Event::new(priority, owner, by_id, action).with_targets(target),
+                };
+
+                self.immediate_events.push(event);
+                return;
+            }
+            When::Start(turns_ahead) => EventTiming::new(
+                self.current_turn + turns_ahead,
+                Phase::Start,
+                self.next_insertion,
+            ),
+            When::Main(turns_ahead) => EventTiming::new(
+                self.current_turn + turns_ahead,
+                Phase::Main,
+                self.next_insertion,
+            ),
+            When::End(turns_ahead) => EventTiming::new(
+                self.current_turn + turns_ahead,
+                Phase::End,
+                self.next_insertion,
+            ),
+        };
+
+        self.next_insertion += 1;
+        let event = match targets {
+            None => ScheduledEvent::new(timing, priority, owner, by_id, action),
+            Some(targets) => {
+                ScheduledEvent::new(timing, priority, owner, by_id, action).with_targets(targets)
+            }
+        };
+        self.future_events.push(event);
+    }
+
     // Schedule at the start of the n-th turn after this turn
     pub fn schedule_at_start(
         &mut self,
@@ -45,14 +99,33 @@ impl GameScheduler {
         action: Function,
         priority: u32,
     ) {
-        let timing = EventTiming::new(
-            self.current_turn + turns_ahead,
-            Phase::Start,
-            self.next_insertion,
+        self.schedule(
+            When::Start(turns_ahead),
+            priority,
+            owner,
+            by_id,
+            action,
+            None,
         );
-        self.next_insertion += 1;
-        self.future_events
-            .push(ScheduledEvent::new(timing, priority, owner, by_id, action));
+    }
+
+    pub fn schedule_at_start_with_targets(
+        &mut self,
+        turns_ahead: u32,
+        owner: PlayerID,
+        by_id: InPlayID,
+        action: Function,
+        priority: u32,
+        targets: Vec<U16Vec2>,
+    ) {
+        self.schedule(
+            When::Start(turns_ahead),
+            priority,
+            owner,
+            by_id,
+            action,
+            Some(targets),
+        );
     }
 
     // Schedule at the end of the n-th turn including this turn
@@ -64,14 +137,34 @@ impl GameScheduler {
         action: Function,
         priority: u32,
     ) {
-        let timing = EventTiming::new(
-            self.current_turn + turns_including - 1,
-            Phase::End,
-            self.next_insertion,
+        self.schedule(
+            When::End(turns_including),
+            priority,
+            owner,
+            by_id,
+            action,
+            None,
         );
-        self.next_insertion += 1;
-        self.future_events
-            .push(ScheduledEvent::new(timing, priority, owner, by_id, action));
+    }
+
+    // Schedule at the end of the n-th turn including this turn
+    pub fn schedule_at_end_with_targets(
+        &mut self,
+        turns_including: u32,
+        owner: PlayerID,
+        by_id: InPlayID,
+        action: Function,
+        priority: u32,
+        targets: Vec<U16Vec2>,
+    ) {
+        self.schedule(
+            When::End(turns_including),
+            priority,
+            owner,
+            by_id,
+            action,
+            Some(targets),
+        );
     }
 
     // Schedule to execute now (after current batch of events)
@@ -82,8 +175,19 @@ impl GameScheduler {
         action: Function,
         priority: u32,
     ) {
-        self.immediate_events
-            .push(Event::new(priority, owner, by_id, action));
+        self.schedule(When::Now, priority, owner, by_id, action, None);
+    }
+
+    // Schedule to execute now (after current batch of events)
+    pub fn schedule_now_with_targets(
+        &mut self,
+        owner: PlayerID,
+        by_id: InPlayID,
+        action: Function,
+        priority: u32,
+        targets: Vec<U16Vec2>,
+    ) {
+        self.schedule(When::Now, priority, owner, by_id, action, Some(targets));
     }
 
     // Schedule to execute after all currently scheduled events

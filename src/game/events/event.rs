@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 
+use macroquad::math::U16Vec2;
+
 use crate::{
     engine::janet_handler::types::function::Function,
     game::{card::in_play_id::InPlayID, phases::Phase, player::PlayerID},
@@ -27,6 +29,7 @@ pub struct Event {
     owner: PlayerID,
     pub by_id: InPlayID,
     pub action: Function,
+    targets: Option<Vec<U16Vec2>>,
 }
 
 impl Debug for Event {
@@ -45,7 +48,13 @@ impl Event {
             owner,
             by_id,
             action,
+            targets: None,
         }
+    }
+
+    pub fn with_targets(mut self, targets: Vec<U16Vec2>) -> Self {
+        self.targets = Some(targets);
+        self
     }
 }
 
@@ -85,13 +94,13 @@ impl ScheduledEvent {
     ) -> Self {
         Self {
             timing,
-            event: Event {
-                owner,
-                by_id,
-                priority,
-                action,
-            },
+            event: Event::new(priority, owner, by_id, action),
         }
+    }
+
+    pub fn with_targets(mut self, targets: Vec<U16Vec2>) -> Self {
+        self.event.targets = Some(targets);
+        self
     }
 }
 

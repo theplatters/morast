@@ -11,7 +11,7 @@ use crate::{
     game::{
         card::{abilities::Abilities, card_builder::CardBuilder, Card},
         error::Error,
-        game_action::{GameAction, Timing},
+        game_action::{GameAction, TargetingType, Timing},
     },
 };
 /// Parse timing information from Janet array
@@ -68,7 +68,11 @@ fn destructure_action(action: JanetEnum) -> Result<Vec<GameAction>, Error> {
         };
 
         let timing = parse_timing(timing_arr.as_slice())?;
-        result.push(GameAction::new(func.to_owned(), timing));
+        result.push(GameAction::new(
+            func.to_owned(),
+            timing,
+            TargetingType::SingleTile,
+        ));
     }
 
     Ok(result)

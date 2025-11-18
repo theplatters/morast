@@ -81,7 +81,7 @@ impl PartialEq for TurnState {
 }
 
 pub struct TurnController {
-    state: TurnState,
+    pub state: TurnState,
     input_handler: InputHandler,
 }
 

@@ -17,7 +17,7 @@ use crate::{
         card::{card_registry::CardRegistry, Card, CardBehavior},
         error::Error,
         game_context::GameContext,
-        turn_controller::TurnStep,
+        turn_controller::TurnState,
     },
 };
 
@@ -38,7 +38,7 @@ impl Renderer {
     pub fn update_cards(
         &mut self,
         game_cards: &[&Card],
-        turn_step: &TurnStep,
+        turn_step: &TurnState,
         assets: &AssetLoader,
     ) {
         self.cards_to_draw.clear();
@@ -47,7 +47,10 @@ impl Renderer {
             let pos_x =
                 i as f32 * (self.render_config.card_width + self.render_config.card_padding);
             let highlighted = match turn_step {
-                TurnStep::Cardchoosen(card_chosen_index) => *card_chosen_index == i,
+                TurnState::CardSelected {
+                    card_index,
+                    targeting_type: _targeting_type,
+                } => *card_index == i,
                 _ => false,
             };
             let mut card_builder = CardRenderer::builder()
@@ -70,29 +73,34 @@ impl Renderer {
 
     pub fn draw_turn_state(
         &self,
-        turn_step: &TurnStep,
+        turn_step: &TurnState,
         context: &GameContext,
         card_registy: &CardRegistry,
     ) -> Result<(), Error> {
         match turn_step {
-            TurnStep::Figurechosen(pos) => {
+            TurnState::FigureSelected { position } => {
                 let board = context.get_board();
-                let card_id = board.get_card_on_tile(pos)?;
+                let card_id = board.get_card_on_tile(position)?;
                 let movement_pattern = &card_registy
                     .get_creature(&card_id.card_id)
                     .ok_or(Error::CardNotFound)?
                     .movement;
 
-                let highlights: Vec<I16Vec2> =
-                    movement_pattern.iter().map(|tile| *tile + *pos).collect();
+                let highlights: Vec<I16Vec2> = movement_pattern
+                    .iter()
+                    .map(|tile| *tile + *position)
+                    .collect();
                 if context
                     .get_board()
-                    .can_card_move(context.turn_player_id(), pos)
+                    .can_card_move(context.turn_player_id(), position)
                 {
                     self.board_renderer.draw_highlights(&highlights);
                 }
             }
-            TurnStep::Cardchoosen(_) => {
+            TurnState::CardSelected {
+                card_index: _,
+                targeting_type: _,
+            } => {
                 self.board_renderer.draw_available_place_positions(context);
             }
             _ => {}
@@ -109,7 +117,7 @@ impl Renderer {
     pub(crate) fn render(
         &mut self,
         context: &GameContext,
-        turn_step: &TurnStep,
+        turn_step: &TurnState,
         asset_loader: &AssetLoader,
         card_registry: &CardRegistry,
     ) -> Result<(), Error> {
