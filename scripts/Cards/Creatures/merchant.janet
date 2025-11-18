@@ -26,3 +26,5 @@
   }])
 
 (def description "Get 4 gold at the start and end of a turn")
+
+(def display-image-asset-string "missing")

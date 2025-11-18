@@ -7,7 +7,7 @@ use crate::{
             card_reader::{read_spell, read_trap},
             card_type::CardTypes,
             creature::Creature,
-            Card, Named,
+            Card, CardBehavior,
         },
         error::Error,
     },

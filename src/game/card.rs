@@ -6,6 +6,7 @@ use crate::game::events::event_scheduler::GameScheduler;
 use crate::game::player::PlayerID;
 
 pub mod abilities;
+pub mod card_builder;
 pub mod card_id;
 pub mod card_reader;
 pub mod card_registry;
@@ -22,17 +23,40 @@ pub enum Card {
     Trap(Trap),
 }
 
-pub trait Named {
+pub trait CardBehavior {
+    fn cost(&self) -> u16;
+    fn description(&self) -> &str;
     fn name(&self) -> &str;
+    fn display_image_asset_string(&self) -> &str;
+    // Add other common methods here
 }
 
 pub trait Placeable {
     fn on_place(&self, scheduler: &mut GameScheduler, owner: PlayerID, id: InPlayID);
-
-    fn cost(&self) -> u16;
 }
 
-impl Named for Card {
+impl Card {
+    fn can_be_placed(&self) -> bool {
+        matches!(self, Card::Creature(_) | Card::Trap(_))
+    }
+}
+
+impl CardBehavior for Card {
+    fn cost(&self) -> u16 {
+        match self {
+            Card::Creature(c) => c.cost(),
+            Card::Spell(c) => c.cost(),
+            Card::Trap(c) => c.cost(),
+        }
+    }
+
+    fn description(&self) -> &str {
+        match self {
+            Card::Creature(c) => c.description(),
+            Card::Spell(c) => c.description(),
+            Card::Trap(c) => c.description(),
+        }
+    }
     fn name(&self) -> &str {
         match self {
             Card::Creature(c) => c.name(),
@@ -40,18 +64,12 @@ impl Named for Card {
             Card::Trap(c) => c.name(),
         }
     }
-}
 
-impl Card {
-    fn can_be_placed(&self) -> bool {
-        matches!(self, Card::Creature(_) | Card::Trap(_))
-    }
-
-    pub fn cost(&self) -> u16 {
+    fn display_image_asset_string(&self) -> &str {
         match self {
-            Card::Creature(c) => c.cost(),
-            Card::Spell(c) => c.cost(),
-            Card::Trap(c) => c.cost(),
+            Card::Creature(c) => c.display_image_asset_string(),
+            Card::Spell(c) => c.display_image_asset_string(),
+            Card::Trap(c) => c.display_image_asset_string(),
         }
     }
 }

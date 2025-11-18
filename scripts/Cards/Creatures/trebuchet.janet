@@ -19,3 +19,5 @@
 (def on-turn-end @[])
 
 (def description "A mighty siege weapon")
+
+(def display-image-asset-string "missing")

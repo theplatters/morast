@@ -17,4 +17,6 @@ pub enum Error {
     EngineError(EngineError),
     NotPlaceable,
     InvalidHandPosition(usize),
+    Incomplete(&'static str),
+    InvalidCardType,
 }

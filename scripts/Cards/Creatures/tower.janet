@@ -19,3 +19,5 @@
 (def on-turn-end @[])
 
 (def description "Stands tall over the lands")
+
+(def display-image-asset-string "missing")

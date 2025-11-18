@@ -123,7 +123,7 @@ impl Board {
                     .ok_or(Error::CardNotFound)?;
 
                 let attack_vector = self.get_attack_vector(card_on_board, curr_tile, card)?;
-                for attack in card.get_attack_pattern() {
+                for attack in &card.attack {
                     let adjusted_attack = if card_on_board.player_id == PlayerID(1) {
                         I16Vec2::new(-attack.x, attack.y)
                     } else {
@@ -189,6 +189,12 @@ impl Board {
         self.cards_placed.get(&card_on_tile)
     }
 
+    pub fn generate_in_play_id(&mut self) -> InPlayID {
+        let id = self.next_id;
+        self.next_id = self.next_id.next();
+        id
+    }
+
     pub fn place(
         &mut self,
         index: I16Vec2,
@@ -203,8 +209,7 @@ impl Board {
         }
 
         tile.place(self.next_id);
-        let id = self.next_id;
-        self.next_id = self.next_id.next();
+        let id = self.generate_in_play_id();
 
         self.cards_placed.insert(id, card_on_board);
         Ok(id)

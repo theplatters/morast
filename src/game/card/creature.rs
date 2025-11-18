@@ -1,7 +1,7 @@
 use macroquad::math::I16Vec2;
 
 use crate::game::{
-    card::{abilities::Abilities, in_play_id::InPlayID, Named, Placeable},
+    card::{abilities::Abilities, in_play_id::InPlayID, CardBehavior, Placeable},
     events::event_scheduler::GameScheduler,
     game_action::{self, GameAction},
     player::PlayerID,
@@ -23,54 +23,87 @@ pub struct Creature {
     pub discard_action: Vec<GameAction>,
     pub abilities: Vec<Abilities>,
     pub description: String,
+    pub display_image_asset_string: String,
 }
 
-impl Named for Creature {
+impl CardBehavior for Creature {
     fn name(&self) -> &str {
         &self.name
     }
-}
-impl Placeable for Creature {
+
     fn cost(&self) -> u16 {
         self.cost
     }
 
+    fn description(&self) -> &str {
+        &self.description
+    }
+
+    fn display_image_asset_string(&self) -> &str {
+        &self.display_image_asset_string
+    }
+}
+
+impl Placeable for Creature {
     fn on_place(&self, scheduler: &mut GameScheduler, owner: PlayerID, id: InPlayID) {
-        for GameAction { function, speed } in &self.place_action {
-            match speed {
-                game_action::Timing::Now => {
-                    scheduler.schedule_now(owner, id, function.to_owned(), 1)
-                }
-                game_action::Timing::End(timing) => {
-                    scheduler.schedule_at_end(*timing, owner, id, function.to_owned(), 1)
-                }
-                game_action::Timing::Start(timing) => {
-                    scheduler.schedule_at_start(*timing, owner, id, function.to_owned(), 1)
-                }
-            }
-        }
+        self.schedule_actions(scheduler, owner, id, &self.place_action);
     }
 }
 
 impl Creature {
-    pub fn on_turn_start(&self, scheduler: &mut GameScheduler, owner: PlayerID, id: InPlayID) {
-        for GameAction { function, speed } in &self.turn_begin_action {
-            match speed {
-                game_action::Timing::Now => {
-                    scheduler.schedule_now(owner, id, function.to_owned(), 1)
-                }
-                game_action::Timing::End(timing) => {
-                    scheduler.schedule_at_end(*timing, owner, id, function.to_owned(), 1)
-                }
-                game_action::Timing::Start(timing) => {
-                    scheduler.schedule_at_start(*timing, owner, id, function.to_owned(), 1)
-                }
-            }
+    pub fn new(
+        name: String,
+        movement: Vec<I16Vec2>,
+        movement_points: u16,
+        attack: Vec<I16Vec2>,
+        attack_strength: u16,
+        defense: u16,
+        cost: u16,
+        place_action: Vec<GameAction>,
+        turn_begin_action: Vec<GameAction>,
+        turn_end_action: Vec<GameAction>,
+        draw_action: Vec<GameAction>,
+        discard_action: Vec<GameAction>,
+        abilities: Vec<Abilities>,
+        description: String,
+        display_image_asset_string: String,
+    ) -> Self {
+        Self {
+            name,
+            movement,
+            movement_points,
+            attack,
+            attack_strength,
+            defense,
+            cost,
+            place_action,
+            turn_begin_action,
+            turn_end_action,
+            draw_action,
+            discard_action,
+            abilities,
+            description,
+            display_image_asset_string,
         }
+    }
+
+    pub fn on_turn_start(&self, scheduler: &mut GameScheduler, owner: PlayerID, id: InPlayID) {
+        self.schedule_actions(scheduler, owner, id, &self.turn_begin_action);
     }
 
     pub fn on_turn_end(&self, scheduler: &mut GameScheduler, owner: PlayerID, id: InPlayID) {
-        for GameAction { function, speed } in &self.turn_end_action {
+        self.schedule_actions(scheduler, owner, id, &self.turn_end_action);
+    }
+
+    // Helper method to reduce code duplication
+    fn schedule_actions(
+        &self,
+        scheduler: &mut GameScheduler,
+        owner: PlayerID,
+        id: InPlayID,
+        actions: &[GameAction],
+    ) {
+        for GameAction { function, speed } in actions {
             match speed {
                 game_action::Timing::Now => {
                     scheduler.schedule_now(owner, id, function.to_owned(), 1)
@@ -85,11 +118,12 @@ impl Creature {
         }
     }
 
-    pub fn get_attack_pattern(&self) -> &Vec<I16Vec2> {
-        &self.attack
+    // Only keep getters for computed properties or when you need different return types
+    pub fn total_stats(&self) -> u16 {
+        self.attack_strength + self.defense
     }
 
-    pub(crate) fn get_movement_pattern(&self) -> &Vec<I16Vec2> {
-        &self.movement
+    pub fn is_powerful(&self) -> bool {
+        self.attack_strength > 5 || self.defense > 5
     }
 }

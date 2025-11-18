@@ -17,3 +17,5 @@
 (def on-turn-end @[])
 
 (def description "A soldier drafted from the finest of peasents")
+
+(def display-image-asset-string "missing")

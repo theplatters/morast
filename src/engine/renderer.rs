@@ -14,7 +14,7 @@ use crate::{
         },
     },
     game::{
-        card::{card_registry::CardRegistry, creature::Creature},
+        card::{card_registry::CardRegistry, Card, CardBehavior},
         error::Error,
         game_context::GameContext,
         turn_controller::TurnStep,
@@ -37,7 +37,7 @@ impl Renderer {
     }
     pub fn update_cards(
         &mut self,
-        game_cards: &[&Creature],
+        game_cards: &[&Card],
         turn_step: &TurnStep,
         assets: &AssetLoader,
     ) {
@@ -50,18 +50,21 @@ impl Renderer {
                 TurnStep::Cardchoosen(card_chosen_index) => *card_chosen_index == i,
                 _ => false,
             };
-            let card = CardRenderer::new(
-                Vec2::new(pos_x, self.render_config.hand_y),
-                card.cost,
-                card.attack_strength,
-                card.defense,
-                card.name.clone(),
-                card.description.clone(),
-                highlighted,
-                self.render_config.clone(),
-            );
+            let mut card_builder = CardRenderer::builder()
+                .cost(card.cost())
+                .position(Vec2::new(pos_x, self.render_config.hand_y))
+                .name(card.name())
+                .description(card.description())
+                .highlighted(highlighted)
+                .render_config(self.render_config.clone());
 
-            self.cards_to_draw.push(card)
+            card_builder = match card {
+                Card::Creature(c) => card_builder.creature(c.attack_strength, c.defense),
+                Card::Spell(c) => card_builder.spell(),
+                Card::Trap(c) => card_builder.trap(),
+            };
+            self.cards_to_draw
+                .push(card_builder.build().expect("Could not build card"))
         }
     }
 
@@ -75,10 +78,10 @@ impl Renderer {
             TurnStep::Figurechosen(pos) => {
                 let board = context.get_board();
                 let card_id = board.get_card_on_tile(pos)?;
-                let movement_pattern = card_registy
+                let movement_pattern = &card_registy
                     .get_creature(&card_id.card_id)
                     .ok_or(Error::CardNotFound)?
-                    .get_movement_pattern();
+                    .movement;
 
                 let highlights: Vec<I16Vec2> =
                     movement_pattern.iter().map(|tile| *tile + *pos).collect();
@@ -114,7 +117,7 @@ impl Renderer {
         let hand = player.get_hand();
         let cards: Vec<_> = hand
             .iter()
-            .filter_map(|card| card_registry.get_creature(card))
+            .filter_map(|card| card_registry.get(card))
             .collect();
 
         self.update_cards(cards.as_slice(), turn_step, asset_loader);

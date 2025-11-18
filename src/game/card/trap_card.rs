@@ -1,17 +1,35 @@
 use crate::game::{
-    card::{Named, Placeable},
+    card::{CardBehavior, Placeable},
     game_action::{self, GameAction},
-    Game,
 };
 
 #[derive(Debug)]
 pub struct Trap {
     name: String,
+    description: String,
     place_action: Vec<GameAction>,
     reveal_action: Vec<GameAction>,
     cost: u16,
+    display_image_asset_string: String,
 }
 
+impl CardBehavior for Trap {
+    fn cost(&self) -> u16 {
+        self.cost
+    }
+
+    fn description(&self) -> &str {
+        &self.description
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn display_image_asset_string(&self) -> &str {
+        &self.display_image_asset_string
+    }
+}
 impl Placeable for Trap {
     fn on_place(
         &self,
@@ -33,30 +51,24 @@ impl Placeable for Trap {
             }
         }
     }
-
-    fn cost(&self) -> u16 {
-        self.cost
-    }
-}
-
-impl Named for Trap {
-    fn name(&self) -> &str {
-        &self.name
-    }
 }
 
 impl Trap {
     pub fn new(
-        name: &str,
+        name: String,
         cost: u16,
+        description: String,
         place_action: Vec<GameAction>,
         reveal_action: Vec<GameAction>,
+        display_image_asset_string: String,
     ) -> Self {
         Self {
-            name: name.to_owned(),
+            name,
+            description,
             cost,
             place_action,
             reveal_action,
+            display_image_asset_string,
         }
     }
 }

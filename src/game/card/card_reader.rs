@@ -10,69 +10,97 @@ use crate::{
     },
     game::{
         card::{
-            abilities::Abilities, creature::Creature, spell_card::Spell, trap_card::Trap, Card,
+            abilities::Abilities, card_builder::CardBuilder, spell_card::Spell, trap_card::Trap,
+            Card,
         },
         error::Error,
         game_action::{GameAction, Timing},
     },
 };
+/// Parse timing information from Janet array
+fn parse_timing(arr: &[JanetEnum]) -> Result<Timing, Error> {
+    match arr {
+        [JanetEnum::_Int(turns), JanetEnum::_String(timing_str), ..] => {
+            let turns_u32 = u32::try_from(*turns)
+                .map_err(|_| Error::Cast("Turn count out of u32 range".into()))?;
 
-fn destructure_action(action: JanetEnum) -> Result<Vec<GameAction>, Error> {
-    if let JanetEnum::_Array(elements) = action {
-        let mut result = Vec::new();
-        for element in elements {
-            if let JanetEnum::_Table(map) = element {
-                let Some(JanetEnum::_Function(func)) = map.get("action") else {
-                    return Err(Error::Cast("Action not found".into()));
-                };
-
-                if let Some(JanetEnum::_Array(arr)) = map.get("timing") {
-                    // Inside your function processing the JanetEnum array
-                    let timing = match arr.as_slice() {
-                        [JanetEnum::_Int(turns), JanetEnum::_String(timing_str), ..] => {
-                            // Convert signed integer to u32 safely
-                            let turns_u32 = u32::try_from(*turns)
-                                .map_err(|_| Error::Cast("Turn count out of u32 range".into()))?;
-
-                            match timing_str.as_str() {
-                                "end" => Timing::End(turns_u32),
-                                "start" => Timing::Start(turns_u32),
-                                _ => {
-                                    return Err(Error::Cast(format!(
-                                        "Invalid timing variant: {}",
-                                        timing_str
-                                    )))
-                                }
-                            }
-                        }
-                        [JanetEnum::_String(timing_str)] => match timing_str.as_str() {
-                            "now" => Timing::Now,
-                            _ => {
-                                return Err(Error::Cast(format!(
-                                    "Invalid timing variant: {}",
-                                    timing_str
-                                )))
-                            }
-                        },
-                        _ => {
-                            return Err(Error::Cast(
-                                "Timing must be either [int, \"end|start\"] or [\"now\"]".into(),
-                            ))
-                        }
-                    };
-
-                    result.push(GameAction::new(func.to_owned(), timing));
-                } else {
-                    return Err(Error::Cast("Timing not found".into()));
-                }
-            } else {
-                return Err(Error::Cast("Result is not a table".into()));
+            match timing_str.as_str() {
+                "end" => Ok(Timing::End(turns_u32)),
+                "start" => Ok(Timing::Start(turns_u32)),
+                _ => Err(Error::Cast(format!(
+                    "Invalid timing variant: {}",
+                    timing_str
+                ))),
             }
         }
-        Ok(result)
-    } else {
-        Err(Error::Cast("Value is not an array".into()))
+        [JanetEnum::_String(timing_str)] => match timing_str.as_str() {
+            "now" => Ok(Timing::Now),
+            _ => Err(Error::Cast(format!(
+                "Invalid timing variant: {}",
+                timing_str
+            ))),
+        },
+        _ => Err(Error::Cast(
+            "Timing must be either [int, \"end|start\"] or [\"now\"]".into(),
+        )),
     }
+}
+
+/// Convert Janet action data to GameAction vector
+fn destructure_action(action: JanetEnum) -> Result<Vec<GameAction>, Error> {
+    let JanetEnum::_Array(elements) = action else {
+        return Err(Error::Cast("Value is not an array".into()));
+    };
+
+    let mut result = Vec::new();
+
+    for element in elements {
+        let JanetEnum::_Table(map) = element else {
+            return Err(Error::Cast("Element is not a table".into()));
+        };
+
+        let Some(JanetEnum::_Function(func)) = map.get("action") else {
+            return Err(Error::Cast("Action not found in table".into()));
+        };
+
+        let Some(JanetEnum::_Array(timing_arr)) = map.get("timing") else {
+            return Err(Error::Cast("Timing not found in table".into()));
+        };
+
+        let timing = parse_timing(timing_arr.as_slice())?;
+        result.push(GameAction::new(func.to_owned(), timing));
+    }
+
+    Ok(result)
+}
+
+pub fn read_common_data(
+    env: &Environment,
+    name: &str,
+    asset_loader: &mut AssetLoader,
+) -> Result<CardBuilder, Error> {
+    let JanetEnum::_String(description) = JanetEnum::get(env, "description", Some(name))
+        .ok_or(Error::NotFound("Description".into()))?
+    else {
+        return Err(Error::NotFound("Description".into()));
+    };
+
+    let Some(JanetEnum::_Int(cost)) = JanetEnum::get(env, "cost", Some(name)) else {
+        return Err(Error::NotFound("Attack strength".into()));
+    };
+
+    let JanetEnum::_String(display_image_asset_string) =
+        JanetEnum::get(env, "display-image-asset-string", Some(name))
+            .ok_or(Error::NotFound("Display image".into()))?
+    else {
+        return Err(Error::NotFound("Display image".into()));
+    };
+
+    Ok(Card::builder()
+        .name(name)
+        .cost(cost as u16)
+        .description(description)
+        .display_image_asset_string(display_image_asset_string))
 }
 
 pub async fn read_creature(
@@ -107,12 +135,6 @@ pub async fn read_creature(
         None => return Err(Error::NotFound("on-discard".into())),
     };
 
-    let JanetEnum::_String(description) = JanetEnum::get(env, "description", Some(name))
-        .ok_or(Error::NotFound("card-image".into()))?
-    else {
-        return Err(Error::Cast("Asset is not a string".into()));
-    };
-
     let attack = convert_to_i16_vec(env, "attack", name)
         .ok_or(Error::NotFound(format!("{}, attack", name)))?;
     let movement = convert_to_i16_vec(env, "movement", name)
@@ -131,10 +153,6 @@ pub async fn read_creature(
     let Some(JanetEnum::_Int(attack_strength)) = JanetEnum::get(env, "attack-strength", Some(name))
     else {
         return Err(Error::Cast("Attack strength not found".into()));
-    };
-
-    let Some(JanetEnum::_Int(cost)) = JanetEnum::get(env, "cost", Some(name)) else {
-        return Err(Error::Cast("Cost not found".into()));
     };
 
     let Some(JanetEnum::_Int(defense)) = JanetEnum::get(env, "defense", Some(name)) else {
@@ -158,22 +176,20 @@ pub async fn read_creature(
         _ => Vec::new(),
     };
 
-    Ok(Card::Creature(Creature {
-        draw_action,
-        place_action: play_action,
-        turn_begin_action,
-        turn_end_action,
-        discard_action,
-        name: name.to_string(),
-        attack,
-        attack_strength: attack_strength as u16,
-        defense: defense as u16,
-        movement_points: movement_points as u16,
-        cost: cost as u16,
-        movement,
-        abilities,
-        description,
-    }))
+    let card_builder = read_common_data(env, name, asset_loader)?;
+    card_builder
+        .movement(movement)
+        .movement_points(movement_points as u16)
+        .attack_strength(attack_strength as u16)
+        .attack_pattern(attack)
+        .defense(defense as u16)
+        .on_play_action(play_action)
+        .turn_begin_action(turn_begin_action)
+        .turn_end_action(turn_end_action)
+        .draw_action(draw_action)
+        .discard_action(discard_action)
+        .abilities(abilities)
+        .build_creature()
 }
 
 pub async fn read_spell(
@@ -181,15 +197,13 @@ pub async fn read_spell(
     name: &str,
     asset_loader: &mut AssetLoader,
 ) -> Result<Card, Error> {
-    let Some(JanetEnum::_Int(cost)) = JanetEnum::get(env, "cost", Some(name)) else {
-        return Err(Error::Cast("Cost not found".into()));
-    };
-
     let play_action = match JanetEnum::get(env, "on-play", Some(name)) {
         Some(value) => destructure_action(value)?,
         None => return Err(Error::NotFound("on-play".into())),
     };
-    Ok(Card::Spell(Spell::new(name, cost as u16, play_action)))
+
+    let card_builder = read_common_data(env, name, asset_loader)?;
+    card_builder.on_play_action(play_action).build_spell()
 }
 
 pub async fn read_trap(
@@ -197,10 +211,6 @@ pub async fn read_trap(
     name: &str,
     asset_loader: &mut AssetLoader,
 ) -> Result<Card, Error> {
-    let Some(JanetEnum::_Int(cost)) = JanetEnum::get(env, "cost", Some(name)) else {
-        return Err(Error::Cast("Cost not found".into()));
-    };
-
     let place_action = match JanetEnum::get(env, "on-play", Some(name)) {
         Some(value) => destructure_action(value)?,
         None => return Err(Error::NotFound("on-play".into())),
@@ -211,12 +221,11 @@ pub async fn read_trap(
         None => return Err(Error::NotFound("on-reveal".into())),
     };
 
-    Ok(Card::Trap(Trap::new(
-        name,
-        cost as u16,
-        place_action,
-        reveal_action,
-    )))
+    let card_builder = read_common_data(env, name, asset_loader)?;
+    card_builder
+        .place_action(place_action)
+        .reveal_action(reveal_action)
+        .build_trap()
 }
 
 pub fn get_card_list(env: &Environment) -> Option<(Vec<String>, Vec<String>, Vec<String>)> {

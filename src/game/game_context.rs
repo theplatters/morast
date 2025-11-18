@@ -3,7 +3,7 @@ use macroquad::{math::I16Vec2, rand::ChooseRandom};
 
 use crate::game::{
     board::card_on_board::CreatureOnBoard,
-    card::{creature::Creature, Card, Named, Placeable},
+    card::{creature::Creature, Card, CardBehavior, Placeable},
     game_objects::player_base::PlayerBaseStatus,
     phases::Phase,
 };
@@ -33,7 +33,7 @@ impl GameContext {
         card_registry: &CardRegistry,
         scheduler: &mut GameScheduler,
     ) -> Result<(), Error> {
-        println!("Placing card {:?} at index {:?}", creature.name, index);
+        println!("Placing card {:?} at index {:?}", creature.name(), index);
 
         // Ensure the tile is empty
         if self.board.get_card_at_index(&index).is_some() {
@@ -66,13 +66,16 @@ impl GameContext {
     }
 
     fn play_spell(
-        &self,
-        card_id: CardID,
+        &mut self,
         s: &super::card::spell_card::Spell,
-        card_registry: &CardRegistry,
         scheduler: &mut GameScheduler,
     ) -> Result<(), Error> {
-        todo!()
+        s.on_play(
+            scheduler,
+            self.turn_player,
+            self.board.generate_in_play_id(),
+        );
+        Ok(())
     }
     fn validate_card_play(
         &self,
@@ -203,7 +206,7 @@ impl GameContext {
                 self.place_creature(card_id, c, position, card_registry, scheduler)?
             }
             Card::Trap(t) => self.place_trap(card_id, t, position, card_registry, scheduler)?,
-            Card::Spell(s) => self.play_spell(card_id, s, card_registry, scheduler)?,
+            Card::Spell(s) => self.play_spell(s, scheduler)?,
         };
 
         let player = self

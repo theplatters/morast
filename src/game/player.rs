@@ -2,7 +2,7 @@ use std::cmp;
 
 use macroquad::rand::ChooseRandom;
 
-use crate::game::{card::card_registry::CardRegistry, error::Error};
+use crate::game::{card::card_registry::CardRegistry, card::CardBehavior, error::Error};
 
 use super::card::card_id::CardID;
 
@@ -107,7 +107,7 @@ impl Player {
         let card = card_registry
             .get_creature(&card_id)
             .ok_or(Error::CardNotFound)?;
-        self.add_gold(card.cost.into());
+        self.add_gold(card.cost().into());
         Ok(())
     }
 }

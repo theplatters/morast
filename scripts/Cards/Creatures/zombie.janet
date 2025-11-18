@@ -28,3 +28,5 @@
 (def on-turn-end @[])
 
 (def description "He has seen better days")
+
+(def display-image-asset-string "missing")
