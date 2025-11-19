@@ -1,21 +1,23 @@
-(def cost 1)
-(def card-image "assets/image2.png")
-(def movement-points 3)
+(def soldier @{
 
-(def movement(std/plus 1))
-(def attack (std/plus 1))
+'cost 1
+'card-image "assets/image2.png"
+'movement-points 3
 
-(def abilities @["fly" "dig"])
-(def attack-strength 3)
-(def defense 3)
+'movement(std/plus 1)
+'attack (std/plus 1)
 
-(def on-draw @[])
-(def on-play @[])
-(def on-discard @[])
-(def on-ability @[])
-(def on-turn-begin @[])
-(def on-turn-end @[])
+'abilities @["fly" "dig"]
+'attack-strength 3
+'defense 3
 
-(def description "A soldier drafted from the finest of peasents")
+'on-draw @[]
+'on-play @[]
+'on-discard @[]
+'on-ability @[]
+'on-turn-begin @[]
+'on-turn-end @[]
 
-(def display-image-asset-string "missing")
+'description "A soldier drafted from the finest of peasents"
+
+'display-image-asset-string "missing"})

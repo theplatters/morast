@@ -1,23 +1,17 @@
-(def cost 1)
-(def card-image "assets/image3.png")
+(def tower @{'cost 1
+'card-image "assets/image3.png"
 
-(def movement @[])
-(def movement-points 0)
+'movement @[]
+'movement-points 0
 
-(def attack (array/join (std/cross 1 ) (std/cross 2) (std/plus 2) (std/plus 1)))
+'attack (array/join (std/cross 1 ) (std/cross 2) (std/plus 2) (std/plus 1))
 
-(def abilities @["fly" "dig"])
+'abilities @["fly" "dig"]
 
-(def attack-strength 3)
-(def defense 2)
+'attack-strength 3
+'defense 2
 
-(def on-draw @[])
-(def on-play @[])
-(def on-discard @[])
-(def on-ability @[])
-(def on-turn-begin @[])
-(def on-turn-end @[])
 
-(def description "Stands tall over the lands")
+'description "Stands tall over the lands"
 
-(def display-image-asset-string "missing")
+'display-image-asset-string "missing"})

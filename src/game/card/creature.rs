@@ -16,7 +16,7 @@ pub struct Creature {
     pub attack_strength: u16,
     pub defense: u16,
     pub cost: u16,
-    pub place_action: Vec<GameAction>,
+    pub play_action: Vec<GameAction>,
     pub turn_begin_action: Vec<GameAction>,
     pub turn_end_action: Vec<GameAction>,
     pub draw_action: Vec<GameAction>,
@@ -44,12 +44,6 @@ impl CardBehavior for Creature {
     }
 }
 
-impl Placeable for Creature {
-    fn on_place(&self, scheduler: &mut GameScheduler, owner: PlayerID, id: InPlayID) {
-        self.schedule_actions(scheduler, owner, id, &self.place_action);
-    }
-}
-
 impl Creature {
     pub fn new(
         name: String,
@@ -59,7 +53,7 @@ impl Creature {
         attack_strength: u16,
         defense: u16,
         cost: u16,
-        place_action: Vec<GameAction>,
+        play_action: Vec<GameAction>,
         turn_begin_action: Vec<GameAction>,
         turn_end_action: Vec<GameAction>,
         draw_action: Vec<GameAction>,
@@ -76,7 +70,7 @@ impl Creature {
             attack_strength,
             defense,
             cost,
-            place_action,
+            play_action,
             turn_begin_action,
             turn_end_action,
             draw_action,
@@ -85,6 +79,10 @@ impl Creature {
             description,
             display_image_asset_string,
         }
+    }
+
+    pub fn on_play(&self, scheduler: &mut GameScheduler, owner: PlayerID, id: InPlayID) {
+        self.schedule_actions(scheduler, owner, id, &self.play_action);
     }
 
     pub fn on_turn_start(&self, scheduler: &mut GameScheduler, owner: PlayerID, id: InPlayID) {
@@ -111,6 +109,7 @@ impl Creature {
         {
             match speed {
                 game_action::Timing::Now => {
+                    println!("Scheduling event now");
                     scheduler.schedule_now(owner, id, function.to_owned(), 1)
                 }
                 game_action::Timing::End(timing) => {

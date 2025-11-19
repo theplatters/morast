@@ -1,9 +1,12 @@
 use log::debug;
-use macroquad::{math::I16Vec2, rand::ChooseRandom};
+use macroquad::{
+    math::{I16Vec2, U16Vec2},
+    rand::ChooseRandom,
+};
 
 use crate::game::{
     board::card_on_board::CreatureOnBoard,
-    card::{creature::Creature, Card, CardBehavior, Placeable},
+    card::{creature::Creature, trap_card::Trap, Card, CardBehavior, Placeable},
     game_objects::player_base::PlayerBaseStatus,
     phases::Phase,
 };
@@ -44,7 +47,34 @@ impl GameContext {
             CreatureOnBoard::new(card_id, self.turn_player_id(), creature.movement_points);
         match self.board.place(index, card_on_board) {
             Ok(id) => {
-                creature.on_place(scheduler, self.turn_player_id(), id);
+                creature.on_play(scheduler, self.turn_player_id(), id);
+            }
+            Err(err) => Err(Error::PlaceError(err))?,
+        }
+
+        self.update_attack_values(card_registry)?;
+        Ok(())
+    }
+
+    pub fn place_trap(
+        &mut self,
+        card_id: CardID,
+        trap: &Trap,
+        index: I16Vec2,
+        card_registry: &CardRegistry,
+        scheduler: &mut GameScheduler,
+    ) -> Result<(), Error> {
+        println!("Placing trap {:?} at index {:?}", trap.name(), index);
+
+        // Ensure the tile is empty
+        if self.board.get_card_at_index(&index).is_some() {
+            return Err(Error::PlaceError(BoardError::TileOccupied));
+        }
+
+        let card_on_board = CreatureOnBoard::new(card_id, self.turn_player_id(), 0);
+        match self.board.place(index, card_on_board) {
+            Ok(id) => {
+                trap.on_place(scheduler, self.turn_player_id(), id);
                 scheduler.process_events(self)?;
             }
             Err(err) => Err(Error::PlaceError(err))?,
@@ -54,29 +84,6 @@ impl GameContext {
         Ok(())
     }
 
-    fn place_trap(
-        &self,
-        card_id: CardID,
-        t: &super::card::trap_card::Trap,
-        position: I16Vec2,
-        card_registry: &CardRegistry,
-        scheduler: &mut GameScheduler,
-    ) -> Result<(), Error> {
-        todo!()
-    }
-
-    fn play_spell(
-        &mut self,
-        s: &super::card::spell_card::Spell,
-        scheduler: &mut GameScheduler,
-    ) -> Result<(), Error> {
-        s.on_play(
-            scheduler,
-            self.turn_player,
-            self.board.generate_in_play_id(),
-        );
-        Ok(())
-    }
     fn validate_card_play(
         &self,
         player_id: PlayerID,
@@ -107,7 +114,20 @@ impl GameContext {
         card_registry: &CardRegistry,
         scheduler: &mut GameScheduler,
     ) -> Result<(), Error> {
-        todo!()
+        let (card_id, cost) = self.validate_card_play(player_id, card_index, card_registry)?;
+
+        let Card::Creature(creature) = card_registry.get(&card_id).ok_or(Error::CardNotFound)?
+        else {
+            return Err(Error::InvalidCardType);
+        };
+        self.place_creature(card_id, creature, position, card_registry, scheduler)?;
+
+        let player = self
+            .get_player_mut(player_id)
+            .ok_or(Error::PlayerNotFound)?;
+        player.remove_card_from_hand(card_index);
+        player.remove_gold(cost.into());
+        Ok(())
     }
 
     pub(crate) fn execute_spell_cast(
@@ -118,7 +138,28 @@ impl GameContext {
         card_registry: &CardRegistry,
         scheduler: &mut GameScheduler,
     ) -> Result<(), Error> {
-        todo!()
+        let (card_id, cost) = self.validate_card_play(player_id, card_index, card_registry)?;
+
+        let Card::Spell(spell) = card_registry.get(&card_id).ok_or(Error::CardNotFound)? else {
+            return Err(Error::InvalidCardType);
+        };
+
+        // Execute spell with targets
+        spell.on_play(
+            scheduler,
+            player_id,
+            self.board.generate_in_play_id(),
+            targets.to_vec(),
+        );
+
+        // Deduct cost and remove card?
+        let player = self
+            .get_player_mut(player_id)
+            .ok_or(Error::PlayerNotFound)?;
+        player.remove_card_from_hand(card_index);
+        player.remove_gold(cost.into());
+
+        Ok(())
     }
 
     pub(crate) fn execute_trap_placement(
@@ -129,7 +170,22 @@ impl GameContext {
         card_registry: &CardRegistry,
         scheduler: &mut GameScheduler,
     ) -> Result<(), Error> {
-        todo!()
+        let (card_id, cost) = self.validate_card_play(player_id, card_index, card_registry)?;
+
+        let Card::Trap(trap) = card_registry.get(&card_id).ok_or(Error::CardNotFound)? else {
+            return Err(Error::InvalidCardType);
+        };
+
+        self.place_trap(card_id, trap, position, card_registry, scheduler)?;
+
+        // Deduct cost and remove card
+        let player = self
+            .get_player_mut(player_id)
+            .ok_or(Error::PlayerNotFound)?;
+        player.remove_card_from_hand(card_index);
+        player.remove_gold(cost.into());
+
+        Ok(())
     }
 }
 
@@ -222,32 +278,6 @@ impl GameContext {
         let player = self.get_player_mut(player_id)?;
         player.shuffle_deck();
         Some(())
-    }
-
-    pub fn play_card_from_hand(
-        &mut self,
-        player_id: PlayerID,
-        card_index: usize,
-        position: I16Vec2,
-        card_registry: &CardRegistry,
-        scheduler: &mut GameScheduler,
-    ) -> Result<(), Error> {
-        let (card_id, cost) = self.validate_card_play(player_id, card_index, card_registry)?;
-        let card = card_registry.get(&card_id).ok_or(Error::CardNotFound)?;
-        match card {
-            Card::Creature(c) => {
-                self.place_creature(card_id, c, position, card_registry, scheduler)?
-            }
-            Card::Trap(t) => self.place_trap(card_id, t, position, card_registry, scheduler)?,
-            Card::Spell(s) => self.play_spell(s, scheduler)?,
-        };
-
-        let player = self
-            .get_player_mut(player_id)
-            .ok_or(Error::PlayerNotFound)?;
-        player.remove_card_from_hand(card_index);
-        player.remove_gold(cost.into());
-        Ok(())
     }
 
     pub fn is_on_player_side(&self, pos: I16Vec2, player_id: PlayerID) -> bool {
@@ -349,20 +379,20 @@ impl GameContext {
     ) -> Result<(), BoardError> {
         self.board.remove_effects(effect, tiles)
     }
-    pub fn is_legal_move(&self, from: I16Vec2, to: I16Vec2, card: &Creature) -> bool {
-        card.movement.contains(&(from - to))
+    pub fn is_legal_move(&self, from: &I16Vec2, to: &I16Vec2, card: &Creature) -> bool {
+        card.movement.contains(&(*from - *to))
     }
 
     pub fn move_card(
         &mut self,
-        from: I16Vec2,
-        to: I16Vec2,
+        from: &I16Vec2,
+        to: &I16Vec2,
         card_registry: &CardRegistry,
     ) -> Result<(), Error> {
-        let card_at_start = *self
+        let card_at_start = self
             .board
-            .get_card_at_index(&from)
-            .ok_or(Error::PlaceError(BoardError::TileEmpty))?;
+            .get_card_at_index(from)
+            .ok_or(Error::PlaceError(BoardError::TileEmpty(*from)))?;
 
         let card = card_registry
             .get_creature(&card_at_start.card_id)

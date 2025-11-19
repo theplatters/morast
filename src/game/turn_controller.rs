@@ -7,7 +7,6 @@ use crate::{
     game::{
         card::{card_registry::CardRegistry, Card},
         error::Error,
-        events::event_scheduler::GameScheduler,
         game_action::TargetingType,
         game_context::GameContext,
         turn_controller::play_command::PlayCommand,
@@ -98,7 +97,6 @@ impl TurnController {
         &mut self,
         context: &mut GameContext,
         card_registry: &CardRegistry,
-        scheduler: &mut GameScheduler,
     ) -> Result<Option<PlayCommand>, Error> {
         // Handle input based on current state
         match self.state.clone() {
@@ -106,12 +104,7 @@ impl TurnController {
             TurnState::CardSelected {
                 card_index,
                 targeting_type,
-            } => self.handle_card_selected(
-                card_index,
-                targeting_type.clone(),
-                context,
-                card_registry,
-            ),
+            } => self.handle_card_selected(card_index, targeting_type, context, card_registry),
             TurnState::AwaitingTargets {
                 card_index,
                 targeting_type,
@@ -149,7 +142,27 @@ impl TurnController {
         remaining_targets: u8,
         context: &GameContext,
     ) -> Result<Option<PlayCommand>, Error> {
-        todo!()
+        let Some(next_target) = self.input_handler.get_board_click() else {
+            return Ok(None);
+        };
+
+        let mut targets = selected_targets.to_owned();
+
+        targets.push(next_target);
+        if remaining_targets > 1 {
+            self.state = TurnState::AwaitingTargets {
+                card_index,
+                targeting_type: *targeting_type,
+                selected_targets: targets,
+                remaining_targets: remaining_targets - 1,
+            };
+            Ok(None)
+        } else {
+            Ok(Some(PlayCommand::CastSpell {
+                card_index,
+                targets: selected_targets.clone(),
+            }))
+        }
     }
 
     fn handle_figure_selected(
@@ -158,7 +171,18 @@ impl TurnController {
         context: &GameContext,
         card_registry: &CardRegistry,
     ) -> Result<Option<PlayCommand>, Error> {
-        todo!()
+        let Some(next_position) = self.input_handler.get_board_click() else {
+            return Ok(None);
+        };
+        print!(
+            "Sending move command from {} to {}",
+            position, next_position
+        );
+        self.state = TurnState::Idle;
+        Ok(Some(PlayCommand::MoveCreature {
+            from: *position,
+            to: next_position,
+        }))
     }
 
     fn handle_idle_state(

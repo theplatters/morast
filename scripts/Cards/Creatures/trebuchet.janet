@@ -1,23 +1,20 @@
-(def cost 5)
-(def card-image "assets/image1.png")
+(def trebuchet @{
+  'cost 5
+  'card-image "assets/image1.png"
 
-(def movement (std/plus 1))
-(def movement-points 1)
+  'movement (std/plus 1)
+  'movement-points 1
 
-(def attack @[ @[0 5]])
+  'attack @[ @[0 5]]
 
-(def abilities @[])
+  'abilities @[]
 
-(def attack-strength 5)
-(def defense 1)
+  'attack-strength 5
+  'defense 1
 
-(def on-draw @[])
-(def on-play @[])
-(def on-discard @[])
-(def on-ability @[])
-(def on-turn-begin @[])
-(def on-turn-end @[])
 
-(def description "A mighty siege weapon")
 
-(def display-image-asset-string "missing")
+  'description "A mighty siege weapon"
+
+  'display-image-asset-string "missing"
+})

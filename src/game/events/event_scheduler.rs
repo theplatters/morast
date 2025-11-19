@@ -1,7 +1,7 @@
 use std::{collections::BinaryHeap, ffi::c_void};
 
 use log::debug;
-use macroquad::math::U16Vec2;
+use macroquad::math::I16Vec2;
 
 use super::event::{Event, EventTiming, ScheduledEvent};
 use crate::{
@@ -51,7 +51,7 @@ impl GameScheduler {
         owner: PlayerID,
         by_id: InPlayID,
         action: Function,
-        targets: Option<Vec<U16Vec2>>,
+        targets: Option<Vec<I16Vec2>>,
     ) {
         let timing = match timing {
             When::Now => {
@@ -59,6 +59,8 @@ impl GameScheduler {
                     None => Event::new(priority, owner, by_id, action),
                     Some(target) => Event::new(priority, owner, by_id, action).with_targets(target),
                 };
+
+                println!("Registering immediateevents");
 
                 self.immediate_events.push(event);
                 return;
@@ -116,7 +118,7 @@ impl GameScheduler {
         by_id: InPlayID,
         action: Function,
         priority: u32,
-        targets: Vec<U16Vec2>,
+        targets: Vec<I16Vec2>,
     ) {
         self.schedule(
             When::Start(turns_ahead),
@@ -155,7 +157,7 @@ impl GameScheduler {
         by_id: InPlayID,
         action: Function,
         priority: u32,
-        targets: Vec<U16Vec2>,
+        targets: Vec<I16Vec2>,
     ) {
         self.schedule(
             When::End(turns_including),
@@ -185,7 +187,7 @@ impl GameScheduler {
         by_id: InPlayID,
         action: Function,
         priority: u32,
-        targets: Vec<U16Vec2>,
+        targets: Vec<I16Vec2>,
     ) {
         self.schedule(When::Now, priority, owner, by_id, action, Some(targets));
     }

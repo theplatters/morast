@@ -301,22 +301,24 @@ impl Board {
 
     pub fn move_card(
         &mut self,
-        from: I16Vec2,
-        to: I16Vec2,
+        from: &I16Vec2,
+        to: &I16Vec2,
         move_player: PlayerID,
     ) -> Result<(), BoardError> {
+        print!("Tiles {:?}", self.tiles);
         // Check if 'from' and 'to' are valid
-        let from_tile = self.tiles.get(&from).ok_or(BoardError::Index)?;
+        let from_tile = self.tiles.get(from).ok_or(BoardError::Index)?;
         let card_id = match &from_tile.ontile {
             Some(c) => *c,
-            _ => return Err(BoardError::TileEmpty),
+            _ => return Err(BoardError::TileEmpty(*from)),
         };
+
         // Check if the card has movement points left
-        if !self.can_card_move(move_player.next(), &from) {
+        if !self.can_card_move(move_player.next(), from) {
             return Err(BoardError::NoMovementPoints);
         }
 
-        let to_tile = self.tiles.get(&to).ok_or(BoardError::Index)?;
+        let to_tile = self.tiles.get(to).ok_or(BoardError::Index)?;
         let card_on_board = self
             .cards_placed
             .get_mut(&card_id)
@@ -333,10 +335,10 @@ impl Board {
             card_on_board.movement_points -= 1;
         }
         // Move the card
-        let from_tile = self.tiles.get_mut(&from).unwrap();
+        let from_tile = self.tiles.get_mut(from).unwrap();
         from_tile.ontile = None;
 
-        let to_tile = self.tiles.get_mut(&to).unwrap();
+        let to_tile = self.tiles.get_mut(to).unwrap();
         to_tile.ontile = Some(card_id);
         Ok(())
     }
@@ -352,7 +354,7 @@ impl Board {
             .tiles
             .get(pos)
             .and_then(|tile| tile.ontile)
-            .ok_or(Error::TileEmpty)?;
+            .ok_or(Error::PlaceError(BoardError::TileEmpty(*pos)))?;
 
         self.cards_placed.get(&card_id).ok_or(Error::CardNotFound)
     }

@@ -1,8 +1,5 @@
-use std::{
-    ffi::CStr,
-    fmt::{self},
-    hash::Hash,
-};
+use core::fmt;
+use std::{ffi::CStr, hash::Hash};
 
 use macroquad::math::I16Vec2;
 
@@ -219,10 +216,6 @@ pub fn to_i16_vec(item: JanetEnum) -> Option<Vec<I16Vec2>> {
         }
     }
     Some(result)
-}
-
-pub fn convert_to_i16_vec(env: &Environment, attribute: &str, name: &str) -> Option<Vec<I16Vec2>> {
-    to_i16_vec(JanetEnum::get(env, attribute, Some(name))?)
 }
 
 impl fmt::Display for JanetEnum {

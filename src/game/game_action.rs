@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use crate::{engine::janet_handler::types::function::Function, game::error::Error};
 
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
@@ -13,7 +15,7 @@ pub enum TargetingType {
     SingleTile,          // Click a tile
     Area { radius: u8 }, // Area around clicked tile
     Line { length: u8 }, // Line from caster
-    Self_,               // Targets the card itself
+    Caster,              // Targets the card itself
     AllEnemies,          // All enemy units
 }
 
@@ -38,5 +40,13 @@ impl GameAction {
         argv: &[crate::engine::janet_handler::bindings::Janet],
     ) -> Result<crate::engine::janet_handler::types::janetenum::JanetEnum, Error> {
         self.function.eval(argv).map_err(Error::EngineError)
+    }
+}
+
+impl FromStr for TargetingType {
+    type Err = crate::game::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        todo!()
     }
 }

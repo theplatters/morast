@@ -1,5 +1,8 @@
 use crate::game::{
-    card::{abilities::Abilities, creature::Creature, spell_card::Spell, trap_card::Trap, Card},
+    card::{
+        abilities::Abilities, card_reader::CommonData, creature::Creature, spell_card::Spell,
+        trap_card::Trap, Card,
+    },
     error::Error,
     game_action::GameAction,
 };
@@ -203,7 +206,7 @@ impl CardBuilder {
             self.attack_strength.unwrap_or(1),
             self.defense.unwrap_or(1),
             self.cost.unwrap_or(1),
-            self.place_action.unwrap_or_default(),
+            self.on_play_action.unwrap_or_default(),
             self.turn_begin_action.unwrap_or_default(),
             self.turn_end_action.unwrap_or_default(),
             self.draw_action.unwrap_or_default(),
@@ -242,6 +245,14 @@ impl CardBuilder {
                 .unwrap_or("missing".to_string()),
         );
         Ok(Card::Trap(trap))
+    }
+
+    pub(crate) fn common_data(mut self, common_data: CommonData) -> Self {
+        self.name = Some(common_data.name);
+        self.cost = Some(common_data.cost);
+        self.description = Some(common_data.description);
+        self.display_image_asset_string = Some(common_data.display_image_asset_string);
+        self
     }
 }
 
