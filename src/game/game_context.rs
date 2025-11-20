@@ -187,6 +187,16 @@ impl GameContext {
 
         Ok(())
     }
+
+    pub(crate) fn execute_end_turn(
+        &mut self,
+        scheduler: &mut GameScheduler,
+        card_registry: &CardRegistry,
+    ) -> Result<(), Error> {
+        self.process_turn_end(scheduler, card_registry)?;
+        self.advance_turn(scheduler);
+        self.process_turn_begin(scheduler, card_registry)
+    }
 }
 
 impl GameContext {
@@ -293,7 +303,7 @@ impl GameContext {
         self.players.get(self.turn_player_id().index())
     }
 
-    pub fn process_turn_end(
+    fn process_turn_end(
         &mut self,
         scheduler: &mut GameScheduler,
         card_registry: &CardRegistry,

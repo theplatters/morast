@@ -60,7 +60,6 @@ impl Game {
 
     pub async fn main_loop(&mut self) -> Result<(), Error> {
         loop {
-            self.turn_controller.reset_state();
             self.context.advance_turn(&mut self.scheduler);
 
             self.context
@@ -92,9 +91,6 @@ impl Game {
 
                 next_frame().await;
             }
-
-            self.context
-                .process_turn_end(&mut self.scheduler, &self.card_registry)?;
         }
     }
 }

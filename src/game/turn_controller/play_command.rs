@@ -1,4 +1,4 @@
-use macroquad::math::{I16Vec2, U16Vec2};
+use macroquad::math::I16Vec2;
 
 use crate::game::{
     card::card_registry::CardRegistry, error::Error, events::event_scheduler::GameScheduler,
@@ -23,6 +23,7 @@ pub enum PlayCommand {
         from: I16Vec2,
         to: I16Vec2,
     },
+    EndTurn,
 }
 
 impl PlayCommand {
@@ -65,6 +66,7 @@ impl PlayCommand {
                 scheduler,
             ),
             PlayCommand::MoveCreature { from, to } => context.move_card(from, to, card_registry),
+            PlayCommand::EndTurn => context.execute_end_turn(scheduler, card_registry),
         }
     }
 }

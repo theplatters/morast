@@ -99,6 +99,7 @@ impl TurnController {
         card_registry: &CardRegistry,
     ) -> Result<Option<PlayCommand>, Error> {
         // Handle input based on current state
+
         match self.state.clone() {
             TurnState::Idle => self.handle_idle_state(context, card_registry),
             TurnState::CardSelected {
@@ -115,7 +116,6 @@ impl TurnController {
                 &targeting_type,
                 &selected_targets,
                 remaining_targets,
-                context,
             ),
             TurnState::FigureSelected { position } => {
                 self.handle_figure_selected(&position, context, card_registry)
@@ -140,7 +140,6 @@ impl TurnController {
         targeting_type: &TargetingType,
         selected_targets: &Vec<I16Vec2>,
         remaining_targets: u8,
-        context: &GameContext,
     ) -> Result<Option<PlayCommand>, Error> {
         let Some(next_target) = self.input_handler.get_board_click() else {
             return Ok(None);

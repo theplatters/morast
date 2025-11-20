@@ -8,13 +8,9 @@
 'attack-strength 2
 'defense 1
 'on-play @[(table
-  'action (fn [game card-id] (std/apply-effect game 'weakening 2 (std/from-current-position game card-id (std/plus 1))))
+  'action (fn [game card-id targets] (std/apply-effect game 'weakening 2 targets))
   'timing @['now]
-  )]
-'on-turn-begin 
- @[(table
-  'action (fn [game card-id] (std/apply-effect game 'weakening 2 (std/from-current-position game card-id (std/plus 1))))
-  'timing @['now]
+  'targeting ['area-around-caster 1]
   )]
 
 

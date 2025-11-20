@@ -10,11 +10,12 @@ use crate::{
             types::{
                 janetenum::{to_i16_vec, JanetEnum},
                 table::Table,
+                tuple::Tuple,
             },
         },
     },
     game::{
-        card::{abilities::Abilities, card_builder::CardBuilder, Card},
+        card::{abilities::Abilities, Card},
         error::Error,
         game_action::{GameAction, TargetingType, Timing},
     },
@@ -136,6 +137,38 @@ impl ActionParser {
         elements.iter().map(Self::parse_single_action).collect()
     }
 
+    fn parse_targeting_type(el: Tuple) -> Result<TargetingType, Error> {
+        let JanetEnum::_String(targeting_type) = el.get(0).map_err(Error::EngineError)? else {
+            return Err(Error::Cast("Targeting type is not a string".into()));
+        };
+
+        match targeting_type.as_str() {
+            "none" => Ok(TargetingType::None),
+            "single" => Ok(TargetingType::SingleTile),
+            "area" => {
+                let JanetEnum::_Int(radius) = el.get(1).map_err(Error::EngineError)? else {
+                    return Err(Error::Cast("Targeting area is not an int".into()));
+                };
+
+                Ok(TargetingType::Area {
+                    radius: radius as u8,
+                })
+            }
+            "all-enemies" => Ok(TargetingType::AllEnemies),
+            "caster" => Ok(TargetingType::Caster),
+            "area-around-caster" => {
+                let JanetEnum::_Int(radius) = el.get(1).map_err(Error::EngineError)? else {
+                    return Err(Error::Cast("Targeting area is not an int".into()));
+                };
+
+                Ok(TargetingType::AreaAroundCaster {
+                    radius: radius as u8,
+                })
+            }
+            _ => todo!(),
+        }
+    }
+
     fn parse_single_action(element: &JanetEnum) -> Result<GameAction, Error> {
         let JanetEnum::_Table(map) = element else {
             return Err(Error::Cast("Action element is not a table".into()));
@@ -151,9 +184,24 @@ impl ActionParser {
             _ => return Err(Error::Cast("Timing not found in table".into())),
         };
 
+        let targeting = match map.get("targeting") {
+            Some(JanetEnum::_Tuple(targeting_arr)) => Self::parse_targeting_type(targeting_arr)?,
+            Some(el) => {
+                println!("Targeting Type not found, reverting to single target");
+                return Err(Error::Cast(format!(
+                    "Targeting not given as Tuple, Expected Tuple got {}",
+                    el,
+                )));
+            }
+            None => {
+                println!("Targeting Type not found, reverting to single target");
+                TargetingType::None
+            }
+        };
+
         let timing = TimingParser::parse(timing_arr.as_slice())?;
 
-        Ok(GameAction::new(func, timing, TargetingType::SingleTile))
+        Ok(GameAction::new(func, timing, targeting))
     }
 }
 
@@ -247,6 +295,7 @@ pub async fn read_spell(
     name: &str,
     asset_loader: &mut AssetLoader,
 ) -> Result<Card, Error> {
+    println!("Reading card: {}", name);
     let card_data = CardDataRetriever::get_card_table(env, name)?;
     let extractor = FieldExtractor::new(&card_data, name);
 

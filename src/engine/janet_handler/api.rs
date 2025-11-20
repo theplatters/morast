@@ -4,10 +4,7 @@ use log::debug;
 use macroquad::math::I16Vec2;
 
 use crate::{
-    engine::janet_handler::{
-        bindings::janet_getsymbol,
-        types::{function, janetenum::ptr_to_i16_vec},
-    },
+    engine::janet_handler::{bindings::janet_getsymbol, types::janetenum::ptr_to_i16_vec},
     game::{
         board::effect::{Effect, EffectType},
         events::event_scheduler::GameScheduler,

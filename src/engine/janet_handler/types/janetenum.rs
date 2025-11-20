@@ -3,9 +3,9 @@ use std::{ffi::CStr, hash::Hash};
 
 use macroquad::math::I16Vec2;
 
-use crate::{
-    engine::error::EngineError,
-    engine::janet_handler::{
+use crate::engine::{
+    error::EngineError,
+    janet_handler::{
         bindings::{
             janet_array, janet_array_pop, janet_array_push, janet_checktype, janet_getarray,
             janet_getinteger64, janet_is_int, janet_resolve, janet_type, janet_unwrap_array,
@@ -14,9 +14,10 @@ use crate::{
             janet_wrap_array, janet_wrap_integer, janet_wrap_nil, Janet, JanetArray,
             JANET_TYPE_JANET_ARRAY, JANET_TYPE_JANET_BOOLEAN, JANET_TYPE_JANET_FUNCTION,
             JANET_TYPE_JANET_NIL, JANET_TYPE_JANET_NUMBER, JANET_TYPE_JANET_STRING,
-            JANET_TYPE_JANET_SYMBOL, JANET_TYPE_JANET_TABLE,
+            JANET_TYPE_JANET_SYMBOL, JANET_TYPE_JANET_TABLE, JANET_TYPE_JANET_TUPLE,
         },
         controller::Environment,
+        types::tuple::Tuple,
     },
 };
 
@@ -36,6 +37,7 @@ pub enum JanetEnum {
     _Function(Function),
     _Array(Vec<JanetEnum>),
     _Table(Table),
+    _Tuple(Tuple),
     _Null,
 }
 
@@ -82,10 +84,7 @@ impl JanetEnum {
                 println!("Return type is nill");
                 return None;
             }
-            match Self::from(out) {
-                Ok(v) => Some(v),
-                Err(_) => None,
-            }
+            Self::from(out).ok()
         }
     }
 
@@ -146,6 +145,7 @@ impl JanetEnum {
                         })?
                         .to_owned(),
                 )),
+                JANET_TYPE_JANET_TUPLE => Ok(JanetEnum::_Tuple(Tuple::new(item))),
                 other => Err(EngineError::Type(format!(
                     "Type '{}' is currently unsupported",
                     other
@@ -177,13 +177,13 @@ pub unsafe fn ptr_to_i16_vec(arr_ptr: *mut JanetArray) -> Option<Vec<I16Vec2>> {
         // pointer to the i-th Janet value in the outer array
         let elem_janet_ptr = (*arr_ptr).data.add(i);
         // obtain inner array pointer from that element (index 0 of a one-element argv)
-        let sub_arr = janet_getarray(elem_janet_ptr as *mut Janet, 0);
+        let sub_arr = janet_getarray(elem_janet_ptr, 0);
         if sub_arr.is_null() {
             return None;
         }
         // read integers from sub array's data (first and second element)
-        let x = janet_getinteger64((*sub_arr).data as *mut Janet, 0) as i16;
-        let y = janet_getinteger64((*sub_arr).data as *mut Janet, 1) as i16;
+        let x = janet_getinteger64((*sub_arr).data, 0) as i16;
+        let y = janet_getinteger64((*sub_arr).data, 1) as i16;
         out.push(I16Vec2::new(x, y));
     }
     Some(out)
@@ -230,6 +230,7 @@ impl fmt::Display for JanetEnum {
             JanetEnum::_Array(_) => "Array",
             JanetEnum::_Table(_) => "Table",
             JanetEnum::_Null => "Null",
+            JanetEnum::_Tuple(_) => "Tuple",
         };
         write!(f, "{}", s)
     }
