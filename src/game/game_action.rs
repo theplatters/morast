@@ -19,13 +19,13 @@ pub enum TargetingType {
 }
 
 #[derive(Debug)]
-pub struct GameAction {
+pub struct JanetAction {
     pub function: Function,
     pub speed: Timing,
     pub targeting: TargetingType,
 }
 
-impl GameAction {
+impl JanetAction {
     pub fn new(function: Function, speed: Timing, targeting: TargetingType) -> Self {
         Self {
             function,

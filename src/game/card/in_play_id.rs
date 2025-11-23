@@ -41,3 +41,15 @@ impl From<InPlayID> for i64 {
         value.0 as i64
     }
 }
+
+impl Into<InPlayID> for u16 {
+    fn into(self) -> InPlayID {
+        InPlayID::new(self as u32)
+    }
+}
+
+impl Into<InPlayID> for u32 {
+    fn into(self) -> InPlayID {
+        InPlayID::new(self)
+    }
+}

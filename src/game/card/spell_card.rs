@@ -4,7 +4,7 @@ use crate::game::{
     card::{in_play_id::InPlayID, CardBehavior},
     error::Error,
     events::event_scheduler::GameScheduler,
-    game_action::{self, GameAction, TargetingType},
+    game_action::{self, JanetAction, TargetingType},
     player::PlayerID,
 };
 
@@ -13,7 +13,7 @@ pub struct Spell {
     name: String,
     cost: u16,
     description: String,
-    on_play_action: Vec<GameAction>,
+    on_play_action: Vec<JanetAction>,
     display_image_asset_string: String,
 }
 
@@ -43,7 +43,7 @@ impl Spell {
         name: String,
         description: String,
         cost: u16,
-        on_play_action: Vec<GameAction>,
+        on_play_action: Vec<JanetAction>,
         display_image_asset_string: String,
     ) -> Self {
         Self {
@@ -62,7 +62,7 @@ impl Spell {
         id: InPlayID,
         targets: Vec<I16Vec2>,
     ) {
-        for GameAction {
+        for JanetAction {
             function,
             speed,
             targeting: _,

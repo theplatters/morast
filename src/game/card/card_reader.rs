@@ -17,7 +17,7 @@ use crate::{
     game::{
         card::{abilities::Abilities, Card},
         error::Error,
-        game_action::{GameAction, TargetingType, Timing},
+        game_action::{JanetAction, TargetingType, Timing},
     },
 };
 
@@ -41,26 +41,26 @@ impl<'a> FieldExtractor<'a> {
 
     fn get_string(&self, field: &str) -> Result<String, Error> {
         match self.table.get(field) {
-            Some(JanetEnum::_String(value)) => Ok(value.clone()),
+            Some(JanetEnum::String(value)) => Ok(value.clone()),
             _ => Err(Error::NotFound(format!("{}: {}", self.context, field))),
         }
     }
 
     fn get_int(&self, field: &str) -> Result<i32, Error> {
         match self.table.get(field) {
-            Some(JanetEnum::_Int(value)) => Ok(value),
+            Some(JanetEnum::Int(value)) => Ok(value),
             _ => Err(Error::NotFound(format!("{}: {}", self.context, field))),
         }
     }
 
-    fn get_optional_actions(&self, field: &str) -> Result<Vec<GameAction>, Error> {
+    fn get_optional_actions(&self, field: &str) -> Result<Vec<JanetAction>, Error> {
         match self.table.get(field) {
             Some(value) => ActionParser::parse(&value),
             None => Ok(vec![]),
         }
     }
 
-    fn get_required_actions(&self, field: &str) -> Result<Vec<GameAction>, Error> {
+    fn get_required_actions(&self, field: &str) -> Result<Vec<JanetAction>, Error> {
         match self.table.get(field) {
             Some(value) => ActionParser::parse(&value),
             None => Err(Error::NotFound(format!("{}: {}", self.context, field))),
@@ -79,7 +79,7 @@ impl<'a> FieldExtractor<'a> {
 
     fn get_abilities(&self) -> Result<Vec<Abilities>, Error> {
         match self.table.get("abilities") {
-            Some(JanetEnum::_Array(abilities)) => abilities
+            Some(JanetEnum::Array(abilities)) => abilities
                 .iter()
                 .map(|el| {
                     let s: String = el.try_into().map_err(Error::EngineError)?;
@@ -98,7 +98,7 @@ struct TimingParser;
 impl TimingParser {
     fn parse(arr: &[JanetEnum]) -> Result<Timing, Error> {
         match arr {
-            [JanetEnum::_Int(turns), JanetEnum::_String(timing_str), ..] => {
+            [JanetEnum::Int(turns), JanetEnum::String(timing_str), ..] => {
                 let turns_u32 = u32::try_from(*turns)
                     .map_err(|_| Error::Cast("Turn count out of u32 range".into()))?;
 
@@ -111,7 +111,7 @@ impl TimingParser {
                     ))),
                 }
             }
-            [JanetEnum::_String(timing_str)] => match timing_str.as_str() {
+            [JanetEnum::String(timing_str)] => match timing_str.as_str() {
                 "now" => Ok(Timing::Now),
                 _ => Err(Error::Cast(format!(
                     "Invalid timing variant: {}",
@@ -129,8 +129,8 @@ impl TimingParser {
 struct ActionParser;
 
 impl ActionParser {
-    fn parse(action: &JanetEnum) -> Result<Vec<GameAction>, Error> {
-        let JanetEnum::_Array(elements) = action else {
+    fn parse(action: &JanetEnum) -> Result<Vec<JanetAction>, Error> {
+        let JanetEnum::Array(elements) = action else {
             return Err(Error::Cast("Action value is not an array".into()));
         };
 
@@ -138,7 +138,7 @@ impl ActionParser {
     }
 
     fn parse_targeting_type(el: Tuple) -> Result<TargetingType, Error> {
-        let JanetEnum::_String(targeting_type) = el.get(0).map_err(Error::EngineError)? else {
+        let JanetEnum::String(targeting_type) = el.get(0).map_err(Error::EngineError)? else {
             return Err(Error::Cast("Targeting type is not a string".into()));
         };
 
@@ -146,7 +146,7 @@ impl ActionParser {
             "none" => Ok(TargetingType::None),
             "single" => Ok(TargetingType::SingleTile),
             "area" => {
-                let JanetEnum::_Int(radius) = el.get(1).map_err(Error::EngineError)? else {
+                let JanetEnum::Int(radius) = el.get(1).map_err(Error::EngineError)? else {
                     return Err(Error::Cast("Targeting area is not an int".into()));
                 };
 
@@ -157,7 +157,7 @@ impl ActionParser {
             "all-enemies" => Ok(TargetingType::AllEnemies),
             "caster" => Ok(TargetingType::Caster),
             "area-around-caster" => {
-                let JanetEnum::_Int(radius) = el.get(1).map_err(Error::EngineError)? else {
+                let JanetEnum::Int(radius) = el.get(1).map_err(Error::EngineError)? else {
                     return Err(Error::Cast("Targeting area is not an int".into()));
                 };
 
@@ -169,23 +169,23 @@ impl ActionParser {
         }
     }
 
-    fn parse_single_action(element: &JanetEnum) -> Result<GameAction, Error> {
-        let JanetEnum::_Table(map) = element else {
+    fn parse_single_action(element: &JanetEnum) -> Result<JanetAction, Error> {
+        let JanetEnum::Table(map) = element else {
             return Err(Error::Cast("Action element is not a table".into()));
         };
 
         let func = match map.get("action") {
-            Some(JanetEnum::_Function(func)) => func.clone(),
+            Some(JanetEnum::Function(func)) => func.clone(),
             _ => return Err(Error::Cast("Action function not found in table".into())),
         };
 
         let timing_arr = match map.get("timing") {
-            Some(JanetEnum::_Array(timing_arr)) => timing_arr,
+            Some(JanetEnum::Array(timing_arr)) => timing_arr,
             _ => return Err(Error::Cast("Timing not found in table".into())),
         };
 
         let targeting = match map.get("targeting") {
-            Some(JanetEnum::_Tuple(targeting_arr)) => Self::parse_targeting_type(targeting_arr)?,
+            Some(JanetEnum::Tuple(targeting_arr)) => Self::parse_targeting_type(targeting_arr)?,
             Some(el) => {
                 println!("Targeting Type not found, reverting to single target");
                 return Err(Error::Cast(format!(
@@ -201,7 +201,7 @@ impl ActionParser {
 
         let timing = TimingParser::parse(timing_arr.as_slice())?;
 
-        Ok(GameAction::new(func, timing, targeting))
+        Ok(JanetAction::new(func, timing, targeting))
     }
 }
 
@@ -211,7 +211,7 @@ struct CardDataRetriever;
 impl CardDataRetriever {
     fn get_card_table(env: &Environment, name: &str) -> Result<Table, Error> {
         match JanetEnum::get(env, name, Some(name)) {
-            Some(JanetEnum::_Table(card_data)) => Ok(card_data),
+            Some(JanetEnum::Table(card_data)) => Ok(card_data),
             Some(_) => Err(Error::Cast("Card data is not in table format".into())),
             None => Err(Error::NotFound(format!("Card: {}", name))),
         }
@@ -221,7 +221,7 @@ impl CardDataRetriever {
         env: &Environment,
         action_name: &str,
         card_name: &str,
-    ) -> Result<Vec<GameAction>, Error> {
+    ) -> Result<Vec<JanetAction>, Error> {
         match JanetEnum::get(env, action_name, Some(card_name)) {
             Some(value) => ActionParser::parse(&value),
             None => Err(Error::NotFound(format!("{}: {}", card_name, action_name))),
@@ -331,7 +331,7 @@ fn extract_string_list(janet_array: Vec<JanetEnum>) -> Option<Vec<String>> {
     janet_array
         .into_iter()
         .map(|x| match x {
-            JanetEnum::_String(s) => Some(s),
+            JanetEnum::String(s) => Some(s),
             _ => None,
         })
         .collect()
@@ -339,17 +339,17 @@ fn extract_string_list(janet_array: Vec<JanetEnum>) -> Option<Vec<String>> {
 
 pub fn get_card_list(env: &Environment) -> Option<(Vec<String>, Vec<String>, Vec<String>)> {
     let creatures = match JanetEnum::get(env, "creatures", Some("cards"))? {
-        JanetEnum::_Array(arr) => extract_string_list(arr)?,
+        JanetEnum::Array(arr) => extract_string_list(arr)?,
         _ => return None,
     };
 
     let spells = match JanetEnum::get(env, "spells", Some("cards"))? {
-        JanetEnum::_Array(arr) => extract_string_list(arr)?,
+        JanetEnum::Array(arr) => extract_string_list(arr)?,
         _ => return None,
     };
 
     let traps = match JanetEnum::get(env, "traps", Some("cards"))? {
-        JanetEnum::_Array(arr) => extract_string_list(arr)?,
+        JanetEnum::Array(arr) => extract_string_list(arr)?,
         _ => return None,
     };
 

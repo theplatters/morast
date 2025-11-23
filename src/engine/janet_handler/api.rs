@@ -172,7 +172,7 @@ pub unsafe extern "C" fn cfun_get_current_index(argc: i32, argv: *mut Janet) -> 
 }
 
 pub unsafe extern "C" fn cfun_apply_effect(argc: i32, argv: *mut Janet) -> Janet {
-    janet_fixarity(argc, 4);
+    janet_fixarity(argc, 5);
 
     println!("Applying effect");
     let Some(context) = (janet_getpointer(argv, 0) as *mut GameContext).as_mut() else {
@@ -180,7 +180,8 @@ pub unsafe extern "C" fn cfun_apply_effect(argc: i32, argv: *mut Janet) -> Janet
         return janet_wrap_nil();
     };
 
-    let effect_cstr = CStr::from_ptr(janet_getsymbol(argv, 1) as *const i8);
+    let card_id = janet_getuinteger16(argv, 1).into();
+    let effect_cstr = CStr::from_ptr(janet_getsymbol(argv, 2) as *const i8);
     let effect_str = match effect_cstr.to_str() {
         Ok(s) => s,
         Err(_) => return janet_wrap_nil(),
@@ -193,8 +194,12 @@ pub unsafe extern "C" fn cfun_apply_effect(argc: i32, argv: *mut Janet) -> Janet
 
     let duration = janet_getuinteger16(argv, 2);
 
-    //TODO This should not be the turn player
-    let effect = Effect::new(effect_type, duration, context.turn_player_id());
+    let owner = context
+        .get_board()
+        .get_card_owner(&card_id)
+        .expect("Could not find card owner");
+
+    let effect = Effect::new(effect_type, duration, owner);
 
     // Use centralized helper to convert nested JanetArray -> Vec<I16Vec2>
     let tiles = match ptr_to_i16_vec(janet_getarray(argv, 3)) {

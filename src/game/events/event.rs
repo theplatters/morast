@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use macroquad::math::{I16Vec2, U16Vec2};
+use macroquad::math::I16Vec2;
 
 use crate::{
     engine::janet_handler::types::function::Function,

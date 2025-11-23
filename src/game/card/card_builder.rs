@@ -4,7 +4,7 @@ use crate::game::{
         trap_card::Trap, Card,
     },
     error::Error,
-    game_action::GameAction,
+    game_action::JanetAction,
 };
 use macroquad::math::I16Vec2;
 
@@ -20,15 +20,15 @@ pub struct CardBuilder {
     defense: Option<u16>,
     abilities: Option<Vec<Abilities>>,
     // Action fields (shared between card types)
-    place_action: Option<Vec<GameAction>>,
-    turn_begin_action: Option<Vec<GameAction>>,
-    turn_end_action: Option<Vec<GameAction>>,
-    draw_action: Option<Vec<GameAction>>,
-    discard_action: Option<Vec<GameAction>>,
+    place_action: Option<Vec<JanetAction>>,
+    turn_begin_action: Option<Vec<JanetAction>>,
+    turn_end_action: Option<Vec<JanetAction>>,
+    draw_action: Option<Vec<JanetAction>>,
+    discard_action: Option<Vec<JanetAction>>,
     // Spell-specific fields
-    on_play_action: Option<Vec<GameAction>>,
+    on_play_action: Option<Vec<JanetAction>>,
     // Trap-specific fields
-    reveal_action: Option<Vec<GameAction>>,
+    reveal_action: Option<Vec<JanetAction>>,
     display_image_asset_string: Option<String>,
 }
 
@@ -116,56 +116,56 @@ impl CardBuilder {
     }
 
     // Action methods
-    pub fn place_action(mut self, actions: Vec<GameAction>) -> Self {
+    pub fn place_action(mut self, actions: Vec<JanetAction>) -> Self {
         self.place_action = Some(actions);
         self
     }
 
-    pub fn add_place_action(mut self, action: GameAction) -> Self {
+    pub fn add_place_action(mut self, action: JanetAction) -> Self {
         self.place_action.get_or_insert_with(Vec::new).push(action);
         self
     }
 
-    pub fn turn_begin_action(mut self, actions: Vec<GameAction>) -> Self {
+    pub fn turn_begin_action(mut self, actions: Vec<JanetAction>) -> Self {
         self.turn_begin_action = Some(actions);
         self
     }
 
-    pub fn add_turn_begin_action(mut self, action: GameAction) -> Self {
+    pub fn add_turn_begin_action(mut self, action: JanetAction) -> Self {
         self.turn_begin_action
             .get_or_insert_with(Vec::new)
             .push(action);
         self
     }
 
-    pub fn turn_end_action(mut self, actions: Vec<GameAction>) -> Self {
+    pub fn turn_end_action(mut self, actions: Vec<JanetAction>) -> Self {
         self.turn_end_action = Some(actions);
         self
     }
 
-    pub fn add_turn_end_action(mut self, action: GameAction) -> Self {
+    pub fn add_turn_end_action(mut self, action: JanetAction) -> Self {
         self.turn_end_action
             .get_or_insert_with(Vec::new)
             .push(action);
         self
     }
 
-    pub fn draw_action(mut self, actions: Vec<GameAction>) -> Self {
+    pub fn draw_action(mut self, actions: Vec<JanetAction>) -> Self {
         self.draw_action = Some(actions);
         self
     }
 
-    pub fn add_draw_action(mut self, action: GameAction) -> Self {
+    pub fn add_draw_action(mut self, action: JanetAction) -> Self {
         self.draw_action.get_or_insert_with(Vec::new).push(action);
         self
     }
 
-    pub fn discard_action(mut self, actions: Vec<GameAction>) -> Self {
+    pub fn discard_action(mut self, actions: Vec<JanetAction>) -> Self {
         self.discard_action = Some(actions);
         self
     }
 
-    pub fn add_discard_action(mut self, action: GameAction) -> Self {
+    pub fn add_discard_action(mut self, action: JanetAction) -> Self {
         self.discard_action
             .get_or_insert_with(Vec::new)
             .push(action);
@@ -173,12 +173,12 @@ impl CardBuilder {
     }
 
     // Spell-specific methods
-    pub fn on_play_action(mut self, actions: Vec<GameAction>) -> Self {
+    pub fn on_play_action(mut self, actions: Vec<JanetAction>) -> Self {
         self.on_play_action = Some(actions);
         self
     }
 
-    pub fn add_on_play_action(mut self, action: GameAction) -> Self {
+    pub fn add_on_play_action(mut self, action: JanetAction) -> Self {
         self.on_play_action
             .get_or_insert_with(Vec::new)
             .push(action);
@@ -186,12 +186,12 @@ impl CardBuilder {
     }
 
     // Trap-specific methods
-    pub fn reveal_action(mut self, actions: Vec<GameAction>) -> Self {
+    pub fn reveal_action(mut self, actions: Vec<JanetAction>) -> Self {
         self.reveal_action = Some(actions);
         self
     }
 
-    pub fn add_reveal_action(mut self, action: GameAction) -> Self {
+    pub fn add_reveal_action(mut self, action: JanetAction) -> Self {
         self.reveal_action.get_or_insert_with(Vec::new).push(action);
         self
     }

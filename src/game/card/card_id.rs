@@ -9,3 +9,15 @@ impl CardID {
         Self(self.0 + 1)
     }
 }
+
+impl Into<CardID> for u16 {
+    fn into(self) -> CardID {
+        CardID::new(self as u32)
+    }
+}
+
+impl Into<CardID> for u32 {
+    fn into(self) -> CardID {
+        CardID::new(self)
+    }
+}

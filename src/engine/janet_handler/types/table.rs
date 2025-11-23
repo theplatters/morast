@@ -30,7 +30,7 @@ impl Table {
             return None;
         } else {
             match value_err.ok()? {
-                JanetEnum::_Null => None,
+                JanetEnum::Null => None,
                 value => Some(value),
             }
         }
@@ -49,7 +49,7 @@ impl Table {
         }
 
         match value {
-            JanetEnum::_Null => None,
+            JanetEnum::Null => None,
             _ => Some(value),
         }
     }

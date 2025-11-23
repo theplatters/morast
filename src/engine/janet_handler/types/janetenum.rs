@@ -11,7 +11,8 @@ use crate::engine::{
             janet_getinteger64, janet_is_int, janet_resolve, janet_type, janet_unwrap_array,
             janet_unwrap_boolean, janet_unwrap_function, janet_unwrap_integer, janet_unwrap_number,
             janet_unwrap_string, janet_unwrap_symbol, janet_unwrap_table, janet_unwrap_u64,
-            janet_wrap_array, janet_wrap_integer, janet_wrap_nil, Janet, JanetArray,
+            janet_wrap_array, janet_wrap_boolean, janet_wrap_integer, janet_wrap_nil,
+            janet_wrap_number, janet_wrap_string, janet_wrap_u64, Janet, JanetArray,
             JANET_TYPE_JANET_ARRAY, JANET_TYPE_JANET_BOOLEAN, JANET_TYPE_JANET_FUNCTION,
             JANET_TYPE_JANET_NIL, JANET_TYPE_JANET_NUMBER, JANET_TYPE_JANET_STRING,
             JANET_TYPE_JANET_SYMBOL, JANET_TYPE_JANET_TABLE, JANET_TYPE_JANET_TUPLE,
@@ -29,16 +30,16 @@ pub trait JanetItem {
 
 #[derive(Debug)]
 pub enum JanetEnum {
-    _Int(i32),
-    _UInt(u64),
-    _Float(f64),
-    _Bool(bool),
-    _String(String),
-    _Function(Function),
-    _Array(Vec<JanetEnum>),
-    _Table(Table),
-    _Tuple(Tuple),
-    _Null,
+    Int(i32),
+    UInt(u64),
+    Float(f64),
+    Bool(bool),
+    String(String),
+    Function(Function),
+    Array(Vec<JanetEnum>),
+    Table(Table),
+    Tuple(Tuple),
+    Null,
 }
 
 impl Hash for JanetEnum {
@@ -48,17 +49,41 @@ impl Hash for JanetEnum {
 }
 
 impl JanetEnum {
-    pub fn unwrap_array(mut arr: JanetArray) -> Result<Vec<JanetEnum>, EngineError> {
-        let mut arr_vec: Vec<JanetEnum> = Vec::with_capacity(arr.count as usize);
-        while arr.count != 0 {
-            unsafe {
-                let item = janet_array_pop(&mut arr as *mut _);
-                match JanetEnum::from(item) {
-                    Ok(v) => arr_vec.push(v),
-                    Err(e) => return Err(e),
+    pub fn to_janet(&self) -> Janet {
+        unsafe {
+            match self {
+                JanetEnum::Int(i) => janet_wrap_integer(*i),
+                JanetEnum::UInt(u) => janet_wrap_u64(*u),
+                JanetEnum::Float(f) => janet_wrap_number(*f),
+                JanetEnum::Bool(b) => janet_wrap_boolean(if *b { 1 } else { 0 }),
+                JanetEnum::String(s) => {
+                    let c_str = std::ffi::CString::new(s.as_str()).unwrap_or_default();
+                    janet_wrap_string(c_str.as_ptr() as *const u8)
                 }
+                JanetEnum::Array(arr) => {
+                    let janet_arr = janet_array(arr.len() as i32);
+                    for item in arr {
+                        janet_array_push(janet_arr, item.to_janet());
+                    }
+                    janet_wrap_array(janet_arr)
+                }
+                JanetEnum::Null => janet_wrap_nil(),
+                // Handle other types as needed
+                _ => janet_wrap_nil(),
             }
         }
+    }
+    pub fn unwrap_array(arr: JanetArray) -> Result<Vec<JanetEnum>, EngineError> {
+        let mut arr_vec: Vec<JanetEnum> = Vec::with_capacity(arr.count as usize);
+
+        // Use a more efficient approach - iterate without popping
+        unsafe {
+            for i in 0..arr.count {
+                let item = *arr.data.add(i as usize);
+                arr_vec.push(JanetEnum::from(item)?);
+            }
+        }
+
         Ok(arr_vec)
     }
 
@@ -87,41 +112,63 @@ impl JanetEnum {
             Self::from(out).ok()
         }
     }
+    /// Check if the value is null
+    pub fn is_null(&self) -> bool {
+        matches!(self, JanetEnum::Null)
+    }
+
+    /// Check if the value is a number (int, uint, or float)
+    pub fn is_number(&self) -> bool {
+        matches!(
+            self,
+            JanetEnum::Int(_) | JanetEnum::UInt(_) | JanetEnum::Float(_)
+        )
+    }
+
+    /// Convert any numeric type to f64
+    pub fn as_number(&self) -> Option<f64> {
+        match self {
+            JanetEnum::Int(i) => Some(*i as f64),
+            JanetEnum::UInt(u) => Some(*u as f64),
+            JanetEnum::Float(f) => Some(*f),
+            _ => None,
+        }
+    }
 
     pub fn from(item: Janet) -> Result<JanetEnum, EngineError> {
         unsafe {
             match janet_type(item) {
-                JANET_TYPE_JANET_FUNCTION => Ok(JanetEnum::_Function(Function::new(
+                JANET_TYPE_JANET_FUNCTION => Ok(JanetEnum::Function(Function::new(
                     janet_unwrap_function(item),
                 ))),
                 JANET_TYPE_JANET_BOOLEAN => {
                     if janet_unwrap_boolean(item) == 1 {
-                        Ok(JanetEnum::_Bool(true))
+                        Ok(JanetEnum::Bool(true))
                     } else {
-                        Ok(JanetEnum::_Bool(false))
+                        Ok(JanetEnum::Bool(false))
                     }
                 }
                 JANET_TYPE_JANET_STRING => {
                     match CStr::from_ptr(janet_unwrap_string(item) as *const std::ffi::c_char)
                         .to_str()
                     {
-                        Ok(v) => Ok(JanetEnum::_String(String::from(v))),
+                        Ok(v) => Ok(JanetEnum::String(String::from(v))),
                         Err(_) => Err(EngineError::Cast("Casting to string failed".into())),
                     }
                 }
-                JANET_TYPE_JANET_NIL => Ok(JanetEnum::_Null),
+                JANET_TYPE_JANET_NIL => Ok(JanetEnum::Null),
                 JANET_TYPE_JANET_NUMBER => {
                     if janet_is_int(item) == 0 {
-                        Ok(JanetEnum::_Int(janet_unwrap_integer(item)))
+                        Ok(JanetEnum::Int(janet_unwrap_integer(item)))
                     } else if janet_is_int(item) == 1 {
-                        Ok(JanetEnum::_UInt(janet_unwrap_u64(item)))
+                        Ok(JanetEnum::UInt(janet_unwrap_u64(item)))
                     } else {
-                        Ok(JanetEnum::_Float(janet_unwrap_number(item)))
+                        Ok(JanetEnum::Float(janet_unwrap_number(item)))
                     }
                 }
                 JANET_TYPE_JANET_ARRAY => match janet_unwrap_array(item).as_mut() {
                     Some(it) => match JanetEnum::unwrap_array(*it) {
-                        Ok(v) => Ok(JanetEnum::_Array(v)),
+                        Ok(v) => Ok(JanetEnum::Array(v)),
                         Err(e) => Err(e),
                     },
                     None => Err(EngineError::Cast(
@@ -129,12 +176,12 @@ impl JanetEnum {
                     )),
                 },
                 JANET_TYPE_JANET_TABLE => match janet_unwrap_table(item).as_mut() {
-                    Some(it) => Ok(JanetEnum::_Table(Table::new(it))),
+                    Some(it) => Ok(JanetEnum::Table(Table::new(it))),
                     None => Err(EngineError::Cast(
                         "Couldn't cast pointer to reference".into(),
                     )),
                 },
-                JANET_TYPE_JANET_SYMBOL => Ok(JanetEnum::_String(
+                JANET_TYPE_JANET_SYMBOL => Ok(JanetEnum::String(
                     CStr::from_ptr(janet_unwrap_symbol(item) as *const std::ffi::c_char)
                         .to_str()
                         .map_err(|e| {
@@ -145,7 +192,7 @@ impl JanetEnum {
                         })?
                         .to_owned(),
                 )),
-                JANET_TYPE_JANET_TUPLE => Ok(JanetEnum::_Tuple(Tuple::new(item))),
+                JANET_TYPE_JANET_TUPLE => Ok(JanetEnum::Tuple(Tuple::new(item))),
                 other => Err(EngineError::Type(format!(
                     "Type '{}' is currently unsupported",
                     other
@@ -190,21 +237,21 @@ pub unsafe fn ptr_to_i16_vec(arr_ptr: *mut JanetArray) -> Option<Vec<I16Vec2>> {
 }
 
 pub fn to_i16_vec(item: JanetEnum) -> Option<Vec<I16Vec2>> {
-    let JanetEnum::_Array(arr) = item else {
+    let JanetEnum::Array(arr) = item else {
         return None;
     };
 
     let mut result = Vec::new();
     for item in arr {
         // Ensure the item is am `JanetEnum::_Array`
-        if let JanetEnum::_Array(inner_vec) = item {
+        if let JanetEnum::Array(inner_vec) = item {
             // Ensure the inner array has exactly two elements
             if inner_vec.len() != 2 {
                 return None;
             }
             // Extract the two values
             let x = match inner_vec[..] {
-                [JanetEnum::_Int(value_x), JanetEnum::_Int(value_y)] => {
+                [JanetEnum::Int(value_x), JanetEnum::Int(value_y)] => {
                     [value_x as i16, value_y as i16]
                 }
                 _ => return None,
@@ -221,16 +268,16 @@ pub fn to_i16_vec(item: JanetEnum) -> Option<Vec<I16Vec2>> {
 impl fmt::Display for JanetEnum {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
-            JanetEnum::_Int(_) => "Int",
-            JanetEnum::_UInt(_) => "UInt",
-            JanetEnum::_Float(_) => "Float",
-            JanetEnum::_Bool(_) => "Bool",
-            JanetEnum::_String(_) => "String",
-            JanetEnum::_Function(_) => "Function",
-            JanetEnum::_Array(_) => "Array",
-            JanetEnum::_Table(_) => "Table",
-            JanetEnum::_Null => "Null",
-            JanetEnum::_Tuple(_) => "Tuple",
+            JanetEnum::Int(_) => "Int",
+            JanetEnum::UInt(_) => "UInt",
+            JanetEnum::Float(_) => "Float",
+            JanetEnum::Bool(_) => "Bool",
+            JanetEnum::String(_) => "String",
+            JanetEnum::Function(_) => "Function",
+            JanetEnum::Array(_) => "Array",
+            JanetEnum::Table(_) => "Table",
+            JanetEnum::Null => "Null",
+            JanetEnum::Tuple(_) => "Tuple",
         };
         write!(f, "{}", s)
     }
@@ -240,7 +287,7 @@ impl TryFrom<JanetEnum> for String {
     type Error = EngineError;
 
     fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
-        let JanetEnum::_String(s) = value else {
+        let JanetEnum::String(s) = value else {
             return Err(EngineError::Cast("Value is not a String".into()));
         };
         Ok(s)
@@ -250,7 +297,7 @@ impl TryFrom<&JanetEnum> for String {
     type Error = EngineError;
 
     fn try_from(value: &JanetEnum) -> Result<Self, Self::Error> {
-        let JanetEnum::_String(s) = value else {
+        let JanetEnum::String(s) = value else {
             return Err(EngineError::Cast("Value is not a String".into()));
         };
         Ok(s.to_owned())

@@ -1,14 +1,14 @@
 use crate::game::{
     card::{CardBehavior, Placeable},
-    game_action::{self, GameAction},
+    game_action::{self, JanetAction},
 };
 
 #[derive(Debug)]
 pub struct Trap {
     name: String,
     description: String,
-    place_action: Vec<GameAction>,
-    reveal_action: Vec<GameAction>,
+    place_action: Vec<JanetAction>,
+    reveal_action: Vec<JanetAction>,
     cost: u16,
     display_image_asset_string: String,
 }
@@ -37,7 +37,7 @@ impl Placeable for Trap {
         owner: crate::game::player::PlayerID,
         id: super::in_play_id::InPlayID,
     ) {
-        for GameAction {
+        for JanetAction {
             function,
             speed,
             targeting: _,
@@ -63,8 +63,8 @@ impl Trap {
         name: String,
         cost: u16,
         description: String,
-        place_action: Vec<GameAction>,
-        reveal_action: Vec<GameAction>,
+        place_action: Vec<JanetAction>,
+        reveal_action: Vec<JanetAction>,
         display_image_asset_string: String,
     ) -> Self {
         Self {
