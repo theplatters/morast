@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use card_on_board::CreatureOnBoard;
 use effect::Effect;
-use macroquad::math::{I16Vec2, U16Vec2};
+use macroquad::math::{I16Vec2, IVec2, U16Vec2};
 use place_error::BoardError;
 use tile::Tile;
 
@@ -391,5 +391,17 @@ impl Board {
         self.cards_placed
             .get(card_id)
             .map(|card_on_board| card_on_board.player_id)
+    }
+
+    pub(crate) fn do_damage(&self, tile: &I16Vec2, amount: u16) {
+        todo!()
+    }
+
+    pub(crate) fn heal_creature(&self, tile: &I16Vec2, amount: u16) {
+        todo!()
+    }
+
+    pub(crate) fn destroy_card(&self, tile: &I16Vec2) {
+        todo!()
     }
 }

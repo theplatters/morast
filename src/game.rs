@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use card::card_registry::CardRegistry;
 use error::Error;
-use events::event_scheduler::GameScheduler;
+use events::event_manager::EventManager;
 use game_context::GameContext;
 use macroquad::window::next_frame;
 
@@ -12,7 +12,10 @@ use crate::{
         janet_handler::controller::Environment,
         renderer::{render_config::RenderConfig, Renderer},
     },
-    game::turn_controller::TurnController,
+    game::{
+        events::{action::Action, action_effect::GameAction},
+        turn_controller::TurnController,
+    },
 };
 
 pub mod board;
@@ -28,7 +31,7 @@ pub mod turn_controller;
 
 pub struct Game {
     pub context: GameContext,
-    pub scheduler: GameScheduler,
+    pub scheduler: EventManager,
     pub card_registry: CardRegistry,
     env: Environment,
     asset_loader: AssetLoader,
@@ -49,7 +52,7 @@ impl Game {
         let render_config = Arc::new(RenderConfig::default());
         Self {
             env,
-            scheduler: GameScheduler::new(),
+            scheduler: EventManager::new(),
             context: GameContext::new(&card_registry),
             card_registry,
             asset_loader,
@@ -67,20 +70,21 @@ impl Game {
 
             self.context.process_main_phase(&mut self.scheduler)?;
 
-            let turn_player = self.context.turn_player_id();
             while !self.turn_controller.turn_over() {
                 if let Some(play_command) = self
                     .turn_controller
                     .update(&mut self.context, &self.card_registry)?
                 {
-                    play_command.execute(
-                        &mut self.context,
-                        turn_player,
-                        &self.card_registry,
-                        &mut self.scheduler,
-                    )?;
+                    play_command.execute(&mut self.context, &self.card_registry);
                 }
-                self.scheduler.process_events(&mut self.context)?;
+
+                let events = self
+                    .scheduler
+                    .process_events(&mut self.context, &self.card_registry)?;
+
+                for event in events {
+                    self.turn_controller.process_execution_results(event)?;
+                }
 
                 self.renderer.render(
                     &self.context,

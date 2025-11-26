@@ -1,12 +1,9 @@
 use log::debug;
-use macroquad::{
-    math::{I16Vec2, U16Vec2},
-    rand::ChooseRandom,
-};
+use macroquad::{math::I16Vec2, rand::ChooseRandom};
 
 use crate::game::{
     board::card_on_board::CreatureOnBoard,
-    card::{creature::Creature, trap_card::Trap, Card, CardBehavior, Placeable},
+    card::{creature::Creature, trap_card::Trap, Card, CardBehavior},
     game_objects::player_base::PlayerBaseStatus,
     phases::Phase,
 };
@@ -15,7 +12,7 @@ use super::{
     board::{effect::Effect, place_error::BoardError, Board},
     card::{card_id::CardID, card_registry::CardRegistry, in_play_id::InPlayID},
     error::Error,
-    events::event_scheduler::GameScheduler,
+    events::event_manager::EventManager,
     player::{Player, PlayerID},
 };
 
@@ -34,8 +31,7 @@ impl GameContext {
         creature: &Creature,
         index: I16Vec2,
         card_registry: &CardRegistry,
-        scheduler: &mut GameScheduler,
-    ) -> Result<(), Error> {
+    ) -> Result<InPlayID, Error> {
         println!("Placing card {:?} at index {:?}", creature.name(), index);
 
         // Ensure the tile is empty
@@ -45,15 +41,13 @@ impl GameContext {
 
         let card_on_board =
             CreatureOnBoard::new(card_id, self.turn_player_id(), creature.movement_points);
-        match self.board.place(index, card_on_board) {
-            Ok(id) => {
-                creature.on_play(scheduler, self.turn_player_id(), id);
-            }
-            Err(err) => Err(Error::PlaceError(err))?,
-        }
+        let in_play_id = self
+            .board
+            .place(index, card_on_board)
+            .map_err(Error::PlaceError)?;
 
         self.update_attack_values(card_registry)?;
-        Ok(())
+        Ok(in_play_id)
     }
 
     pub fn place_trap(
@@ -62,7 +56,6 @@ impl GameContext {
         trap: &Trap,
         index: I16Vec2,
         card_registry: &CardRegistry,
-        scheduler: &mut GameScheduler,
     ) -> Result<(), Error> {
         println!("Placing trap {:?} at index {:?}", trap.name(), index);
 
@@ -72,13 +65,9 @@ impl GameContext {
         }
 
         let card_on_board = CreatureOnBoard::new(card_id, self.turn_player_id(), 0);
-        match self.board.place(index, card_on_board) {
-            Ok(id) => {
-                trap.on_place(scheduler, self.turn_player_id(), id);
-                scheduler.process_events(self)?;
-            }
-            Err(err) => Err(Error::PlaceError(err))?,
-        }
+        self.board
+            .place(index, card_on_board)
+            .map_err(Error::PlaceError)?;
 
         self.update_attack_values(card_registry)?;
         Ok(())
@@ -112,45 +101,34 @@ impl GameContext {
         card_index: usize,
         position: I16Vec2,
         card_registry: &CardRegistry,
-        scheduler: &mut GameScheduler,
-    ) -> Result<(), Error> {
+    ) -> Result<CardID, Error> {
         let (card_id, cost) = self.validate_card_play(player_id, card_index, card_registry)?;
 
         let Card::Creature(creature) = card_registry.get(&card_id).ok_or(Error::CardNotFound)?
         else {
             return Err(Error::InvalidCardType);
         };
-        self.place_creature(card_id, creature, position, card_registry, scheduler)?;
+        self.place_creature(card_id, creature, position, card_registry)?;
 
         let player = self
             .get_player_mut(player_id)
             .ok_or(Error::PlayerNotFound)?;
         player.remove_card_from_hand(card_index);
         player.remove_gold(cost.into());
-        Ok(())
+        Ok(card_id)
     }
 
     pub(crate) fn execute_spell_cast(
         &mut self,
         player_id: PlayerID,
         card_index: usize,
-        targets: &[I16Vec2],
         card_registry: &CardRegistry,
-        scheduler: &mut GameScheduler,
-    ) -> Result<(), Error> {
+    ) -> Result<CardID, Error> {
         let (card_id, cost) = self.validate_card_play(player_id, card_index, card_registry)?;
 
         let Card::Spell(spell) = card_registry.get(&card_id).ok_or(Error::CardNotFound)? else {
             return Err(Error::InvalidCardType);
         };
-
-        // Execute spell with targets
-        spell.on_play(
-            scheduler,
-            player_id,
-            self.board.generate_in_play_id(),
-            targets.to_vec(),
-        );
 
         // Deduct cost and remove card?
         let player = self
@@ -159,7 +137,7 @@ impl GameContext {
         player.remove_card_from_hand(card_index);
         player.remove_gold(cost.into());
 
-        Ok(())
+        Ok(card_id)
     }
 
     pub(crate) fn execute_trap_placement(
@@ -168,7 +146,6 @@ impl GameContext {
         card_index: usize,
         position: I16Vec2,
         card_registry: &CardRegistry,
-        scheduler: &mut GameScheduler,
     ) -> Result<(), Error> {
         let (card_id, cost) = self.validate_card_play(player_id, card_index, card_registry)?;
 
@@ -176,7 +153,7 @@ impl GameContext {
             return Err(Error::InvalidCardType);
         };
 
-        self.place_trap(card_id, trap, position, card_registry, scheduler)?;
+        self.place_trap(card_id, trap, position, card_registry)?;
 
         // Deduct cost and remove card
         let player = self
@@ -188,14 +165,8 @@ impl GameContext {
         Ok(())
     }
 
-    pub(crate) fn execute_end_turn(
-        &mut self,
-        scheduler: &mut GameScheduler,
-        card_registry: &CardRegistry,
-    ) -> Result<(), Error> {
-        self.process_turn_end(scheduler, card_registry)?;
-        self.advance_turn(scheduler);
-        self.process_turn_begin(scheduler, card_registry)
+    pub(crate) fn get_board_mut(&mut self) -> &mut Board {
+        &mut self.board
     }
 }
 
@@ -305,22 +276,16 @@ impl GameContext {
 
     fn process_turn_end(
         &mut self,
-        scheduler: &mut GameScheduler,
+        scheduler: &mut EventManager,
         card_registry: &CardRegistry,
     ) -> Result<(), Error> {
         debug!(
             "Processing turn {:?} beginning ",
             scheduler.get_turn_count()
         );
-        scheduler.advance_to_phase(Phase::End, self);
-        for (id, card) in &self.board.cards_placed {
-            card_registry
-                .get_creature(&card.card_id)
-                .ok_or(Error::CardNotFound)?
-                .on_turn_start(scheduler, self.turn_player_id(), *id);
-        }
+        scheduler.advance_to_phase(Phase::End);
 
-        scheduler.process_events(self)?;
+        scheduler.process_events(self, card_registry)?;
         match self.board.player_base_take_damage() {
             [PlayerBaseStatus::Alive, PlayerBaseStatus::Destroyed] => {
                 println!("Player 1 wins");
@@ -341,37 +306,27 @@ impl GameContext {
         Ok(())
     }
 
-    pub(crate) fn advance_turn(&mut self, scheduler: &mut GameScheduler) {
+    pub(crate) fn advance_turn(&mut self, scheduler: &mut EventManager) {
         self.change_turn_player();
-        scheduler.advance_turn(self);
+        scheduler.advance_turn();
     }
 
     pub fn process_turn_begin(
         &mut self,
-        scheduler: &mut GameScheduler,
+        scheduler: &mut EventManager,
         card_registry: &CardRegistry,
     ) -> Result<(), Error> {
         self.draw_cards(self.turn_player_id(), NUM_CARDS_AT_START)?;
-        for (id, card) in &self.board.cards_placed {
-            println!("Processing card {:?}", card);
-            card_registry
-                .get_creature(&card.card_id)
-                .ok_or(Error::CardNotFound)?
-                .on_turn_end(scheduler, self.turn_player_id(), *id);
-        }
 
         self.board
             .refresh_movement_points(self.turn_player_id(), card_registry)?;
         self.board.update_effects(self.turn_player);
-        scheduler.process_events(self)?;
+        scheduler.process_events(self, card_registry)?;
         Ok(())
     }
 
-    pub(crate) fn process_main_phase(
-        &mut self,
-        scheduler: &mut GameScheduler,
-    ) -> Result<(), Error> {
-        scheduler.advance_to_phase(Phase::Main, self);
+    pub(crate) fn process_main_phase(&self, scheduler: &mut EventManager) -> Result<(), Error> {
+        scheduler.advance_to_phase(Phase::Main);
         Ok(())
     }
 

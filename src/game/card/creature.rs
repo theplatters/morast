@@ -1,10 +1,8 @@
 use macroquad::math::I16Vec2;
 
 use crate::game::{
-    card::{abilities::Abilities, in_play_id::InPlayID, CardBehavior, Placeable},
-    events::event_scheduler::GameScheduler,
-    game_action::{self, JanetAction},
-    player::PlayerID,
+    card::{abilities::Abilities, CardBehavior},
+    events::action::Action,
 };
 
 #[derive(Debug)]
@@ -16,11 +14,11 @@ pub struct Creature {
     pub attack_strength: u16,
     pub defense: u16,
     pub cost: u16,
-    pub play_action: Vec<JanetAction>,
-    pub turn_begin_action: Vec<JanetAction>,
-    pub turn_end_action: Vec<JanetAction>,
-    pub draw_action: Vec<JanetAction>,
-    pub discard_action: Vec<JanetAction>,
+    pub play_action: Option<Action>,
+    pub turn_begin_action: Option<Action>,
+    pub turn_end_action: Option<Action>,
+    pub draw_action: Option<Action>,
+    pub discard_action: Option<Action>,
     pub abilities: Vec<Abilities>,
     pub description: String,
     pub display_image_asset_string: String,
@@ -53,11 +51,11 @@ impl Creature {
         attack_strength: u16,
         defense: u16,
         cost: u16,
-        play_action: Vec<JanetAction>,
-        turn_begin_action: Vec<JanetAction>,
-        turn_end_action: Vec<JanetAction>,
-        draw_action: Vec<JanetAction>,
-        discard_action: Vec<JanetAction>,
+        play_action: Option<Action>,
+        turn_begin_action: Option<Action>,
+        turn_end_action: Option<Action>,
+        draw_action: Option<Action>,
+        discard_action: Option<Action>,
         abilities: Vec<Abilities>,
         description: String,
         display_image_asset_string: String,
@@ -81,46 +79,7 @@ impl Creature {
         }
     }
 
-    pub fn on_play(&self, scheduler: &mut GameScheduler, owner: PlayerID, id: InPlayID) {
-        self.schedule_actions(scheduler, owner, id, &self.play_action);
-    }
-
-    pub fn on_turn_start(&self, scheduler: &mut GameScheduler, owner: PlayerID, id: InPlayID) {
-        self.schedule_actions(scheduler, owner, id, &self.turn_begin_action);
-    }
-
-    pub fn on_turn_end(&self, scheduler: &mut GameScheduler, owner: PlayerID, id: InPlayID) {
-        self.schedule_actions(scheduler, owner, id, &self.turn_end_action);
-    }
-
     // Helper method to reduce code duplication
-    fn schedule_actions(
-        &self,
-        scheduler: &mut GameScheduler,
-        owner: PlayerID,
-        id: InPlayID,
-        actions: &[JanetAction],
-    ) {
-        for JanetAction {
-            function,
-            speed,
-            targeting,
-        } in actions
-        {
-            match speed {
-                game_action::Timing::Now => {
-                    println!("Scheduling event now");
-                    scheduler.schedule_now(owner, id, function.to_owned(), 1)
-                }
-                game_action::Timing::End(timing) => {
-                    scheduler.schedule_at_end(*timing, owner, id, function.to_owned(), 1)
-                }
-                game_action::Timing::Start(timing) => {
-                    scheduler.schedule_at_start(*timing, owner, id, function.to_owned(), 1)
-                }
-            }
-        }
-    }
 
     // Only keep getters for computed properties or when you need different return types
     pub fn total_stats(&self) -> u16 {

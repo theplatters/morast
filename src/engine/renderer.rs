@@ -47,10 +47,7 @@ impl Renderer {
             let pos_x =
                 i as f32 * (self.render_config.card_width + self.render_config.card_padding);
             let highlighted = match turn_step {
-                TurnState::CardSelected {
-                    card_index,
-                    targeting_type: _targeting_type,
-                } => *card_index == i,
+                TurnState::CardSelected { card_index } => *card_index == i,
                 _ => false,
             };
             let mut card_builder = CardRenderer::builder()
@@ -97,10 +94,7 @@ impl Renderer {
                     self.board_renderer.draw_highlights(&highlights);
                 }
             }
-            TurnState::CardSelected {
-                card_index: _,
-                targeting_type: _,
-            } => {
+            TurnState::CardSelected { card_index: _ } => {
                 self.board_renderer.draw_available_place_positions(context);
             }
             _ => {}

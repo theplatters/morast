@@ -1,225 +1,160 @@
+use std::{cmp::Ordering, ops::SubAssign};
+
 use macroquad::math::I16Vec2;
 
 use crate::game::{
-    board::effect::Effect,
-    card::{card_id::CardID, in_play_id::InPlayID},
-    error::Error,
-    events::event_scheduler::GameScheduler,
-    game_context::GameContext,
+    card::in_play_id::InPlayID,
+    events::{
+        action_builder::ActionBuilder,
+        action_effect::{ActionEffect, ExecutionResult, GameAction},
+        event::Event,
+    },
+    phases::Phase,
     player::PlayerID,
 };
-//
-// Core action trait
-pub trait GameAction {
-    fn execute(
-        &self,
-        context: &mut GameContext,
-        scheduler: &mut GameScheduler,
-    ) -> Result<(), Error>;
-    fn can_execute(&self, context: &GameContext) -> Result<(), Error>;
-}
 
 #[derive(Debug, Clone)]
-pub enum Action {
-    // Basic game actions
-    PlaceCreature {
-        card_index: usize,
-        position: I16Vec2,
-        player_id: PlayerID,
-    },
-
-    CastSpell {
-        card_index: usize,
-        targets: Vec<I16Vec2>,
-        player_id: PlayerID,
-    },
-    MoveCreature {
-        from: I16Vec2,
-        to: I16Vec2,
-        player_id: PlayerID,
-    },
-    // Atomic game effects (what cards actually do)
-    DealDamage {
-        target: I16Vec2,
-        amount: u16,
-        source: InPlayID,
-    },
-    HealCreature {
-        target: I16Vec2,
-        amount: u16,
-        source: InPlayID,
-    },
-    DrawCards {
-        player_id: PlayerID,
-        count: u16,
-    },
-    AddGold {
-        player_id: PlayerID,
-        amount: i64,
-    },
-    ApplyEffect {
-        effect: Effect,
-        tiles: Vec<I16Vec2>,
-        duration: u32,
-    },
-    SummonCreature {
-        creature_id: CardID,
-        position: I16Vec2,
-        owner: PlayerID,
-    },
-    DestroyCreature {
-        target: I16Vec2,
-    },
-
-    // Composite actions
-    Sequence(Vec<Action>),
-
-    Conditional {
-        condition: Condition,
-        then_action: Box<Action>,
-        else_action: Option<Box<Action>>,
-    },
-
-    // Targeting actions
-    ForEachInArea {
-        center: I16Vec2,
-        radius: u8,
-        action: Box<Action>,
-    },
-    ForEachCreature {
-        filter: CreatureFilter,
-        action: Box<Action>,
-    },
+pub struct Action {
+    pub action: ActionEffect,
+    pub timing: ActionTiming,
+    pub speed: SpellSpeed,
+    pub priority: u32,
+    pub source: InPlayID,
+    pub player: PlayerID,
+    pub can_be_countered: bool,
+}
+impl PartialEq for Action {
+    fn eq(&self, other: &Self) -> bool {
+        self.timing == other.timing && self.speed == other.speed && self.priority == other.priority
+    }
 }
 
-#[derive(Debug, Clone)]
-pub enum Condition {
-    TileOccupied(I16Vec2),
-    CreatureHasHealth { target: I16Vec2, min_health: u16 },
-    PlayerHasGold { player_id: PlayerID, min_gold: i64 },
-    // ... more conditions
+impl Eq for Action {}
+
+impl PartialOrd for Action {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
-#[derive(Debug, Clone)]
-pub enum CreatureFilter {
-    OwnedBy(PlayerID),
-    WithinRange { center: I16Vec2, radius: u8 },
-    HasTag(String),
-    // ... more filters
+impl Ord for Action {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        (other.timing, other.speed, other.priority).cmp(&(self.timing, self.speed, self.priority))
+    }
 }
 
 impl GameAction for Action {
     fn execute(
         &self,
-        context: &mut GameContext,
-        scheduler: &mut GameScheduler,
-    ) -> Result<(), Error> {
-        match self {
-            Action::PlaceCreature {
-                card_index,
-                position,
-                player_id,
-            } => todo!(),
-            Action::CastSpell {
-                card_index,
-                targets,
-                player_id,
-            } => todo!(),
-            Action::MoveCreature {
-                from,
-                to,
-                player_id,
-            } => todo!(),
-            Action::DealDamage {
-                target,
-                amount,
-                source,
-            } => todo!(),
-            Action::HealCreature {
-                target,
-                amount,
-                source,
-            } => todo!(),
-            Action::DrawCards { player_id, count } => todo!(),
-            Action::AddGold { player_id, amount } => todo!(),
-            Action::ApplyEffect {
-                effect,
-                tiles,
-                duration,
-            } => todo!(),
-            Action::SummonCreature {
-                creature_id,
-                position,
-                owner,
-            } => todo!(),
-            Action::DestroyCreature { target } => todo!(),
-            Action::Sequence(actions) => todo!(),
-            Action::Conditional {
-                condition,
-                then_action,
-                else_action,
-            } => todo!(),
-            Action::ForEachInArea {
-                center,
-                radius,
-                action,
-            } => todo!(),
-            Action::ForEachCreature { filter, action } => todo!(),
-        }
+        context: &mut crate::game::game_context::GameContext,
+        card_registry: &crate::game::card::card_registry::CardRegistry,
+    ) -> Result<ExecutionResult, crate::game::error::Error> {
+        self.action.execute(context, card_registry)
     }
 
-    fn can_execute(&self, context: &GameContext) -> Result<(), Error> {
-        match self {
-            Action::PlaceCreature {
-                card_index,
-                position,
-                player_id,
-            } => todo!(),
-            Action::CastSpell {
-                card_index,
-                targets,
-                player_id,
-            } => todo!(),
-            Action::MoveCreature {
-                from,
-                to,
-                player_id,
-            } => todo!(),
-            Action::DealDamage {
-                target,
-                amount,
-                source,
-            } => todo!(),
-            Action::HealCreature {
-                target,
-                amount,
-                source,
-            } => todo!(),
-            Action::DrawCards { player_id, count } => todo!(),
-            Action::AddGold { player_id, amount } => todo!(),
-            Action::ApplyEffect {
-                effect,
-                tiles,
-                duration,
-            } => todo!(),
-            Action::SummonCreature {
-                creature_id,
-                position,
-                owner,
-            } => todo!(),
-            Action::DestroyCreature { target } => todo!(),
-            Action::Sequence(actions) => todo!(),
-            Action::Conditional {
-                condition,
-                then_action,
-                else_action,
-            } => todo!(),
-            Action::ForEachInArea {
-                center,
-                radius,
-                action,
-            } => todo!(),
-            Action::ForEachCreature { filter, action } => todo!(),
+    fn can_execute(
+        &self,
+        context: &crate::game::game_context::GameContext,
+    ) -> Result<(), crate::game::error::Error> {
+        self.action.can_execute(context)
+    }
+
+    fn has_targeting_type(&self) -> bool {
+        self.action.has_targeting_type()
+    }
+
+    fn targeting_type(&self) -> Option<super::action_effect::TargetingType> {
+        self.action.targeting_type()
+    }
+}
+
+impl Action {
+    pub fn builder() -> ActionBuilder {
+        ActionBuilder::new()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum SpellSpeed {
+    Slow = 1,    // Can only be cast during main phase, when stack is empty
+    Fast = 2,    // Can be cast anytime you have priority
+    Instant = 3, // Can be cast anytime, even during opponent's turn
+}
+
+impl Default for SpellSpeed {
+    fn default() -> Self {
+        Self::Slow
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ActionTiming {
+    Immediate,                            // Goes on stack immediately
+    Delayed { phase: Phase, turns: u32 }, // End of current turn
+    AtTrigger { trigger: Event },         // Start of next turn
+}
+
+impl SubAssign<u32> for ActionTiming {
+    fn sub_assign(&mut self, rhs: u32) {
+        if let ActionTiming::Delayed { turns, .. } = self {
+            *turns = turns.saturating_sub(rhs);
         }
+        // Immediate and AtTrigger variants are unchanged
+    }
+}
+
+impl PartialOrd for ActionTiming {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match (self, other) {
+            // Immediate actions always come first
+            (ActionTiming::Immediate, ActionTiming::Immediate) => Some(Ordering::Equal),
+            (ActionTiming::Immediate, _) => Some(Ordering::Less),
+            (_, ActionTiming::Immediate) => Some(Ordering::Greater),
+
+            // Compare delayed actions by turns, then by phase
+            (
+                ActionTiming::Delayed {
+                    phase: p1,
+                    turns: t1,
+                },
+                ActionTiming::Delayed {
+                    phase: p2,
+                    turns: t2,
+                },
+            ) => match t1.cmp(t2) {
+                Ordering::Equal => p1.partial_cmp(p2),
+                other => Some(other),
+            },
+
+            // AtTrigger actions cannot be compared with Delayed actions
+            // (they depend on external events, not time)
+            (ActionTiming::Delayed { .. }, ActionTiming::AtTrigger { .. }) => None,
+            (ActionTiming::AtTrigger { .. }, ActionTiming::Delayed { .. }) => None,
+
+            // AtTrigger actions are equal to each other for ordering purposes
+            // (actual execution order would depend on trigger resolution)
+            (ActionTiming::AtTrigger { .. }, ActionTiming::AtTrigger { .. }) => {
+                Some(Ordering::Equal)
+            }
+        }
+    }
+}
+
+impl Ord for ActionTiming {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap_or_else(|| {
+            // Handle the incomparable cases by defining an arbitrary but consistent ordering
+            match (self, other) {
+                (ActionTiming::Delayed { .. }, ActionTiming::AtTrigger { .. }) => Ordering::Less,
+                (ActionTiming::AtTrigger { .. }, ActionTiming::Delayed { .. }) => Ordering::Greater,
+                _ => unreachable!("All other cases should be comparable"),
+            }
+        })
+    }
+}
+
+impl Default for ActionTiming {
+    fn default() -> Self {
+        Self::Immediate
     }
 }

@@ -7,7 +7,7 @@ use crate::{
     engine::janet_handler::{bindings::janet_getsymbol, types::janetenum::ptr_to_i16_vec},
     game::{
         board::effect::{Effect, EffectType},
-        events::event_scheduler::GameScheduler,
+        events::event_manager::EventManager,
         game_context::GameContext,
         player::PlayerID,
     },
@@ -114,15 +114,6 @@ pub unsafe extern "C" fn cfun_gold_amount(argc: i32, argv: *mut Janet) -> Janet 
     let player_id = PlayerID::new(janet_getinteger64(argv, 1) as u16);
     game.get_player_gold(player_id)
         .map_or(janet_wrap_nil(), |r| janet_wrap_integer(r as i32))
-}
-
-pub unsafe extern "C" fn cfun_turn_count(argc: i32, argv: *mut Janet) -> Janet {
-    janet_fixarity(argc, 1);
-    (janet_getpointer(argv, 0) as *mut GameScheduler)
-        .as_mut()
-        .map_or(janet_wrap_nil(), |scheduler| {
-            janet_wrap_u64(scheduler.get_turn_count() as u64)
-        })
 }
 
 pub unsafe extern "C" fn cfun_shuffle_deck(argc: i32, argv: *mut Janet) -> Janet {

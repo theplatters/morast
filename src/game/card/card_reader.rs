@@ -10,14 +10,13 @@ use crate::{
             types::{
                 janetenum::{to_i16_vec, JanetEnum},
                 table::Table,
-                tuple::Tuple,
             },
         },
     },
     game::{
         card::{abilities::Abilities, Card},
         error::Error,
-        game_action::{JanetAction, TargetingType, Timing},
+        events::{action::Action, action_parser::ActionParser},
     },
 };
 
@@ -53,16 +52,18 @@ impl<'a> FieldExtractor<'a> {
         }
     }
 
-    fn get_optional_actions(&self, field: &str) -> Result<Vec<JanetAction>, Error> {
+    fn get_optional_actions(&self, field: &str) -> Result<Option<Action>, Error> {
         match self.table.get(field) {
             Some(value) => ActionParser::parse(&value),
-            None => Ok(vec![]),
+            None => Ok(None),
         }
     }
 
-    fn get_required_actions(&self, field: &str) -> Result<Vec<JanetAction>, Error> {
+    fn get_required_actions(&self, field: &str) -> Result<Action, Error> {
         match self.table.get(field) {
-            Some(value) => ActionParser::parse(&value),
+            Some(value) => ActionParser::parse(&value)
+                .transpose()
+                .ok_or(Error::Incomplete("Requires action"))?,
             None => Err(Error::NotFound(format!("{}: {}", self.context, field))),
         }
     }
@@ -92,119 +93,6 @@ impl<'a> FieldExtractor<'a> {
     }
 }
 
-// Separate timing parser for better organization
-struct TimingParser;
-
-impl TimingParser {
-    fn parse(arr: &[JanetEnum]) -> Result<Timing, Error> {
-        match arr {
-            [JanetEnum::Int(turns), JanetEnum::String(timing_str), ..] => {
-                let turns_u32 = u32::try_from(*turns)
-                    .map_err(|_| Error::Cast("Turn count out of u32 range".into()))?;
-
-                match timing_str.as_str() {
-                    "end" => Ok(Timing::End(turns_u32)),
-                    "start" => Ok(Timing::Start(turns_u32)),
-                    _ => Err(Error::Cast(format!(
-                        "Invalid timing variant: {}",
-                        timing_str
-                    ))),
-                }
-            }
-            [JanetEnum::String(timing_str)] => match timing_str.as_str() {
-                "now" => Ok(Timing::Now),
-                _ => Err(Error::Cast(format!(
-                    "Invalid timing variant: {}",
-                    timing_str
-                ))),
-            },
-            _ => Err(Error::Cast(
-                "Timing must be either [int, \"end|start\"] or [\"now\"]".into(),
-            )),
-        }
-    }
-}
-
-// Separate action parser for better organization
-struct ActionParser;
-
-impl ActionParser {
-    fn parse(action: &JanetEnum) -> Result<Vec<JanetAction>, Error> {
-        let JanetEnum::Array(elements) = action else {
-            return Err(Error::Cast("Action value is not an array".into()));
-        };
-
-        elements.iter().map(Self::parse_single_action).collect()
-    }
-
-    fn parse_targeting_type(el: Tuple) -> Result<TargetingType, Error> {
-        let JanetEnum::String(targeting_type) = el.get(0).map_err(Error::EngineError)? else {
-            return Err(Error::Cast("Targeting type is not a string".into()));
-        };
-
-        match targeting_type.as_str() {
-            "none" => Ok(TargetingType::None),
-            "single" => Ok(TargetingType::SingleTile),
-            "area" => {
-                let JanetEnum::Int(radius) = el.get(1).map_err(Error::EngineError)? else {
-                    return Err(Error::Cast("Targeting area is not an int".into()));
-                };
-
-                Ok(TargetingType::Area {
-                    radius: radius as u8,
-                })
-            }
-            "all-enemies" => Ok(TargetingType::AllEnemies),
-            "caster" => Ok(TargetingType::Caster),
-            "area-around-caster" => {
-                let JanetEnum::Int(radius) = el.get(1).map_err(Error::EngineError)? else {
-                    return Err(Error::Cast("Targeting area is not an int".into()));
-                };
-
-                Ok(TargetingType::AreaAroundCaster {
-                    radius: radius as u8,
-                })
-            }
-            _ => todo!(),
-        }
-    }
-
-    fn parse_single_action(element: &JanetEnum) -> Result<JanetAction, Error> {
-        let JanetEnum::Table(map) = element else {
-            return Err(Error::Cast("Action element is not a table".into()));
-        };
-
-        let func = match map.get("action") {
-            Some(JanetEnum::Function(func)) => func.clone(),
-            _ => return Err(Error::Cast("Action function not found in table".into())),
-        };
-
-        let timing_arr = match map.get("timing") {
-            Some(JanetEnum::Array(timing_arr)) => timing_arr,
-            _ => return Err(Error::Cast("Timing not found in table".into())),
-        };
-
-        let targeting = match map.get("targeting") {
-            Some(JanetEnum::Tuple(targeting_arr)) => Self::parse_targeting_type(targeting_arr)?,
-            Some(el) => {
-                println!("Targeting Type not found, reverting to single target");
-                return Err(Error::Cast(format!(
-                    "Targeting not given as Tuple, Expected Tuple got {}",
-                    el,
-                )));
-            }
-            None => {
-                println!("Targeting Type not found, reverting to single target");
-                TargetingType::None
-            }
-        };
-
-        let timing = TimingParser::parse(timing_arr.as_slice())?;
-
-        Ok(JanetAction::new(func, timing, targeting))
-    }
-}
-
 // Separate card data retrieval logic
 struct CardDataRetriever;
 
@@ -221,7 +109,7 @@ impl CardDataRetriever {
         env: &Environment,
         action_name: &str,
         card_name: &str,
-    ) -> Result<Vec<JanetAction>, Error> {
+    ) -> Result<Option<Action>, Error> {
         match JanetEnum::get(env, action_name, Some(card_name)) {
             Some(value) => ActionParser::parse(&value),
             None => Err(Error::NotFound(format!("{}: {}", card_name, action_name))),
@@ -276,18 +164,19 @@ pub async fn read_creature(
 
     Card::builder()
         .common_data(common_data)
+        .creature()
         .movement(movement)
         .movement_points(movement_points)
         .attack_strength(attack_strength)
         .attack_pattern(attack)
         .defense(defense)
-        .on_play_action(play_action)
-        .turn_begin_action(turn_begin_action)
-        .turn_end_action(turn_end_action)
-        .draw_action(draw_action)
-        .discard_action(discard_action)
+        .on_play_action_option(play_action)
+        .turn_begin_action_option(turn_begin_action)
+        .turn_end_action_option(turn_end_action)
+        .draw_action_option(draw_action)
+        .discard_action_option(discard_action)
         .abilities(abilities)
-        .build_creature()
+        .build()
 }
 
 pub async fn read_spell(
@@ -304,8 +193,9 @@ pub async fn read_spell(
 
     Card::builder()
         .common_data(common_data)
+        .spell()
         .on_play_action(play_action)
-        .build_spell()
+        .build()
 }
 
 pub async fn read_trap(
@@ -321,9 +211,10 @@ pub async fn read_trap(
 
     Card::builder()
         .common_data(common_data)
-        .place_action(place_action)
-        .reveal_action(reveal_action)
-        .build_trap()
+        .trap()
+        .on_play_action(place_action)
+        .reveal_action_optional(reveal_action)
+        .build()
 }
 
 // Extract string list parsing to a helper

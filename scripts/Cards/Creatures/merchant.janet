@@ -15,15 +15,21 @@
 'defense 1
 
 
-'on-turn-begin @[@{
-  'action get-gold 
-  'timing @['now]
-  }]
+'on-turn-end @{
+  'action @{
+    'type "get-gold"
+    'amount 4
+  }
+  'timing ["now" "slow"]
+  }
 
-'on-turn-end @[@{
-  'action get-gold
-  'timing @['now]
-  }]
+'on-turn-end @{
+  'action @{
+    'type "get-gold"
+    'amount 4
+  }
+  'timing ["now" "slow"]
+  }
 
 'description "Get 4 gold at the start and end of a turn"
 

@@ -5,9 +5,12 @@ use macroquad::math::I16Vec2;
 use crate::{
     engine::{input_handler::InputHandler, renderer::render_config::RenderConfig},
     game::{
-        card::{card_registry::CardRegistry, Card},
+        card::{card_id::CardID, card_registry::CardRegistry, Card},
         error::Error,
-        game_action::TargetingType,
+        events::{
+            action_effect::{GameAction, TargetingType},
+            event::Event,
+        },
         game_context::GameContext,
         turn_controller::play_command::PlayCommand,
     },
@@ -20,10 +23,8 @@ pub enum TurnState {
     Idle,
     CardSelected {
         card_index: usize,
-        targeting_type: TargetingType,
     },
     AwaitingTargets {
-        card_index: usize,
         targeting_type: TargetingType,
         selected_targets: Vec<I16Vec2>,
         remaining_targets: u8,
@@ -40,29 +41,24 @@ impl PartialEq for TurnState {
             (
                 Self::CardSelected {
                     card_index: l_card_index,
-                    targeting_type: l_targeting_type,
                 },
                 Self::CardSelected {
                     card_index: r_card_index,
-                    targeting_type: r_targeting_type,
                 },
-            ) => l_card_index == r_card_index && l_targeting_type == r_targeting_type,
+            ) => l_card_index == r_card_index,
             (
                 Self::AwaitingTargets {
-                    card_index: l_card_index,
                     targeting_type: l_targeting_type,
                     selected_targets: l_selected_targets,
                     remaining_targets: l_remaining_targets,
                 },
                 Self::AwaitingTargets {
-                    card_index: r_card_index,
                     targeting_type: r_targeting_type,
                     selected_targets: r_selected_targets,
                     remaining_targets: r_remaining_targets,
                 },
             ) => {
-                l_card_index == r_card_index
-                    && l_targeting_type == r_targeting_type
+                l_targeting_type == r_targeting_type
                     && l_selected_targets == r_selected_targets
                     && l_remaining_targets == r_remaining_targets
             }
@@ -82,6 +78,7 @@ impl PartialEq for TurnState {
 pub struct TurnController {
     pub state: TurnState,
     input_handler: InputHandler,
+    pending_action: Option<Box<dyn GameAction>>,
 }
 
 impl TurnController {
@@ -90,6 +87,7 @@ impl TurnController {
         Self {
             state: TurnState::Idle,
             input_handler,
+            pending_action: None,
         }
     }
 
@@ -101,22 +99,15 @@ impl TurnController {
         // Handle input based on current state
 
         match self.state.clone() {
-            TurnState::Idle => self.handle_idle_state(context, card_registry),
-            TurnState::CardSelected {
-                card_index,
-                targeting_type,
-            } => self.handle_card_selected(card_index, targeting_type, context, card_registry),
+            TurnState::Idle => self.handle_idle_state(context),
+            TurnState::CardSelected { card_index } => {
+                self.handle_card_selected(card_index, context, card_registry)
+            }
             TurnState::AwaitingTargets {
-                card_index,
                 targeting_type,
                 selected_targets,
                 remaining_targets,
-            } => self.handle_targeting(
-                card_index,
-                &targeting_type,
-                &selected_targets,
-                remaining_targets,
-            ),
+            } => self.handle_targeting(&targeting_type, &selected_targets, remaining_targets),
             TurnState::FigureSelected { position } => {
                 self.handle_figure_selected(&position, context, card_registry)
             }
@@ -131,12 +122,34 @@ impl TurnController {
     pub(crate) fn reset_state(&mut self) {
         self.state = TurnState::Idle;
     }
+
+    pub(crate) fn process_event(&mut self, event: Event) -> Result<Option<PlayCommand>, Error> {
+        todo!()
+    }
+
+    pub(crate) fn process_execution_results(
+        &mut self,
+        execution_result: super::events::action_effect::ExecutionResult,
+    ) -> Result<(), Error> {
+        match execution_result {
+            super::events::action_effect::ExecutionResult::Executed { event } => todo!(),
+            super::events::action_effect::ExecutionResult::NeedsTargeting { action } => {
+                let targeting_type = action.targeting_type().expect("Targeting type expected");
+                self.pending_action = Some(action);
+                self.state = TurnState::AwaitingTargets {
+                    targeting_type,
+                    selected_targets: Vec::new(),
+                    remaining_targets: targeting_type.required_targets(),
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 impl TurnController {
     fn handle_targeting(
         &mut self,
-        card_index: usize,
         targeting_type: &TargetingType,
         selected_targets: &Vec<I16Vec2>,
         remaining_targets: u8,
@@ -150,16 +163,16 @@ impl TurnController {
         targets.push(next_target);
         if remaining_targets > 1 {
             self.state = TurnState::AwaitingTargets {
-                card_index,
                 targeting_type: *targeting_type,
                 selected_targets: targets,
                 remaining_targets: remaining_targets - 1,
             };
             Ok(None)
         } else {
-            Ok(Some(PlayCommand::CastSpell {
-                card_index,
-                targets: selected_targets.clone(),
+            let action = self.pending_action.take().expect("Expected pending action");
+            Ok(Some(PlayCommand::ExecuteActionWithTargets {
+                action,
+                targets,
             }))
         }
     }
@@ -184,11 +197,7 @@ impl TurnController {
         }))
     }
 
-    fn handle_idle_state(
-        &mut self,
-        context: &GameContext,
-        card_registry: &CardRegistry,
-    ) -> Result<Option<PlayCommand>, Error> {
+    fn handle_idle_state(&mut self, context: &GameContext) -> Result<Option<PlayCommand>, Error> {
         // Check for card selection
         if let Some(card_index) = self.input_handler.get_card_left_click(
             context
@@ -196,13 +205,7 @@ impl TurnController {
                 .ok_or(Error::PlayerNotFound)?
                 .hand_size(),
         ) {
-            let targeting_type =
-                self.get_card_targeting_type(context, card_index, card_registry)?;
-
-            self.state = TurnState::CardSelected {
-                card_index,
-                targeting_type,
-            };
+            self.state = TurnState::CardSelected { card_index };
             return Ok(None);
         }
 
@@ -225,79 +228,34 @@ impl TurnController {
     fn handle_card_selected(
         &mut self,
         card_index: usize,
-        targeting_type: TargetingType,
         context: &GameContext,
         card_registry: &CardRegistry,
     ) -> Result<Option<PlayCommand>, Error> {
-        match targeting_type {
-            TargetingType::None => {
-                // Execute immediately (like instant spells)
-                self.state = TurnState::Idle;
-                Ok(Some(PlayCommand::CastSpell {
-                    card_index,
-                    targets: vec![],
-                }))
-            }
-            TargetingType::SingleTile => {
-                if let Some(pos) = self.input_handler.get_board_click() {
-                    self.state = TurnState::Idle;
+        let Some(pos) = self.input_handler.get_board_click() else {
+            return Ok(None);
+        };
 
-                    let card_id = context
-                        .get_turn_player()
-                        .ok_or(Error::PlayerNotFound)?
-                        .get_card_in_hand(card_index)
-                        .ok_or(Error::InvalidHandPosition(card_index))?;
-                    let card = card_registry.get(&card_id).ok_or(Error::CardNotFound)?;
-                    match card {
-                        Card::Creature(_) => Ok(Some(PlayCommand::PlaceCreature {
-                            card_index,
-                            position: pos,
-                        })),
-                        Card::Spell(_) => Ok(Some(PlayCommand::CastSpell {
-                            card_index,
-                            targets: vec![pos],
-                        })),
-                        Card::Trap(_) => Ok(Some(PlayCommand::PlaceTrap {
-                            card_index,
-                            position: pos,
-                        })),
-                    }
-                } else {
-                    Ok(None)
-                }
-            }
-            TargetingType::Area { radius } => {
-                self.state = TurnState::AwaitingTargets {
-                    card_index,
-                    targeting_type,
-                    selected_targets: vec![],
-                    remaining_targets: 1, // Area spells typically need 1 center point
-                };
-                Ok(None)
-            }
-            // Handle other targeting types...
-            _ => todo!("Implement other targeting types"),
-        }
-    }
+        self.state = TurnState::Idle;
 
-    fn get_card_targeting_type(
-        &self,
-        context: &GameContext,
-        card_index: usize,
-        card_registry: &CardRegistry,
-    ) -> Result<TargetingType, Error> {
-        let player = context.get_turn_player().ok_or(Error::PlayerNotFound)?;
-        let card_id = player
+        let card_id = context
+            .get_turn_player()
+            .ok_or(Error::PlayerNotFound)?
             .get_card_in_hand(card_index)
-            .ok_or(Error::CardNotFound)?;
+            .ok_or(Error::InvalidHandPosition(card_index))?;
         let card = card_registry.get(&card_id).ok_or(Error::CardNotFound)?;
-
         match card {
-            Card::Creature(_) | Card::Trap(_) => Ok(TargetingType::SingleTile),
-            Card::Spell(spell) => {
-                // Get targeting from spell's first action or card definition
-                Ok(spell.get_targeting_type())
-            }
+            Card::Creature(_) => Ok(Some(PlayCommand::PlaceCreature {
+                card_index,
+                position: pos,
+            })),
+            Card::Spell(_) => Ok(Some(PlayCommand::CastSpell {
+                card_index,
+                targets: vec![pos],
+            })),
+            Card::Trap(_) => Ok(Some(PlayCommand::PlaceTrap {
+                card_index,
+                position: pos,
+            })),
         }
     }
 }

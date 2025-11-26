@@ -1,4 +1,4 @@
-use std::fmt::{write, Display};
+use std::fmt::Display;
 
 use crate::engine::error::EngineError;
 
@@ -20,6 +20,7 @@ pub enum Error {
     Incomplete(&'static str),
     InvalidCardType,
     WrongState,
+    ActionError(&'static str),
 }
 
 impl Display for Error {
@@ -39,6 +40,9 @@ impl Display for Error {
             Error::Incomplete(s) => write!(f, "Inclomplete: {}", s),
             Error::InvalidCardType => write!(f, "InvalidCardType"),
             Error::WrongState => write!(f, "Wrong State"),
+            Error::ActionError(s) => write!(f, "Error when performing action: {}", s),
         }
     }
 }
+
+impl std::error::Error for Error {}

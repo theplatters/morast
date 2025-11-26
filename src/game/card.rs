@@ -2,7 +2,7 @@ use crate::game::card::creature::Creature;
 use crate::game::card::in_play_id::InPlayID;
 use crate::game::card::spell_card::Spell;
 use crate::game::card::trap_card::Trap;
-use crate::game::events::event_scheduler::GameScheduler;
+use crate::game::events::event_manager::EventManager;
 use crate::game::player::PlayerID;
 
 pub mod abilities;
@@ -32,7 +32,7 @@ pub trait CardBehavior {
 }
 
 pub trait Placeable {
-    fn on_place(&self, scheduler: &mut GameScheduler, owner: PlayerID, id: InPlayID);
+    fn on_place(&self, scheduler: &mut EventManager, owner: PlayerID, id: InPlayID);
 }
 
 impl Card {

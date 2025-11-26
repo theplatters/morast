@@ -1,14 +1,12 @@
-use crate::game::{
-    card::{CardBehavior, Placeable},
-    game_action::{self, JanetAction},
-};
+use crate::game::card::Placeable;
+use crate::game::{card::CardBehavior, events::action::Action};
 
 #[derive(Debug)]
 pub struct Trap {
     name: String,
     description: String,
-    place_action: Vec<JanetAction>,
-    reveal_action: Vec<JanetAction>,
+    on_play_action: Option<Action>,
+    reveal_action: Option<Action>,
     cost: u16,
     display_image_asset_string: String,
 }
@@ -30,48 +28,21 @@ impl CardBehavior for Trap {
         &self.display_image_asset_string
     }
 }
-impl Placeable for Trap {
-    fn on_place(
-        &self,
-        scheduler: &mut crate::game::events::event_scheduler::GameScheduler,
-        owner: crate::game::player::PlayerID,
-        id: super::in_play_id::InPlayID,
-    ) {
-        for JanetAction {
-            function,
-            speed,
-            targeting: _,
-        } in &self.place_action
-        {
-            match speed {
-                game_action::Timing::Now => {
-                    scheduler.schedule_now(owner, id, function.to_owned(), 1)
-                }
-                game_action::Timing::End(timing) => {
-                    scheduler.schedule_at_end(*timing, owner, id, function.to_owned(), 1)
-                }
-                game_action::Timing::Start(timing) => {
-                    scheduler.schedule_at_start(*timing, owner, id, function.to_owned(), 1)
-                }
-            }
-        }
-    }
-}
 
 impl Trap {
     pub fn new(
         name: String,
         cost: u16,
         description: String,
-        place_action: Vec<JanetAction>,
-        reveal_action: Vec<JanetAction>,
+        place_action: Option<Action>,
+        reveal_action: Option<Action>,
         display_image_asset_string: String,
     ) -> Self {
         Self {
             name,
             description,
             cost,
-            place_action,
+            on_play_action: place_action,
             reveal_action,
             display_image_asset_string,
         }

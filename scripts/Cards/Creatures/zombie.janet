@@ -7,11 +7,15 @@
 'abilities @["dig"]
 'attack-strength 2
 'defense 1
-'on-play @[(table
-  'action (fn [game card-id targets] (std/apply-effect game card-id 'weakening 2 targets))
-  'timing @['now]
-  'targeting ['area-around-caster 1]
-  )]
+'on-play @{
+  :action {
+    :type :apply-effect
+    'effect :weakening
+    'targeting ['area-around-caster 1]
+    }
+  'timing ['immidiate 'slow]
+  'speed "slow"
+  }
 
 
 'description "He has seen better days"
