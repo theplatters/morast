@@ -7,7 +7,7 @@ use crate::engine::janet_handler::{
 
 use super::janetenum::JanetEnum;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Table {
     pub raw: *mut JanetTable,
 }

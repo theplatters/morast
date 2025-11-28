@@ -28,7 +28,7 @@ pub trait JanetItem {
     fn to_janet(&self) -> Janet;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum JanetEnum {
     Int(i32),
     UInt(u64),
@@ -301,5 +301,387 @@ impl TryFrom<&JanetEnum> for String {
             return Err(EngineError::Cast("Value is not a String".into()));
         };
         Ok(s.to_owned())
+    }
+}
+
+impl JanetEnum {
+    pub fn as_int(&self) -> Option<i32> {
+        match self {
+            JanetEnum::Int(i) => Some(*i),
+            _ => None,
+        }
+    }
+
+    pub fn as_uint(&self) -> Option<u64> {
+        match self {
+            JanetEnum::UInt(u) => Some(*u),
+            _ => None,
+        }
+    }
+
+    pub fn as_float(&self) -> Option<f64> {
+        match self {
+            JanetEnum::Float(f) => Some(*f),
+            _ => None,
+        }
+    }
+
+    pub fn as_bool(&self) -> Option<bool> {
+        match self {
+            JanetEnum::Bool(b) => Some(*b),
+            _ => None,
+        }
+    }
+
+    pub fn as_string(&self) -> Option<&String> {
+        match self {
+            JanetEnum::String(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    pub fn as_string_owned(&self) -> Option<String> {
+        match self {
+            JanetEnum::String(s) => Some(s.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn as_function(&self) -> Option<&Function> {
+        match self {
+            JanetEnum::Function(f) => Some(f),
+            _ => None,
+        }
+    }
+
+    pub fn as_array(&self) -> Option<&Vec<JanetEnum>> {
+        match self {
+            JanetEnum::Array(arr) => Some(arr),
+            _ => None,
+        }
+    }
+
+    pub fn as_array_owned(&self) -> Option<Vec<JanetEnum>> {
+        match self {
+            JanetEnum::Array(arr) => Some(arr.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn as_table(&self) -> Option<&Table> {
+        match self {
+            JanetEnum::Table(table) => Some(table),
+            _ => None,
+        }
+    }
+
+    pub fn as_tuple(&self) -> Option<&Tuple> {
+        match self {
+            JanetEnum::Tuple(tuple) => Some(tuple),
+            _ => None,
+        }
+    }
+
+    // Extract underlying types - consume self and return Option<T>
+    pub fn into_int(self) -> Option<i32> {
+        match self {
+            JanetEnum::Int(i) => Some(i),
+            _ => None,
+        }
+    }
+
+    pub fn into_uint(self) -> Option<u64> {
+        match self {
+            JanetEnum::UInt(u) => Some(u),
+            _ => None,
+        }
+    }
+
+    pub fn into_float(self) -> Option<f64> {
+        match self {
+            JanetEnum::Float(f) => Some(f),
+            _ => None,
+        }
+    }
+
+    pub fn into_bool(self) -> Option<bool> {
+        match self {
+            JanetEnum::Bool(b) => Some(b),
+            _ => None,
+        }
+    }
+
+    pub fn into_string(self) -> Option<String> {
+        match self {
+            JanetEnum::String(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    pub fn into_function(self) -> Option<Function> {
+        match self {
+            JanetEnum::Function(f) => Some(f),
+            _ => None,
+        }
+    }
+
+    pub fn into_array(self) -> Option<Vec<JanetEnum>> {
+        match self {
+            JanetEnum::Array(arr) => Some(arr),
+            _ => None,
+        }
+    }
+
+    pub fn into_table(self) -> Option<Table> {
+        match self {
+            JanetEnum::Table(table) => Some(table),
+            _ => None,
+        }
+    }
+
+    pub fn into_tuple(self) -> Option<Tuple> {
+        match self {
+            JanetEnum::Tuple(tuple) => Some(tuple),
+            _ => None,
+        }
+    }
+
+    // Extract with error handling - return Result<T, EngineError>
+    pub fn expect_int(self) -> Result<i32, EngineError> {
+        match self {
+            JanetEnum::Int(i) => Ok(i),
+            _ => Err(EngineError::Cast(format!("Expected Int, got {}", self))),
+        }
+    }
+
+    pub fn expect_uint(self) -> Result<u64, EngineError> {
+        match self {
+            JanetEnum::UInt(u) => Ok(u),
+            _ => Err(EngineError::Cast(format!("Expected UInt, got {}", self))),
+        }
+    }
+
+    pub fn expect_float(self) -> Result<f64, EngineError> {
+        match self {
+            JanetEnum::Float(f) => Ok(f),
+            _ => Err(EngineError::Cast(format!("Expected Float, got {}", self))),
+        }
+    }
+
+    pub fn expect_bool(self) -> Result<bool, EngineError> {
+        match self {
+            JanetEnum::Bool(b) => Ok(b),
+            _ => Err(EngineError::Cast(format!("Expected Bool, got {}", self))),
+        }
+    }
+
+    pub fn expect_string(self) -> Result<String, EngineError> {
+        match self {
+            JanetEnum::String(s) => Ok(s),
+            _ => Err(EngineError::Cast(format!("Expected String, got {}", self))),
+        }
+    }
+
+    pub fn expect_function(self) -> Result<Function, EngineError> {
+        match self {
+            JanetEnum::Function(f) => Ok(f),
+            _ => Err(EngineError::Cast(format!(
+                "Expected Function, got {}",
+                self
+            ))),
+        }
+    }
+
+    pub fn expect_array(self) -> Result<Vec<JanetEnum>, EngineError> {
+        match self {
+            JanetEnum::Array(arr) => Ok(arr),
+            _ => Err(EngineError::Cast(format!("Expected Array, got {}", self))),
+        }
+    }
+
+    pub fn expect_table(self) -> Result<Table, EngineError> {
+        match self {
+            JanetEnum::Table(table) => Ok(table),
+            _ => Err(EngineError::Cast(format!("Expected Table, got {}", self))),
+        }
+    }
+
+    pub fn expect_tuple(self) -> Result<Tuple, EngineError> {
+        match self {
+            JanetEnum::Tuple(tuple) => Ok(tuple),
+            _ => Err(EngineError::Cast(format!("Expected Tuple, got {}", self))),
+        }
+    }
+
+    // Numeric coercion with error handling
+    pub fn expect_number(self) -> Result<f64, EngineError> {
+        match self {
+            JanetEnum::Int(i) => Ok(i as f64),
+            JanetEnum::UInt(u) => Ok(u as f64),
+            JanetEnum::Float(f) => Ok(f),
+            _ => Err(EngineError::Cast(format!(
+                "Expected numeric type, got {}",
+                self
+            ))),
+        }
+    }
+
+    pub fn expect_number_as_int(self) -> Result<i32, EngineError> {
+        self.expect_number().map(|n| n as i32)
+    }
+
+    pub fn expect_number_as_uint(self) -> Result<u64, EngineError> {
+        let num = self.expect_number()?;
+        if num >= 0.0 {
+            Ok(num as u64)
+        } else {
+            Err(EngineError::Cast(format!(
+                "Cannot convert negative number {} to uint",
+                num
+            )))
+        }
+    }
+
+    // Type checking methods
+    pub fn is_int(&self) -> bool {
+        matches!(self, JanetEnum::Int(_))
+    }
+
+    pub fn is_uint(&self) -> bool {
+        matches!(self, JanetEnum::UInt(_))
+    }
+
+    pub fn is_float(&self) -> bool {
+        matches!(self, JanetEnum::Float(_))
+    }
+
+    pub fn is_bool(&self) -> bool {
+        matches!(self, JanetEnum::Bool(_))
+    }
+
+    pub fn is_string(&self) -> bool {
+        matches!(self, JanetEnum::String(_))
+    }
+
+    pub fn is_function(&self) -> bool {
+        matches!(self, JanetEnum::Function(_))
+    }
+
+    pub fn is_array(&self) -> bool {
+        matches!(self, JanetEnum::Array(_))
+    }
+
+    pub fn is_table(&self) -> bool {
+        matches!(self, JanetEnum::Table(_))
+    }
+
+    pub fn is_tuple(&self) -> bool {
+        matches!(self, JanetEnum::Tuple(_))
+    }
+}
+
+// Add more TryFrom implementations for convenience
+impl TryFrom<JanetEnum> for i32 {
+    type Error = EngineError;
+
+    fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
+        value.expect_int()
+    }
+}
+
+impl TryFrom<JanetEnum> for u64 {
+    type Error = EngineError;
+
+    fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
+        value.expect_uint()
+    }
+}
+
+impl TryFrom<JanetEnum> for f64 {
+    type Error = EngineError;
+
+    fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
+        value.expect_float()
+    }
+}
+
+impl TryFrom<JanetEnum> for bool {
+    type Error = EngineError;
+
+    fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
+        value.expect_bool()
+    }
+}
+
+impl TryFrom<JanetEnum> for Vec<JanetEnum> {
+    type Error = EngineError;
+
+    fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
+        value.expect_array()
+    }
+}
+
+impl TryFrom<JanetEnum> for Table {
+    type Error = EngineError;
+
+    fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
+        value.expect_table()
+    }
+}
+
+impl TryFrom<JanetEnum> for Function {
+    type Error = EngineError;
+
+    fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
+        value.expect_function()
+    }
+}
+
+impl TryFrom<JanetEnum> for Tuple {
+    type Error = EngineError;
+
+    fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
+        value.expect_tuple()
+    }
+}
+
+// Reference versions for non-consuming access
+impl TryFrom<&JanetEnum> for i32 {
+    type Error = EngineError;
+
+    fn try_from(value: &JanetEnum) -> Result<Self, Self::Error> {
+        value
+            .as_int()
+            .ok_or_else(|| EngineError::Cast(format!("Expected Int, got {}", value)))
+    }
+}
+
+impl TryFrom<&JanetEnum> for u64 {
+    type Error = EngineError;
+
+    fn try_from(value: &JanetEnum) -> Result<Self, Self::Error> {
+        value
+            .as_uint()
+            .ok_or_else(|| EngineError::Cast(format!("Expected UInt, got {}", value)))
+    }
+}
+
+impl TryFrom<&JanetEnum> for f64 {
+    type Error = EngineError;
+
+    fn try_from(value: &JanetEnum) -> Result<Self, Self::Error> {
+        value
+            .as_float()
+            .ok_or_else(|| EngineError::Cast(format!("Expected Float, got {}", value)))
+    }
+}
+
+impl TryFrom<&JanetEnum> for bool {
+    type Error = EngineError;
+
+    fn try_from(value: &JanetEnum) -> Result<Self, Self::Error> {
+        value
+            .as_bool()
+            .ok_or_else(|| EngineError::Cast(format!("Expected Bool, got {}", value)))
     }
 }

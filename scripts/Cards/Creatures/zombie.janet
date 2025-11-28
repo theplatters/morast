@@ -13,8 +13,8 @@
     'effect :weakening
     'targeting ['area-around-caster 1]
     }
-  'timing ['immidiate 'slow]
-  'speed "slow"
+  'timing 'now 
+  'speed spell/slow
   }
 
 

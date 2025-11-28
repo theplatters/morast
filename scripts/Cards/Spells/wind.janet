@@ -5,7 +5,8 @@
     :type "move-creature"
     :direction [0 1]
   }
-  :timing ["immidiate" "slow"]
+  :timing "now"
+  :speed spell/slow
   :target ["single-tile"]
   }
 'description "Blows away a card"

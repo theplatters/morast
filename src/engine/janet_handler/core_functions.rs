@@ -1,6 +1,5 @@
 use crate::engine::janet_handler::{api::*, controller::Environment};
 
-// In a new file: src/engine/janet_handler/core_functions.rs
 use super::types::cfunction::JanetRawCFunction;
 
 pub struct CoreFunction {
@@ -83,7 +82,7 @@ pub const CORE_FUNCTIONS: &[CoreFunction] = &[
 ];
 
 impl Environment {
-    fn register_core_functions(&self) {
+    pub fn register_core_functions(&self) {
         for func in CORE_FUNCTIONS {
             self.register(func.name, func.cfun, func.docs, Some("std"))
                 .unwrap_or_else(|_| panic!("Could not register {} function", func.name));

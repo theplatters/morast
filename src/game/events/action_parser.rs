@@ -9,6 +9,7 @@ use crate::{
             action::{Action, ActionTiming},
             action_effect::{ActionEffect, TargetingType},
         },
+        phases::Phase,
     },
 };
 
@@ -25,18 +26,19 @@ impl ActionParser {
             return Err(Error::Cast("Action type is not a table".into()));
         };
 
-        let Some(timing_tuple) = elements.get_tuple("timing") else {
+        let Some(timing_tuple) = elements.get("timing") else {
             return Err(Error::Cast("Timing is not a tuple".into()));
         };
 
-        let action_type = Self::parse_action(&action_type_table)?;
         let timing = Self::parse_timing(&timing_tuple)?;
+        print!("Action Timing {:?}", timing);
+        let action_type = Self::parse_action_effect(&action_type_table)?;
 
-        todo!()
+        todo!("action parsing not fully implemented")
     }
 
-    pub fn parse_action(action: &Table) -> Result<ActionEffect, Error> {
-        todo!()
+    pub fn parse_action_effect(action: &Table) -> Result<ActionEffect, Error> {
+        todo!("action effect parsing not fully implemented")
     }
 
     fn parse_custom_action() -> Result<Action, Error> {
@@ -45,7 +47,7 @@ impl ActionParser {
 
     fn parse_targeting_type(el: JanetEnum) -> Result<TargetingType, Error> {
         match el {
-            JanetEnum::String(s) => Self::parse_targeting_string(s),
+            JanetEnum::String(s) => Self::parse_targeting_from_string(s),
             JanetEnum::Tuple(tup) => Self::parse_targeting_tuple(tup),
             _ => Err(Error::EngineError(EngineError::Type(
                 "not the correct type found".into(),
@@ -53,7 +55,19 @@ impl ActionParser {
         }
     }
 
-    fn parse_timing(timing_tup: &Tuple) -> Result<ActionTiming, Error> {
+    fn parse_timing(timing_janet: &JanetEnum) -> Result<ActionTiming, Error> {
+        if !(timing_janet.is_tuple() || timing_janet.is_string()) {
+            return Err(Error::Cast("Timing is not a string or a tuple".into()));
+        }
+
+        if timing_janet.is_string() {
+            Self::parse_timing_from_string(timing_janet.as_string().unwrap())
+        } else {
+            Self::parse_timing_from_tuple(timing_janet.as_tuple().unwrap())
+        }
+    }
+
+    fn parse_timing_from_tuple(timing_tup: &Tuple) -> Result<ActionTiming, Error> {
         let JanetEnum::String(timing) = timing_tup.get(0).map_err(Error::EngineError)? else {
             return Err(Error::Cast("Timing is not a string".into()));
         };
@@ -61,10 +75,7 @@ impl ActionParser {
         match timing.as_str() {
             "now" => Ok(ActionTiming::Immediate),
             "delayed" => {
-                let JanetEnum::String(phase) = timing_tup.get(1).map_err(Error::EngineError)?
-                else {
-                    return Err(Error::Cast("Timing is not a string".into()));
-                };
+                let phase = Self::parse_phase(&timing_tup.get(1).map_err(Error::EngineError)?)?;
 
                 let JanetEnum::UInt(turns_ahead) = timing_tup.get(2).map_err(Error::EngineError)?
                 else {
@@ -72,7 +83,7 @@ impl ActionParser {
                 };
 
                 Ok(ActionTiming::Delayed {
-                    phase: crate::game::phases::Phase::Start,
+                    phase,
                     turns: turns_ahead as u32,
                 })
             }
@@ -81,7 +92,24 @@ impl ActionParser {
         }
     }
 
-    fn parse_targeting_string(s: String) -> Result<TargetingType, Error> {
+    fn parse_phase(phase_janet: &JanetEnum) -> Result<Phase, Error> {
+        if !phase_janet.is_int() {
+            return Err(Error::Cast(
+                "Phase is not given in the correct format (int)".into(),
+            ));
+        };
+
+        Ok(phase_janet.as_int().unwrap().into())
+    }
+
+    fn parse_timing_from_string(timing_str: &str) -> Result<ActionTiming, Error> {
+        match timing_str {
+            "now" => Ok(ActionTiming::Immediate),
+            _ => Err(Error::Cast("Timing string not supported".into())),
+        }
+    }
+
+    fn parse_targeting_from_string(s: String) -> Result<TargetingType, Error> {
         todo!()
     }
 

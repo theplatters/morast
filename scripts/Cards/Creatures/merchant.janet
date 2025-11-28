@@ -20,7 +20,8 @@
     'type "get-gold"
     'amount 4
   }
-  'timing ["now" "slow"]
+  'timing "now"
+  'speed  spell/slow
   }
 
 'on-turn-end @{
@@ -28,7 +29,8 @@
     'type "get-gold"
     'amount 4
   }
-  'timing ["now" "slow"]
+  'timing "now"
+  'speed spell/slow 
   }
 
 'description "Get 4 gold at the start and end of a turn"

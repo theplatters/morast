@@ -42,18 +42,20 @@ impl Environment {
                 lookup: Table { raw: _lookup },
             };
             env.register_core_functions();
+            env.register_core_constants();
+
             env
         }
     }
 
-    fn register_constant(
+    pub fn register_constant(
         &self,
         name: &str,
-        value: JanetEnum,
+        value: &JanetEnum,
         docs: Option<&str>,
     ) -> Result<(), NulError> {
         let name_cstr = CString::new(name)?;
-        let doc_cstr = docs.map(|d| CString::new(d)).transpose()?;
+        let doc_cstr = docs.map(CString::new).transpose()?;
 
         unsafe {
             let janet_value = value.to_janet();
