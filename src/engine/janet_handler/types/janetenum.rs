@@ -18,7 +18,7 @@ use crate::engine::{
             JANET_TYPE_JANET_TABLE, JANET_TYPE_JANET_TUPLE,
         },
         controller::Environment,
-        types::tuple::Tuple,
+        types::{array::Array, tuple::Tuple},
     },
 };
 

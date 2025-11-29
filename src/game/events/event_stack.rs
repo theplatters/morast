@@ -2,11 +2,7 @@ use std::collections::BinaryHeap;
 
 use crate::game::{
     card::card_registry::CardRegistry,
-    events::{
-        self,
-        action::Action,
-        action_effect::{ExecutionResult, GameAction},
-    },
+    events::{self, action::Action, action_effect::GameAction, execution_result::ExecutionResult},
 };
 
 #[derive(Debug)]

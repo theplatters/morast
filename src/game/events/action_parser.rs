@@ -6,7 +6,7 @@ use crate::{
     game::{
         error::Error,
         events::{
-            action::{Action, ActionTiming},
+            action::{Action, ActionTiming, SpellSpeed},
             action_effect::{ActionEffect, TargetingType},
         },
         phases::Phase,
@@ -23,21 +23,26 @@ impl ActionParser {
         };
 
         let Some(action_type_table) = elements.get_table("action") else {
-            return Err(Error::Cast("Action type is not a table".into()));
+            return Err(Error::Incomplete("Action type not found".into()));
         };
 
-        let Some(timing_tuple) = elements.get("timing") else {
-            return Err(Error::Cast("Timing is not a tuple".into()));
+        let Some(timing) = elements.get("timing") else {
+            return Err(Error::Incomplete("Timing not found".into()));
         };
 
-        let timing = Self::parse_timing(&timing_tuple)?;
+        let Some(speed) = elements.get("speed") else {
+            return Err(Error::Incomplete("Speed not found".into()));
+        };
+
+        let timing = Self::parse_timing(&timing)?;
         print!("Action Timing {:?}", timing);
         let action_type = Self::parse_action_effect(&action_type_table)?;
+        let action_speed = Self::parse_spell_speed(&speed);
 
         todo!("action parsing not fully implemented")
     }
 
-    pub fn parse_action_effect(action: &Table) -> Result<ActionEffect, Error> {
+    fn parse_action_effect(action: &Table) -> Result<ActionEffect, Error> {
         todo!("action effect parsing not fully implemented")
     }
 
@@ -45,7 +50,7 @@ impl ActionParser {
         todo!()
     }
 
-    fn parse_targeting_type(el: JanetEnum) -> Result<TargetingType, Error> {
+    fn parse_targeting_type(el: &JanetEnum) -> Result<TargetingType, Error> {
         match el {
             JanetEnum::String(s) => Self::parse_targeting_from_string(s),
             JanetEnum::Tuple(tup) => Self::parse_targeting_tuple(tup),
@@ -54,6 +59,8 @@ impl ActionParser {
             ))),
         }
     }
+
+    fn parse_spell_speed(content: &JanetEnum) -> Result<SpellSpeed, Error> {}
 
     fn parse_timing(timing_janet: &JanetEnum) -> Result<ActionTiming, Error> {
         if !(timing_janet.is_tuple() || timing_janet.is_string()) {
@@ -109,11 +116,11 @@ impl ActionParser {
         }
     }
 
-    fn parse_targeting_from_string(s: String) -> Result<TargetingType, Error> {
+    fn parse_targeting_from_string(s: &str) -> Result<TargetingType, Error> {
         todo!()
     }
 
-    fn parse_targeting_tuple(tup: Tuple) -> Result<TargetingType, Error> {
+    fn parse_targeting_tuple(tup: &Tuple) -> Result<TargetingType, Error> {
         todo!()
     }
 }

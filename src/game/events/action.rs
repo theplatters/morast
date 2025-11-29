@@ -1,13 +1,11 @@
 use std::{cmp::Ordering, ops::SubAssign};
 
-use macroquad::math::I16Vec2;
-
 use crate::game::{
-    card::in_play_id::InPlayID,
     events::{
         action_builder::ActionBuilder,
-        action_effect::{ActionEffect, ExecutionResult, GameAction},
+        action_effect::{ActionEffect, GameAction},
         event::Event,
+        execution_result::ExecutionResult,
     },
     phases::Phase,
     player::PlayerID,
@@ -19,7 +17,6 @@ pub struct Action {
     pub timing: ActionTiming,
     pub speed: SpellSpeed,
     pub priority: u32,
-    pub source: InPlayID,
     pub player: PlayerID,
     pub can_be_countered: bool,
 }
@@ -66,6 +63,16 @@ impl GameAction for Action {
     fn targeting_type(&self) -> Option<super::action_effect::TargetingType> {
         self.action.targeting_type()
     }
+
+    fn execute_with_targets(
+        &self,
+        context: &mut crate::game::game_context::GameContext,
+        card_registry: &crate::game::card::card_registry::CardRegistry,
+        targets: &[macroquad::prelude::I16Vec2],
+    ) -> Result<Option<Event>, crate::game::error::Error> {
+        self.action
+            .execute_with_targets(context, card_registry, targets)
+    }
 }
 
 impl Action {
@@ -74,24 +81,25 @@ impl Action {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub enum SpellSpeed {
-    Slow = 1,    // Can only be cast during main phase, when stack is empty
+    #[default]
+    Slow = 1, // Can only be cast during main phase, when stack is empty
     Fast = 2,    // Can be cast anytime you have priority
     Instant = 3, // Can be cast anytime, even during opponent's turn
 }
 
-impl Default for SpellSpeed {
-    fn default() -> Self {
-        Self::Slow
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ActionTiming {
-    Immediate,                            // Goes on stack immediately
-    Delayed { phase: Phase, turns: u32 }, // End of current turn
-    AtTrigger { trigger: Event },         // Start of next turn
+    #[default]
+    Immediate, // Goes on stack immediately
+    Delayed {
+        phase: Phase,
+        turns: u32,
+    }, // End of current turn
+    AtTrigger {
+        trigger: Event,
+    }, // Start of next turn
 }
 
 impl SubAssign<u32> for ActionTiming {
@@ -150,11 +158,5 @@ impl Ord for ActionTiming {
                 _ => unreachable!("All other cases should be comparable"),
             }
         })
-    }
-}
-
-impl Default for ActionTiming {
-    fn default() -> Self {
-        Self::Immediate
     }
 }

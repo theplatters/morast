@@ -118,7 +118,7 @@ impl GameContext {
         Ok(card_id)
     }
 
-    pub(crate) fn execute_spell_cast(
+    pub(crate) fn cast_spell_from_hand(
         &mut self,
         player_id: PlayerID,
         card_index: usize,

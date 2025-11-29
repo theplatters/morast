@@ -1,67 +1,14 @@
-use core::panic;
-use std::f64::consts::E;
-
 use macroquad::math::I16Vec2;
 
 use crate::game::{
     board::effect::Effect,
-    card::{card_id::CardID, card_registry::CardRegistry, in_play_id::InPlayID, Card},
+    card::{card_id::CardID, card_registry::CardRegistry, in_play_id::InPlayID},
     error::Error,
-    events::event::Event,
+    events::{action::Action, event::Event, execution_result::ExecutionResult},
     game_action::JanetAction,
     game_context::GameContext,
     player::PlayerID,
 };
-
-pub enum ExecutionResult {
-    Executed { event: Option<Event> },
-    NeedsTargeting { action: Box<ActionEffect> },
-}
-
-impl ExecutionResult {
-    fn execute_with_targets(
-        &self,
-        context: &mut GameContext,
-        card_registry: &CardRegistry,
-        targets: &[I16Vec2],
-    ) -> Result<Option<Event>, Error> {
-        let action = match self {
-            Self::Executed { .. } => return Err(Error::ActionError("action already executed")),
-            Self::NeedsTargeting { action } => action,
-        };
-        match **action {
-            ActionEffect::DealDamage {
-                target,
-                amount,
-                source,
-            } if target.verify(targets) => {
-                targets
-                    .iter()
-                    .for_each(|tile| context.get_board_mut().do_damage(tile, amount));
-                Ok(None)
-            }
-            ActionEffect::HealCreature {
-                target,
-                amount,
-                source,
-            } if target.verify(targets) => {
-                targets
-                    .iter()
-                    .for_each(|tile| context.get_board_mut().heal_creature(tile, amount));
-                Ok(None)
-            }
-            ActionEffect::DestroyCreature { target } => {
-                if target.verify(targets) {
-                    targets
-                        .iter()
-                        .for_each(|tile| context.get_board_mut().destroy_card(tile));
-                }
-                Ok(None)
-            }
-            _ => Err(Error::ActionError("not implemented for ExecutionResult")),
-        }
-    }
-}
 
 // Core action trait
 
@@ -74,6 +21,12 @@ pub trait GameAction {
     fn can_execute(&self, context: &GameContext) -> Result<(), Error>;
     fn has_targeting_type(&self) -> bool;
     fn targeting_type(&self) -> Option<TargetingType>;
+    fn execute_with_targets(
+        &self,
+        context: &mut GameContext,
+        card_registry: &CardRegistry,
+        targets: &[I16Vec2],
+    ) -> Result<Option<Event>, Error>;
 }
 
 pub trait GameActionWithTargets: GameAction {}
@@ -111,7 +64,7 @@ impl TargetingType {
         }
     }
 
-    fn verify(&self, targets: &[I16Vec2]) -> bool {
+    pub fn verify(&self, targets: &[I16Vec2]) -> bool {
         todo!()
     }
 }
@@ -128,18 +81,19 @@ pub enum ActionEffect {
         card_index: usize,
         player_id: PlayerID,
     },
-
-    ExecuteSpell {
-        target: TargetingType,
-        card_id: CardID,
-        owner: PlayerID,
+    PlaceTrap {
+        card_index: usize,
+        position: I16Vec2,
+        player_id: PlayerID,
     },
+
     MoveCreature {
         from: I16Vec2,
         to: I16Vec2,
         player_id: PlayerID,
     },
     EndTurn,
+
     // Atomic game effects (what cards actually do)
     DealDamage {
         target: TargetingType,
@@ -171,6 +125,11 @@ pub enum ActionEffect {
     },
     DestroyCreature {
         target: TargetingType,
+    },
+
+    WithTargets {
+        action: Box<Action>,
+        targets: Vec<I16Vec2>,
     },
 
     // Composite actions
@@ -233,9 +192,6 @@ impl GameAction for ActionEffect {
                     *position,
                     card_registry,
                 )?;
-                let Some(Card::Creature(creature)) = card_registry.get(&card_id) else {
-                    panic!("This is a wild case");
-                };
                 let event = Some(Event::CreaturePlayed {
                     card_id,
                     owner: *player_id,
@@ -246,11 +202,8 @@ impl GameAction for ActionEffect {
                 card_index,
                 player_id,
             } => {
-                let card_id = context.execute_spell_cast(*player_id, *card_index, card_registry)?;
-
-                let Some(Card::Spell(card)) = card_registry.get(&card_id) else {
-                    panic!("Absolutely impossible");
-                };
+                let card_id =
+                    context.cast_spell_from_hand(*player_id, *card_index, card_registry)?;
                 let event = Some(Event::SpellPlayed {
                     card_id,
                     owner: *player_id,
@@ -260,6 +213,11 @@ impl GameAction for ActionEffect {
             Self::EndTurn => Ok(ExecutionResult::Executed {
                 event: Some(Event::TurnEnd),
             }),
+            Self::WithTargets { action, targets } => {
+                let event =
+                    action.execute_with_targets(context, card_registry, targets.as_slice())?;
+                Ok(ExecutionResult::Executed { event })
+            }
             _ => Err(Error::Incomplete(
                 "Wrong action type, you should use a ConcreteAction",
             )),
@@ -275,16 +233,18 @@ impl GameAction for ActionEffect {
     /// Returns true if this action effect requires targeting from the player
     fn has_targeting_type(&self) -> bool {
         match self {
-            ActionEffect::PlaceCreature { .. } => false,
-            ActionEffect::CastSpell { .. } => false,
-            ActionEffect::MoveCreature { .. } => false,
-            ActionEffect::DealDamage { target, .. } => target.requires_selection(),
-            ActionEffect::HealCreature { target, .. } => target.requires_selection(),
-            ActionEffect::ApplyEffect { tiles, .. } => tiles.requires_selection(),
-            ActionEffect::DestroyCreature { target } => target.requires_selection(),
-            ActionEffect::DrawCards { .. } => false,
-            ActionEffect::AddGold { .. } => false,
-            ActionEffect::SummonCreature { .. } => false,
+            ActionEffect::DealDamage { target, .. }
+            | ActionEffect::HealCreature { target, .. }
+            | ActionEffect::ApplyEffect { tiles: target, .. }
+            | ActionEffect::DestroyCreature { target } => target.requires_selection(),
+            ActionEffect::PlaceCreature { .. }
+            | ActionEffect::PlaceTrap { .. }
+            | ActionEffect::CastSpell { .. }
+            | ActionEffect::MoveCreature { .. }
+            | ActionEffect::DrawCards { .. }
+            | ActionEffect::AddGold { .. }
+            | ActionEffect::SummonCreature { .. }
+            | ActionEffect::WithTargets { .. } => false,
             ActionEffect::Sequence(actions) => {
                 actions.iter().any(|action| action.has_targeting_type())
             }
@@ -305,11 +265,6 @@ impl GameAction for ActionEffect {
                 target: targeting,
             } => targeting.requires_selection(),
             ActionEffect::EndTurn => false,
-            ActionEffect::ExecuteSpell {
-                target,
-                card_id,
-                owner,
-            } => target.requires_selection(),
         }
     }
 
@@ -378,6 +333,42 @@ impl GameAction for ActionEffect {
             _ => None,
         }
     }
+    fn execute_with_targets(
+        &self,
+        context: &mut GameContext,
+        card_registry: &CardRegistry,
+        targets: &[I16Vec2],
+    ) -> Result<Option<Event>, Error> {
+        match self {
+            ActionEffect::DealDamage {
+                target,
+                amount,
+                source,
+            } if target.verify(targets) => {
+                targets
+                    .iter()
+                    .for_each(|tile| context.get_board_mut().do_damage(tile, *amount));
+                Ok(None)
+            }
+            ActionEffect::HealCreature {
+                target,
+                amount,
+                source,
+            } if target.verify(targets) => {
+                targets
+                    .iter()
+                    .for_each(|tile| context.get_board_mut().heal_creature(tile, *amount));
+                Ok(None)
+            }
+            ActionEffect::DestroyCreature { target } => {
+                if target.verify(targets) {
+                    targets
+                        .iter()
+                        .for_each(|tile| context.get_board_mut().destroy_card(tile));
+                }
+                Ok(None)
+            }
+            _ => Err(Error::ActionError("not implemented for ExecutionResult")),
+        }
+    }
 }
-
-impl ActionEffect {}

@@ -1,23 +1,32 @@
-use std::collections::BinaryHeap;
+use std::{collections::BinaryHeap, fmt::Debug};
 
 use crate::game::{
-    card::card_registry::{self, CardRegistry},
+    card::card_registry::CardRegistry,
     error::Error,
     events::{
         action::{Action, ActionTiming},
-        action_effect::ExecutionResult,
-        event::Event,
         event_stack::EventStack,
+        execution_result::ExecutionResult,
     },
     game_context::GameContext,
     phases::Phase,
 };
-#[derive(Debug, Clone)]
+
 pub struct ScheduledAction {
     pub action: Action,
     pub execute_turn: u32,
     pub execute_phase: Phase,
     pub insertion_order: u32, // For tie-breaking
+}
+
+impl Debug for ScheduledAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ScheduledAction")
+            .field("execute_turn", &self.execute_turn)
+            .field("execute_phase", &self.execute_phase)
+            .field("insertion_order", &self.insertion_order)
+            .finish()
+    }
 }
 
 impl PartialEq for ScheduledAction {
@@ -68,7 +77,7 @@ impl EventManager {
         }
     }
 
-    pub fn schedule(&mut self, action: &Action) {
+    pub fn schedule(&mut self, action: Action) {
         match &action.timing {
             ActionTiming::Immediate => self.stack.schedule(action.to_owned()),
             ActionTiming::Delayed { phase, turns } => {

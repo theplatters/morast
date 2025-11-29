@@ -17,7 +17,6 @@ pub struct ActionBuilder {
     timing: ActionTiming,
     speed: SpellSpeed,
     priority: u32,
-    source: Option<InPlayID>,
     player: Option<PlayerID>,
     can_be_countered: bool,
 }
@@ -29,7 +28,6 @@ impl ActionBuilder {
             timing: ActionTiming::Immediate,
             speed: SpellSpeed::Slow,
             priority: 0,
-            source: None,
             player: None,
             can_be_countered: true,
         }
@@ -43,6 +41,16 @@ impl ActionBuilder {
         player_id: PlayerID,
     ) -> Self {
         self.action = Some(ActionEffect::PlaceCreature {
+            card_index,
+            position,
+            player_id,
+        });
+        self.player = Some(player_id);
+        self
+    }
+
+    pub fn place_trap(mut self, card_index: usize, position: I16Vec2, player_id: PlayerID) -> Self {
+        self.action = Some(ActionEffect::PlaceTrap {
             card_index,
             position,
             player_id,
@@ -81,7 +89,6 @@ impl ActionBuilder {
             amount,
             source,
         });
-        self.source = Some(source);
         self
     }
 
@@ -91,7 +98,6 @@ impl ActionBuilder {
             amount,
             source,
         });
-        self.source = Some(source);
         self
     }
 
@@ -229,11 +235,6 @@ impl ActionBuilder {
         self
     }
 
-    pub fn with_source(mut self, source: InPlayID) -> Self {
-        self.source = Some(source);
-        self
-    }
-
     pub fn with_player(mut self, player: PlayerID) -> Self {
         self.player = Some(player);
         self
@@ -249,12 +250,16 @@ impl ActionBuilder {
         self
     }
 
+    pub fn play_command_speed(mut self) -> Self {
+        self.can_be_countered = true;
+        self.speed = SpellSpeed::Slow;
+        self.timing = ActionTiming::Immediate;
+        self
+    }
+
     // Build the final Action
     pub fn build(self) -> Result<Action, ActionBuilderError> {
         let action = self.action.ok_or(ActionBuilderError::NoActionSet)?;
-        let source = self
-            .source
-            .ok_or(ActionBuilderError::MissingRequiredField("source"))?;
         let player = self
             .player
             .ok_or(ActionBuilderError::MissingRequiredField("source"))?;
@@ -264,7 +269,6 @@ impl ActionBuilder {
             timing: self.timing,
             speed: self.speed,
             priority: self.priority,
-            source,
             player,
             can_be_countered: self.can_be_countered,
         })
@@ -277,10 +281,18 @@ impl ActionBuilder {
             timing: self.timing,
             speed: self.speed,
             priority: self.priority,
-            source: self.source.unwrap(),
             player: self.player.unwrap(),
             can_be_countered: self.can_be_countered,
         }
+    }
+
+    pub(crate) fn with_targets(
+        mut self,
+        action: Box<Action>,
+        targets: Vec<I16Vec2>,
+    ) -> ActionBuilder {
+        self.action = Some(ActionEffect::WithTargets { action, targets });
+        self
     }
 }
 
@@ -324,7 +336,7 @@ impl ActionBuilder {
             source,
         };
 
-        Self::new().with_action(damage_action).with_source(source)
+        Self::new().with_action_effect(damage_action)
     }
 
     pub fn area_heal(radius: u8, amount: u16, source: InPlayID) -> Self {
@@ -334,10 +346,7 @@ impl ActionBuilder {
             source,
         };
 
-        Self::new()
-            .with_action(heal_action)
-            .with_source(source)
-            .with_source(source)
+        Self::new().with_action_effect(heal_action)
     }
 }
 
@@ -367,12 +376,12 @@ impl std::error::Error for ActionBuilderError {}
 // Convenience trait for converting ActionEffect to Action
 impl From<ActionEffect> for ActionBuilder {
     fn from(effect: ActionEffect) -> Self {
-        Self::new().with_action(effect)
+        Self::new().with_action_effect(effect)
     }
 }
 
 impl ActionBuilder {
-    fn with_action(mut self, action: ActionEffect) -> Self {
+    fn with_action_effect(mut self, action: ActionEffect) -> Self {
         self.action = Some(action);
         self
     }

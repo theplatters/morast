@@ -7,7 +7,6 @@ use crate::{
     engine::janet_handler::{bindings::janet_getsymbol, types::janetenum::ptr_to_i16_vec},
     game::{
         board::effect::{Effect, EffectType},
-        events::event_manager::EventManager,
         game_context::GameContext,
         player::PlayerID,
     },

@@ -5,18 +5,24 @@ use macroquad::math::I16Vec2;
 use crate::{
     engine::{input_handler::InputHandler, renderer::render_config::RenderConfig},
     game::{
-        card::{card_id::CardID, card_registry::CardRegistry, Card},
+        card::{card_registry::CardRegistry, Card},
         error::Error,
         events::{
+            action::Action,
             action_effect::{GameAction, TargetingType},
             event::Event,
+            execution_result::ExecutionResult,
         },
         game_context::GameContext,
-        turn_controller::play_command::PlayCommand,
+        turn_controller::{
+            play_command::{PlayCommand, PlayCommandEffect},
+            play_command_builder::PlayCommandBuilder,
+        },
     },
 };
 
 pub mod play_command;
+pub mod play_command_builder;
 
 #[derive(Clone)]
 pub enum TurnState {
@@ -78,7 +84,7 @@ impl PartialEq for TurnState {
 pub struct TurnController {
     pub state: TurnState,
     input_handler: InputHandler,
-    pending_action: Option<Box<dyn GameAction>>,
+    pending_action: Option<Box<Action>>,
 }
 
 impl TurnController {
@@ -97,7 +103,6 @@ impl TurnController {
         card_registry: &CardRegistry,
     ) -> Result<Option<PlayCommand>, Error> {
         // Handle input based on current state
-
         match self.state.clone() {
             TurnState::Idle => self.handle_idle_state(context),
             TurnState::CardSelected { card_index } => {
@@ -107,7 +112,12 @@ impl TurnController {
                 targeting_type,
                 selected_targets,
                 remaining_targets,
-            } => self.handle_targeting(&targeting_type, &selected_targets, remaining_targets),
+            } => self.handle_targeting(
+                &targeting_type,
+                &selected_targets,
+                remaining_targets,
+                context,
+            ),
             TurnState::FigureSelected { position } => {
                 self.handle_figure_selected(&position, context, card_registry)
             }
@@ -120,6 +130,7 @@ impl TurnController {
     }
 
     pub(crate) fn reset_state(&mut self) {
+        self.pending_action = None;
         self.state = TurnState::Idle;
     }
 
@@ -129,11 +140,10 @@ impl TurnController {
 
     pub(crate) fn process_execution_results(
         &mut self,
-        execution_result: super::events::action_effect::ExecutionResult,
+        execution_result: ExecutionResult,
     ) -> Result<(), Error> {
         match execution_result {
-            super::events::action_effect::ExecutionResult::Executed { event } => todo!(),
-            super::events::action_effect::ExecutionResult::NeedsTargeting { action } => {
+            ExecutionResult::NeedsTargeting { action } => {
                 let targeting_type = action.targeting_type().expect("Targeting type expected");
                 self.pending_action = Some(action);
                 self.state = TurnState::AwaitingTargets {
@@ -142,6 +152,7 @@ impl TurnController {
                     remaining_targets: targeting_type.required_targets(),
                 }
             }
+            ExecutionResult::Executed { event } => todo!(),
         }
         Ok(())
     }
@@ -151,16 +162,17 @@ impl TurnController {
     fn handle_targeting(
         &mut self,
         targeting_type: &TargetingType,
-        selected_targets: &Vec<I16Vec2>,
+        selected_targets: &[I16Vec2],
         remaining_targets: u8,
+        context: &GameContext,
     ) -> Result<Option<PlayCommand>, Error> {
         let Some(next_target) = self.input_handler.get_board_click() else {
             return Ok(None);
         };
 
         let mut targets = selected_targets.to_owned();
-
         targets.push(next_target);
+
         if remaining_targets > 1 {
             self.state = TurnState::AwaitingTargets {
                 targeting_type: *targeting_type,
@@ -170,10 +182,14 @@ impl TurnController {
             Ok(None)
         } else {
             let action = self.pending_action.take().expect("Expected pending action");
-            Ok(Some(PlayCommand::ExecuteActionWithTargets {
-                action,
-                targets,
-            }))
+            let current_player = context.turn_player_id();
+
+            let command = PlayCommandBuilder::new()
+                .with_effect(PlayCommandEffect::ExecuteActionWithTargets { action, targets })
+                .with_owner(current_player)
+                .build();
+
+            Ok(Some(command))
         }
     }
 
@@ -186,15 +202,24 @@ impl TurnController {
         let Some(next_position) = self.input_handler.get_board_click() else {
             return Ok(None);
         };
+
         print!(
             "Sending move command from {} to {}",
             position, next_position
         );
+
         self.state = TurnState::Idle;
-        Ok(Some(PlayCommand::MoveCreature {
-            from: *position,
-            to: next_position,
-        }))
+        let current_player = context.turn_player_id();
+
+        let command = PlayCommandBuilder::new()
+            .with_effect(PlayCommandEffect::MoveCreature {
+                from: *position,
+                to: next_position,
+            })
+            .with_owner(current_player)
+            .build();
+
+        Ok(Some(command))
     }
 
     fn handle_idle_state(&mut self, context: &GameContext) -> Result<Option<PlayCommand>, Error> {
@@ -243,19 +268,25 @@ impl TurnController {
             .get_card_in_hand(card_index)
             .ok_or(Error::InvalidHandPosition(card_index))?;
         let card = card_registry.get(&card_id).ok_or(Error::CardNotFound)?;
-        match card {
-            Card::Creature(_) => Ok(Some(PlayCommand::PlaceCreature {
+        let current_player = context.turn_player_id();
+
+        let effect = match card {
+            Card::Creature(_) => PlayCommandEffect::PlaceCreature {
                 card_index,
                 position: pos,
-            })),
-            Card::Spell(_) => Ok(Some(PlayCommand::CastSpell {
-                card_index,
-                targets: vec![pos],
-            })),
-            Card::Trap(_) => Ok(Some(PlayCommand::PlaceTrap {
+            },
+            Card::Spell(_) => PlayCommandEffect::CastSpell { card_index },
+            Card::Trap(_) => PlayCommandEffect::PlaceTrap {
                 card_index,
                 position: pos,
-            })),
-        }
+            },
+        };
+
+        let command = PlayCommandBuilder::new()
+            .with_effect(effect)
+            .with_owner(current_player)
+            .build();
+
+        Ok(Some(command))
     }
 }

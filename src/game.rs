@@ -75,7 +75,7 @@ impl Game {
                     .turn_controller
                     .update(&mut self.context, &self.card_registry)?
                 {
-                    play_command.execute(&mut self.context, &self.card_registry);
+                    self.scheduler.schedule(play_command.into());
                 }
 
                 let events = self
