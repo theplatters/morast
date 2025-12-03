@@ -2,7 +2,7 @@ use macroquad::math::I16Vec2;
 
 use crate::game::{
     card::{abilities::Abilities, CardBehavior},
-    events::action::Action,
+    events::{action::Action, action_prototype::ActionPrototype},
 };
 
 #[derive(Debug)]
@@ -14,11 +14,11 @@ pub struct Creature {
     pub attack_strength: u16,
     pub defense: u16,
     pub cost: u16,
-    pub play_action: Option<Action>,
-    pub turn_begin_action: Option<Action>,
-    pub turn_end_action: Option<Action>,
-    pub draw_action: Option<Action>,
-    pub discard_action: Option<Action>,
+    pub play_action: Option<ActionPrototype>,
+    pub turn_begin_action: Option<ActionPrototype>,
+    pub turn_end_action: Option<ActionPrototype>,
+    pub draw_action: Option<ActionPrototype>,
+    pub discard_action: Option<ActionPrototype>,
     pub abilities: Vec<Abilities>,
     pub description: String,
     pub display_image_asset_string: String,
@@ -51,11 +51,11 @@ impl Creature {
         attack_strength: u16,
         defense: u16,
         cost: u16,
-        play_action: Option<Action>,
-        turn_begin_action: Option<Action>,
-        turn_end_action: Option<Action>,
-        draw_action: Option<Action>,
-        discard_action: Option<Action>,
+        play_action: Option<ActionPrototype>,
+        turn_begin_action: Option<ActionPrototype>,
+        turn_end_action: Option<ActionPrototype>,
+        draw_action: Option<ActionPrototype>,
+        discard_action: Option<ActionPrototype>,
         abilities: Vec<Abilities>,
         description: String,
         display_image_asset_string: String,

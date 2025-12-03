@@ -8,7 +8,6 @@ use crate::{
             action_builder::ActionBuilder,
             action_effect::{ActionEffect, GameAction},
             event::Event,
-            execution_result::ExecutionResult,
         },
         phases::Phase,
         player::PlayerID,
@@ -49,7 +48,7 @@ impl GameAction for Action {
         &self,
         context: &mut crate::game::game_context::GameContext,
         card_registry: &crate::game::card::card_registry::CardRegistry,
-    ) -> Result<ExecutionResult, crate::game::error::Error> {
+    ) -> Result<Option<Event>, crate::game::error::Error> {
         self.action.execute(context, card_registry)
     }
 
@@ -58,24 +57,6 @@ impl GameAction for Action {
         context: &crate::game::game_context::GameContext,
     ) -> Result<(), crate::game::error::Error> {
         self.action.can_execute(context)
-    }
-
-    fn has_targeting_type(&self) -> bool {
-        self.action.has_targeting_type()
-    }
-
-    fn targeting_type(&self) -> Option<super::action_effect::TargetingType> {
-        self.action.targeting_type()
-    }
-
-    fn execute_with_targets(
-        &self,
-        context: &mut crate::game::game_context::GameContext,
-        card_registry: &crate::game::card::card_registry::CardRegistry,
-        targets: &[macroquad::prelude::I16Vec2],
-    ) -> Result<Option<Event>, crate::game::error::Error> {
-        self.action
-            .execute_with_targets(context, card_registry, targets)
     }
 }
 

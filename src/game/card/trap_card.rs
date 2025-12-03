@@ -1,12 +1,14 @@
-use crate::game::card::Placeable;
-use crate::game::{card::CardBehavior, events::action::Action};
+use crate::game::{
+    card::CardBehavior,
+    events::{action::Action, action_prototype::ActionPrototype},
+};
 
 #[derive(Debug)]
 pub struct Trap {
     name: String,
     description: String,
-    on_play_action: Option<Action>,
-    reveal_action: Option<Action>,
+    on_play_action: Option<ActionPrototype>,
+    reveal_action: Option<ActionPrototype>,
     cost: u16,
     display_image_asset_string: String,
 }
@@ -34,8 +36,8 @@ impl Trap {
         name: String,
         cost: u16,
         description: String,
-        place_action: Option<Action>,
-        reveal_action: Option<Action>,
+        place_action: Option<ActionPrototype>,
+        reveal_action: Option<ActionPrototype>,
         display_image_asset_string: String,
     ) -> Self {
         Self {

@@ -3,13 +3,25 @@ use crate::game::{
     card::{card_id::CardID, in_play_id::InPlayID},
     events::{
         action::{Action, ActionTiming, SpellSpeed},
-        action_effect::{ActionEffect, Condition, CreatureFilter, TargetingType},
+        action_context::ActionContext,
+        action_effect::{ActionEffect, Condition, TargetingType},
+        action_prototype::{ActionEffectPrototype, ActionPrototype},
         event::Event,
     },
     phases::Phase,
     player::PlayerID,
 };
 use macroquad::math::I16Vec2;
+// The verification macro
+macro_rules! verify_targets {
+    ($targeting_type:expr, $targets:expr) => {{
+        let targets = $targets;
+        match $targeting_type.verify(&targets) {
+            true => targets,
+            false => return Err(ActionBuilderError::InvalidTargeting),
+        }
+    }};
+}
 
 #[derive(Debug, Clone)]
 pub struct ActionBuilder {
@@ -31,6 +43,167 @@ impl ActionBuilder {
             player: None,
             can_be_countered: true,
         }
+    }
+
+    // NEW: Create ActionBuilder from prototype + context
+    pub fn with_prototype(
+        mut self,
+        proto: ActionPrototype,
+        ctx: ActionContext,
+    ) -> Result<Self, ActionBuilderError> {
+        let effect = Self::finalize_prototype_effect(proto.action, &ctx)?;
+
+        // Set player from context if available
+        let Some(player_id) = ctx.player_id else {
+            return Err(ActionBuilderError::MissingRequiredField("player id"));
+        };
+
+        self.action = Some(effect);
+        self.player = Some(player_id);
+        self.speed = proto.speed;
+        self.timing = proto.timing;
+
+        Ok(self)
+    }
+
+    // Convert ActionEffectPrototype to ActionEffect using context
+    fn finalize_prototype_effect(
+        proto: ActionEffectPrototype,
+        ctx: &ActionContext,
+    ) -> Result<ActionEffect, ActionBuilderError> {
+        // Helper macro to extract required fields
+        macro_rules! req {
+            ($field:ident) => {
+                ctx.$field
+                    .ok_or(ActionBuilderError::MissingRequiredField(stringify!($field)))?
+            };
+            ($field:ident.clone()) => {
+                ctx.$field
+                    .clone()
+                    .ok_or(ActionBuilderError::MissingRequiredField(stringify!($field)))?
+            };
+
+            ($field:ident.clone().verify()) => {
+                ctx.$field
+                    .clone()
+                    .ok_or(ActionBuilderError::MissingRequiredField(stringify!($field)))?
+            };
+        }
+
+        use ActionEffect as E;
+        use ActionEffectPrototype as P;
+
+        Ok(match proto {
+            // Actions requiring source + targets
+            P::DealDamage {
+                targeting_type,
+                amount,
+            } => {
+                let (source, target) = (
+                    req!(source),
+                    verify_targets!(targeting_type, req!(targets.clone())),
+                );
+
+                E::DealDamage {
+                    target,
+                    amount,
+                    source,
+                }
+            }
+            P::HealCreature {
+                targeting_type,
+                amount,
+            } => E::HealCreature {
+                target: verify_targets!(targeting_type, req!(targets.clone())),
+                amount,
+                source: req!(source),
+            },
+            P::DestroyCreature { targeting_type } => E::DestroyCreature {
+                targets: verify_targets!(targeting_type, req!(targets.clone())),
+            },
+            P::ApplyEffect {
+                effect,
+                targeting_type,
+                duration,
+            } => E::ApplyEffect {
+                effect,
+                targets: verify_targets!(targeting_type, req!(targets.clone())),
+                duration,
+            },
+
+            // Actions requiring player + card_index + position
+            P::PlaceCreature {} => E::PlaceCreature {
+                card_index: req!(card_index),
+                position: req!(position),
+                player_id: req!(player_id),
+            },
+            P::PlaceTrap => E::PlaceTrap {
+                card_index: req!(card_index),
+                position: req!(position),
+                player_id: req!(player_id),
+            },
+
+            // Actions requiring player + card_index
+            P::CastSpell => E::CastSpell {
+                card_index: req!(card_index),
+                player_id: req!(player_id),
+            },
+
+            // Actions requiring player only
+            P::DrawCards { count } => E::DrawCards {
+                player_id: req!(player_id),
+                count,
+            },
+            P::AddGold { amount } => E::AddGold {
+                player_id: req!(player_id),
+                amount,
+            },
+
+            // Actions requiring position + owner
+            P::SummonCreature { creature_id } => E::SummonCreature {
+                creature_id,
+                position: req!(position),
+                owner: req!(player_id),
+            },
+
+            // Actions requiring from/to positions
+            P::MoveCreature => E::MoveCreature {
+                from: req!(from),
+                to: req!(to),
+                player_id: req!(player_id),
+            },
+
+            // No context required
+            P::EndTurn => E::EndTurn,
+
+            // Recursive cases
+            P::Sequence(protos) => E::Sequence(
+                protos
+                    .into_iter()
+                    .map(|p| Self::finalize_prototype_effect(p, ctx))
+                    .collect::<Result<Vec<_>, _>>()?,
+            ),
+            P::Conditional {
+                condition,
+                then_action,
+                else_action,
+            } => E::Conditional {
+                condition,
+                then_action: Box::new(Self::finalize_prototype_effect(*then_action, ctx)?),
+                else_action: else_action
+                    .map(|e| Self::finalize_prototype_effect(*e, ctx))
+                    .transpose()?
+                    .map(Box::new),
+            },
+
+            P::Custom {
+                action,
+                targeting_type,
+            } => {
+                let target = verify_targets!(targeting_type, req!(targets.clone()));
+                E::Custom { action, target }
+            }
+        })
     }
 
     // Core action setters
@@ -83,7 +256,7 @@ impl ActionBuilder {
         self
     }
 
-    pub fn deal_damage(mut self, target: TargetingType, amount: u16, source: InPlayID) -> Self {
+    pub fn deal_damage(mut self, target: Vec<I16Vec2>, amount: u16, source: InPlayID) -> Self {
         self.action = Some(ActionEffect::DealDamage {
             target,
             amount,
@@ -92,7 +265,7 @@ impl ActionBuilder {
         self
     }
 
-    pub fn heal_creature(mut self, target: TargetingType, amount: u16, source: InPlayID) -> Self {
+    pub fn heal_creature(mut self, target: Vec<I16Vec2>, amount: u16, source: InPlayID) -> Self {
         self.action = Some(ActionEffect::HealCreature {
             target,
             amount,
@@ -113,10 +286,10 @@ impl ActionBuilder {
         self
     }
 
-    pub fn apply_effect(mut self, effect: Effect, tiles: TargetingType, duration: u32) -> Self {
+    pub fn apply_effect(mut self, effect: Effect, targets: Vec<I16Vec2>, duration: u32) -> Self {
         self.action = Some(ActionEffect::ApplyEffect {
             effect,
-            tiles,
+            targets,
             duration,
         });
         self
@@ -137,8 +310,8 @@ impl ActionBuilder {
         self
     }
 
-    pub fn destroy_creature(mut self, target: TargetingType) -> Self {
-        self.action = Some(ActionEffect::DestroyCreature { target });
+    pub fn destroy_creature(mut self, targets: Vec<I16Vec2>) -> Self {
+        self.action = Some(ActionEffect::DestroyCreature { targets });
         self
     }
 
@@ -158,23 +331,6 @@ impl ActionBuilder {
             condition,
             then_action: Box::new(then_action),
             else_action: else_action.map(Box::new),
-        });
-        self
-    }
-
-    pub fn for_each_in_area(mut self, center: I16Vec2, radius: u8, action: ActionEffect) -> Self {
-        self.action = Some(ActionEffect::ForEachInArea {
-            center,
-            radius,
-            action: Box::new(action),
-        });
-        self
-    }
-
-    pub fn for_each_creature(mut self, filter: CreatureFilter, action: ActionEffect) -> Self {
-        self.action = Some(ActionEffect::ForEachCreature {
-            filter,
-            action: Box::new(action),
         });
         self
     }
@@ -304,11 +460,11 @@ impl Default for ActionBuilder {
 
 // Convenience constructors for common action types
 impl ActionBuilder {
-    pub fn damage(target: TargetingType, amount: u16, source: InPlayID) -> Self {
+    pub fn damage(target: Vec<I16Vec2>, amount: u16, source: InPlayID) -> Self {
         Self::new().deal_damage(target, amount, source)
     }
 
-    pub fn heal(target: TargetingType, amount: u16, source: InPlayID) -> Self {
+    pub fn heal(target: Vec<I16Vec2>, amount: u16, source: InPlayID) -> Self {
         Self::new().heal_creature(target, amount, source)
     }
 
@@ -324,29 +480,8 @@ impl ActionBuilder {
         Self::new().summon_creature(creature_id, position, owner)
     }
 
-    pub fn destroy(target: TargetingType) -> Self {
+    pub fn destroy(target: Vec<I16Vec2>) -> Self {
         Self::new().destroy_creature(target)
-    }
-
-    // Area effect builders
-    pub fn area_damage(radius: u8, amount: u16, source: InPlayID) -> Self {
-        let damage_action = ActionEffect::DealDamage {
-            target: TargetingType::Area { radius }, // Will be replaced by for_each
-            amount,
-            source,
-        };
-
-        Self::new().with_action_effect(damage_action)
-    }
-
-    pub fn area_heal(radius: u8, amount: u16, source: InPlayID) -> Self {
-        let heal_action = ActionEffect::HealCreature {
-            target: TargetingType::Area { radius },
-            amount,
-            source,
-        };
-
-        Self::new().with_action_effect(heal_action)
     }
 }
 
@@ -355,6 +490,7 @@ pub enum ActionBuilderError {
     NoActionSet,
     MissingRequiredField(&'static str),
     InvalidConfiguration(String),
+    InvalidTargeting,
 }
 
 impl std::fmt::Display for ActionBuilderError {
@@ -367,6 +503,7 @@ impl std::fmt::Display for ActionBuilderError {
             ActionBuilderError::InvalidConfiguration(msg) => {
                 write!(f, "Invalid configuration: {}", msg)
             }
+            ActionBuilderError::InvalidTargeting => write!(f, "Invalid targeting"),
         }
     }
 }

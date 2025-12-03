@@ -12,19 +12,16 @@ use crate::{
         janet_handler::controller::Environment,
         renderer::{render_config::RenderConfig, Renderer},
     },
-    game::{
-        events::{action::Action, action_effect::GameAction},
-        turn_controller::TurnController,
-    },
+    game::turn_controller::TurnController,
 };
 
 pub mod board;
 pub mod card;
 pub mod error;
 pub mod events;
-pub mod game_action;
 pub mod game_context;
 pub mod game_objects;
+pub mod janet_action;
 mod phases;
 pub mod player;
 pub mod turn_controller;
@@ -83,7 +80,7 @@ impl Game {
                     .process_events(&mut self.context, &self.card_registry)?;
 
                 for event in events {
-                    self.turn_controller.process_execution_results(event)?;
+                    self.turn_controller.process_event(event)?;
                 }
 
                 self.renderer.render(

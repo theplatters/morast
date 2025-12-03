@@ -5,8 +5,8 @@ use crate::game::{
     error::Error,
     events::{
         action::{Action, ActionTiming},
+        event::Event,
         event_stack::EventStack,
-        execution_result::ExecutionResult,
     },
     game_context::GameContext,
     phases::Phase,
@@ -98,7 +98,7 @@ impl EventManager {
         &mut self,
         context: &mut GameContext,
         card_registry: &CardRegistry,
-    ) -> Result<Vec<ExecutionResult>, Error> {
+    ) -> Result<Vec<Event>, Error> {
         self.stack.process_events(context, card_registry)
     }
 

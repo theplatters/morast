@@ -4,7 +4,7 @@ use crate::game::{
         trap_card::Trap, Card,
     },
     error::Error,
-    events::action::Action,
+    events::{action::Action, action_prototype::ActionPrototype},
 };
 use macroquad::math::I16Vec2;
 
@@ -25,22 +25,22 @@ pub struct CreatureBuilder {
     attack_strength: Option<u16>,
     defense: Option<u16>,
     abilities: Option<Vec<Abilities>>,
-    on_play_action: Option<Action>,
-    turn_begin_action: Option<Action>,
-    turn_end_action: Option<Action>,
-    draw_action: Option<Action>,
-    discard_action: Option<Action>,
+    on_play_action: Option<ActionPrototype>,
+    turn_begin_action: Option<ActionPrototype>,
+    turn_end_action: Option<ActionPrototype>,
+    draw_action: Option<ActionPrototype>,
+    discard_action: Option<ActionPrototype>,
 }
 
 pub struct SpellBuilder {
     common: CardBuilder,
-    on_play_action: Option<Action>,
+    on_play_action: Option<ActionPrototype>,
 }
 
 pub struct TrapBuilder {
     common: CardBuilder,
-    on_play_action: Option<Action>,
-    reveal_action: Option<Action>,
+    on_play_action: Option<ActionPrototype>,
+    reveal_action: Option<ActionPrototype>,
 }
 
 impl CardBuilder {
@@ -179,53 +179,53 @@ impl CreatureBuilder {
     }
 
     // Optional on_play_action for creatures
-    pub fn on_play_action_option(mut self, action: Option<Action>) -> Self {
+    pub fn on_play_action_option(mut self, action: Option<ActionPrototype>) -> Self {
         self.on_play_action = action;
         self
     }
 
-    pub fn turn_begin_action_option(mut self, action: Option<Action>) -> Self {
+    pub fn turn_begin_action_option(mut self, action: Option<ActionPrototype>) -> Self {
         self.turn_begin_action = action;
         self
     }
 
-    pub fn turn_end_action_option(mut self, action: Option<Action>) -> Self {
+    pub fn turn_end_action_option(mut self, action: Option<ActionPrototype>) -> Self {
         self.turn_end_action = action;
         self
     }
 
-    pub fn draw_action_option(mut self, action: Option<Action>) -> Self {
+    pub fn draw_action_option(mut self, action: Option<ActionPrototype>) -> Self {
         self.draw_action = action;
         self
     }
 
-    pub fn discard_action_option(mut self, action: Option<Action>) -> Self {
+    pub fn discard_action_option(mut self, action: Option<ActionPrototype>) -> Self {
         self.discard_action = action;
         self
     }
 
     // Optional on_play_action for creatures
-    pub fn on_play_action(mut self, action: Action) -> Self {
+    pub fn on_play_action(mut self, action: ActionPrototype) -> Self {
         self.on_play_action = Some(action);
         self
     }
 
-    pub fn turn_begin_action(mut self, action: Action) -> Self {
+    pub fn turn_begin_action(mut self, action: ActionPrototype) -> Self {
         self.turn_begin_action = Some(action);
         self
     }
 
-    pub fn turn_end_action(mut self, action: Action) -> Self {
+    pub fn turn_end_action(mut self, action: ActionPrototype) -> Self {
         self.turn_end_action = Some(action);
         self
     }
 
-    pub fn draw_action(mut self, action: Action) -> Self {
+    pub fn draw_action(mut self, action: ActionPrototype) -> Self {
         self.draw_action = Some(action);
         self
     }
 
-    pub fn discard_action(mut self, action: Action) -> Self {
+    pub fn discard_action(mut self, action: ActionPrototype) -> Self {
         self.discard_action = Some(action);
         self
     }
@@ -284,7 +284,7 @@ impl SpellBuilder {
     }
 
     // Required on_play_action for spells
-    pub fn on_play_action(mut self, action: Action) -> Self {
+    pub fn on_play_action(mut self, action: ActionPrototype) -> Self {
         self.on_play_action = Some(action);
         self
     }
@@ -338,17 +338,17 @@ impl TrapBuilder {
     }
 
     // Optional on_play_action for traps
-    pub fn on_play_action(mut self, action: Option<Action>) -> Self {
+    pub fn on_play_action(mut self, action: Option<ActionPrototype>) -> Self {
         self.on_play_action = action;
         self
     }
 
-    pub fn reveal_action(mut self, action: Action) -> Self {
+    pub fn reveal_action(mut self, action: ActionPrototype) -> Self {
         self.reveal_action = Some(action);
         self
     }
 
-    pub fn reveal_action_optional(mut self, action: Option<Action>) -> Self {
+    pub fn reveal_action_optional(mut self, action: Option<ActionPrototype>) -> Self {
         self.reveal_action = action;
         self
     }

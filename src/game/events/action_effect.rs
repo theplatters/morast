@@ -4,9 +4,9 @@ use crate::game::{
     board::effect::Effect,
     card::{card_id::CardID, card_registry::CardRegistry, in_play_id::InPlayID},
     error::Error,
-    events::{action::Action, event::Event, execution_result::ExecutionResult},
-    game_action::JanetAction,
+    events::{action::Action, event::Event},
     game_context::GameContext,
+    janet_action::JanetAction,
     player::PlayerID,
 };
 
@@ -17,16 +17,8 @@ pub trait GameAction {
         &self,
         context: &mut GameContext,
         card_registry: &CardRegistry,
-    ) -> Result<ExecutionResult, Error>;
-    fn can_execute(&self, context: &GameContext) -> Result<(), Error>;
-    fn has_targeting_type(&self) -> bool;
-    fn targeting_type(&self) -> Option<TargetingType>;
-    fn execute_with_targets(
-        &self,
-        context: &mut GameContext,
-        card_registry: &CardRegistry,
-        targets: &[I16Vec2],
     ) -> Result<Option<Event>, Error>;
+    fn can_execute(&self, context: &GameContext) -> Result<(), Error>;
 }
 
 pub trait GameActionWithTargets: GameAction {}
@@ -96,12 +88,12 @@ pub enum ActionEffect {
 
     // Atomic game effects (what cards actually do)
     DealDamage {
-        target: TargetingType,
+        target: Vec<I16Vec2>,
         amount: u16,
         source: InPlayID,
     },
     HealCreature {
-        target: TargetingType,
+        target: Vec<I16Vec2>,
         amount: u16,
         source: InPlayID,
     },
@@ -115,7 +107,7 @@ pub enum ActionEffect {
     },
     ApplyEffect {
         effect: Effect,
-        tiles: TargetingType,
+        targets: Vec<I16Vec2>,
         duration: u32,
     },
     SummonCreature {
@@ -124,7 +116,7 @@ pub enum ActionEffect {
         owner: PlayerID,
     },
     DestroyCreature {
-        target: TargetingType,
+        targets: Vec<I16Vec2>,
     },
 
     WithTargets {
@@ -144,7 +136,7 @@ pub enum ActionEffect {
     // Targeting actions
     Custom {
         action: Box<JanetAction>,
-        target: TargetingType,
+        target: Vec<I16Vec2>,
     },
 }
 
@@ -169,7 +161,7 @@ impl GameAction for ActionEffect {
         &self,
         context: &mut GameContext,
         card_registry: &CardRegistry,
-    ) -> Result<ExecutionResult, Error> {
+    ) -> Result<Option<Event>, Error> {
         match self {
             ActionEffect::PlaceCreature {
                 card_index,
@@ -186,7 +178,7 @@ impl GameAction for ActionEffect {
                     card_id,
                     owner: *player_id,
                 });
-                Ok(ExecutionResult::Executed { event })
+                Ok(event)
             }
             ActionEffect::CastSpell {
                 card_index,
@@ -198,16 +190,9 @@ impl GameAction for ActionEffect {
                     card_id,
                     owner: *player_id,
                 });
-                Ok(ExecutionResult::Executed { event })
+                Ok(event)
             }
-            Self::EndTurn => Ok(ExecutionResult::Executed {
-                event: Some(Event::TurnEnd),
-            }),
-            Self::WithTargets { action, targets } => {
-                let event =
-                    action.execute_with_targets(context, card_registry, targets.as_slice())?;
-                Ok(ExecutionResult::Executed { event })
-            }
+            Self::EndTurn => Ok(Some(Event::TurnEnd)),
             _ => Err(Error::Incomplete(
                 "Wrong action type, you should use a ConcreteAction",
             )),
@@ -217,148 +202,6 @@ impl GameAction for ActionEffect {
     fn can_execute(&self, context: &GameContext) -> Result<(), Error> {
         match self {
             _ => todo!(),
-        }
-    }
-
-    /// Returns true if this action effect requires targeting from the player
-    fn has_targeting_type(&self) -> bool {
-        match self {
-            ActionEffect::DealDamage { target, .. }
-            | ActionEffect::HealCreature { target, .. }
-            | ActionEffect::ApplyEffect { tiles: target, .. }
-            | ActionEffect::DestroyCreature { target } => target.requires_selection(),
-            ActionEffect::PlaceCreature { .. }
-            | ActionEffect::PlaceTrap { .. }
-            | ActionEffect::CastSpell { .. }
-            | ActionEffect::MoveCreature { .. }
-            | ActionEffect::DrawCards { .. }
-            | ActionEffect::AddGold { .. }
-            | ActionEffect::SummonCreature { .. }
-            | ActionEffect::WithTargets { .. } => false,
-            ActionEffect::Sequence(actions) => {
-                actions.iter().any(|action| action.has_targeting_type())
-            }
-            ActionEffect::Conditional {
-                then_action,
-                else_action,
-                ..
-            } => {
-                then_action.has_targeting_type()
-                    || else_action
-                        .as_ref()
-                        .map_or(false, |action| action.has_targeting_type())
-            }
-            ActionEffect::ForEachInArea { .. } => false,
-            ActionEffect::ForEachCreature { .. } => false,
-            ActionEffect::Custom {
-                action,
-                target: targeting,
-            } => targeting.requires_selection(),
-            ActionEffect::EndTurn => false,
-        }
-    }
-
-    /// Returns the targeting type if this action requires targeting
-    fn targeting_type(&self) -> Option<TargetingType> {
-        if !self.has_targeting_type() {
-            return None;
-        }
-
-        match self {
-            ActionEffect::DealDamage { target, .. } => {
-                if target.requires_selection() {
-                    Some(target.clone())
-                } else {
-                    None
-                }
-            }
-            ActionEffect::HealCreature { target, .. } => {
-                if target.requires_selection() {
-                    Some(target.clone())
-                } else {
-                    None
-                }
-            }
-            ActionEffect::ApplyEffect { tiles, .. } => {
-                if tiles.requires_selection() {
-                    Some(tiles.clone())
-                } else {
-                    None
-                }
-            }
-            ActionEffect::DestroyCreature { target } => {
-                if target.requires_selection() {
-                    Some(target.clone())
-                } else {
-                    None
-                }
-            }
-
-            // For composite actions, return the first targeting type found
-            // Note: This assumes only one action in a sequence requires targeting
-            // You might want to handle this differently based on your game's needs
-            ActionEffect::Sequence(actions) => {
-                actions.iter().find_map(|action| action.targeting_type())
-            }
-            ActionEffect::Conditional {
-                then_action,
-                else_action,
-                ..
-            } => then_action.targeting_type().or_else(|| {
-                else_action
-                    .as_ref()
-                    .and_then(|action| action.targeting_type())
-            }),
-
-            ActionEffect::Custom { target, .. } => {
-                if target.requires_selection() {
-                    Some(target.clone())
-                } else {
-                    None
-                }
-            }
-,
-
-            // These cases should never be reached due to has_targeting_type() check
-            _ => None,
-        }
-    }
-    fn execute_with_targets(
-        &self,
-        context: &mut GameContext,
-        card_registry: &CardRegistry,
-        targets: &[I16Vec2],
-    ) -> Result<Option<Event>, Error> {
-        match self {
-            ActionEffect::DealDamage {
-                target,
-                amount,
-                source,
-            } if target.verify(targets) => {
-                targets
-                    .iter()
-                    .for_each(|tile| context.get_board_mut().do_damage(tile, *amount));
-                Ok(None)
-            }
-            ActionEffect::HealCreature {
-                target,
-                amount,
-                source,
-            } if target.verify(targets) => {
-                targets
-                    .iter()
-                    .for_each(|tile| context.get_board_mut().heal_creature(tile, *amount));
-                Ok(None)
-            }
-            ActionEffect::DestroyCreature { target } => {
-                if target.verify(targets) {
-                    targets
-                        .iter()
-                        .for_each(|tile| context.get_board_mut().destroy_card(tile));
-                }
-                Ok(None)
-            }
-            _ => Err(Error::ActionError("not implemented for ExecutionResult")),
         }
     }
 }

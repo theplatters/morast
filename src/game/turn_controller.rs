@@ -7,12 +7,7 @@ use crate::{
     game::{
         card::{card_registry::CardRegistry, Card},
         error::Error,
-        events::{
-            action::Action,
-            action_effect::{GameAction, TargetingType},
-            event::Event,
-            execution_result::ExecutionResult,
-        },
+        events::{action::Action, action_effect::TargetingType, event::Event},
         game_context::GameContext,
         turn_controller::{
             play_command::{PlayCommand, PlayCommandEffect},
@@ -136,25 +131,6 @@ impl TurnController {
 
     pub(crate) fn process_event(&mut self, event: Event) -> Result<Option<PlayCommand>, Error> {
         todo!()
-    }
-
-    pub(crate) fn process_execution_results(
-        &mut self,
-        execution_result: ExecutionResult,
-    ) -> Result<(), Error> {
-        match execution_result {
-            ExecutionResult::NeedsTargeting { action } => {
-                let targeting_type = action.targeting_type().expect("Targeting type expected");
-                self.pending_action = Some(action);
-                self.state = TurnState::AwaitingTargets {
-                    targeting_type,
-                    selected_targets: Vec::new(),
-                    remaining_targets: targeting_type.required_targets(),
-                }
-            }
-            ExecutionResult::Executed { event } => todo!(),
-        }
-        Ok(())
     }
 }
 

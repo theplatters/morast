@@ -8,6 +8,7 @@ use crate::{
         events::{
             action::{Action, ActionTiming, SpellSpeed},
             action_effect::{ActionEffect, TargetingType},
+            action_prototype::{ActionEffectPrototype, ActionPrototype},
         },
         phases::Phase,
     },
@@ -17,7 +18,7 @@ use crate::{
 pub struct ActionParser;
 
 impl ActionParser {
-    pub fn parse(action: &JanetEnum) -> Result<Action, Error> {
+    pub fn parse(action: &JanetEnum) -> Result<ActionPrototype, Error> {
         let JanetEnum::Table(elements) = action else {
             return Err(Error::Cast("Action value is not a table".into()));
         };
@@ -43,7 +44,7 @@ impl ActionParser {
         let action_builder = Action::builder().with_speed(speed).with_timing(timing);
     }
 
-    fn parse_action_effect(action: &Table) -> Result<ActionEffect, Error> {
+    fn parse_action_effect(action: &Table) -> Result<ActionEffectPrototype, Error> {
         todo!("action effect parsing not fully implemented")
     }
 
