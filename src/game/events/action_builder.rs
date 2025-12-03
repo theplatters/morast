@@ -1,6 +1,6 @@
 use crate::game::{
     board::effect::Effect,
-    card::{card_id::CardID, in_play_id::InPlayID},
+    card::card_id::CardID,
     events::{
         action::{Action, ActionTiming, SpellSpeed},
         action_context::ActionContext,
@@ -9,9 +9,8 @@ use crate::game::{
         event::Event,
     },
     phases::Phase,
-    player::PlayerID,
 };
-use macroquad::math::I16Vec2;
+
 // The verification macro
 macro_rules! verify_targets {
     ($targeting_type:expr, $targets:expr) => {{
@@ -243,7 +242,6 @@ impl Action {
         proto: ActionPrototype,
         ctx: ActionContext,
     ) -> Result<Action, ActionBuilderError> {
-        let mut builder = Action::builder();
         let effect = Self::finalize_prototype_effect(proto.action, &ctx)?;
 
         // Set player from context if available

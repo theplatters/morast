@@ -7,7 +7,10 @@ use crate::{
     game::{
         card::{card_registry::CardRegistry, Card},
         error::Error,
-        events::{action::Action, action_effect::TargetingType, event::Event},
+        events::{
+            action::Action, action_context::ActionContext, action_effect::TargetingType,
+            action_prototype::ActionPrototype, event::Event,
+        },
         game_context::GameContext,
         turn_controller::{
             play_command::{PlayCommand, PlayCommandEffect},
@@ -79,7 +82,8 @@ impl PartialEq for TurnState {
 pub struct TurnController {
     pub state: TurnState,
     input_handler: InputHandler,
-    pending_action: Option<Box<Action>>,
+    pending_action: Option<Box<ActionPrototype>>,
+    action_context: ActionContext,
 }
 
 impl TurnController {
@@ -89,6 +93,7 @@ impl TurnController {
             state: TurnState::Idle,
             input_handler,
             pending_action: None,
+            action_context: ActionContext::new(),
         }
     }
 
@@ -161,7 +166,10 @@ impl TurnController {
             let current_player = context.turn_player_id();
 
             let command = PlayCommandBuilder::new()
-                .with_effect(PlayCommandEffect::ExecuteActionWithTargets { action, targets })
+                .with_effect(PlayCommandEffect::BuildAction {
+                    action,
+                    action_context: self.action_context,
+                })
                 .with_owner(current_player)
                 .build();
 

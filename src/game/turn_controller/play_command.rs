@@ -1,7 +1,8 @@
 use macroquad::math::I16Vec2;
 
 use crate::game::{
-    events::action::Action, player::PlayerID,
+    events::{action::Action, action_context::ActionContext, action_prototype::ActionPrototype},
+    player::PlayerID,
     turn_controller::play_command_builder::PlayCommandBuilder,
 };
 
@@ -37,6 +38,10 @@ pub enum PlayCommandEffect {
         to: I16Vec2,
     },
     EndTurn,
+    BuildAction {
+        action: Box<ActionPrototype>,
+        action_context: ActionContext,
+    },
 }
 
 impl From<PlayCommand> for Action {
@@ -47,7 +52,7 @@ impl From<PlayCommand> for Action {
             PlayCommandEffect::PlaceCreature {
                 card_index,
                 position,
-            } => action_builder.place_creature(card_index, position, player_id),
+            } => Action::new(),
             PlayCommandEffect::CastSpell { card_index } => {
                 action_builder.cast_spell(card_index, player_id)
             }
