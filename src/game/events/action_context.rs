@@ -11,6 +11,7 @@ pub struct ActionContext {
     pub card_index: Option<usize>, // Index of the card in hand/deck
     pub from: Option<I16Vec2>,
     pub to: Option<I16Vec2>,
+    pub priority: u32,
     // You can extend with other runtime info as needed
 }
 
@@ -24,6 +25,7 @@ impl ActionContext {
             from: None,
             to: None,
             card_index: None,
+            priority: 0,
         }
     }
 
@@ -55,6 +57,11 @@ impl ActionContext {
 
     pub fn with_index(mut self, index: usize) -> Self {
         self.card_index = Some(index);
+        self
+    }
+
+    pub fn with_priority(mut self, priority: u32) -> Self {
+        self.priority = priority;
         self
     }
 }

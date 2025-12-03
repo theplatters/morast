@@ -41,7 +41,9 @@ impl ActionParser {
         let action_type = Self::parse_action_effect(&action_type_table)?;
 
         todo!("action parsing not fully implemented");
-        let action_builder = Action::builder().with_speed(speed).with_timing(timing);
+        let action_builder = ActionPrototype::builder()
+            .with_speed(speed)
+            .with_timing(timing);
     }
 
     fn parse_action_effect(action: &Table) -> Result<ActionEffectPrototype, Error> {

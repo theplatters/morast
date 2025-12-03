@@ -37,10 +37,6 @@ pub enum PlayCommandEffect {
         to: I16Vec2,
     },
     EndTurn,
-    ExecuteActionWithTargets {
-        action: Box<Action>,
-        targets: Vec<I16Vec2>,
-    },
 }
 
 impl From<PlayCommand> for Action {
@@ -63,9 +59,6 @@ impl From<PlayCommand> for Action {
                 action_builder.move_creature(from, to, player_id)
             }
             PlayCommandEffect::EndTurn => action_builder.end_turn(),
-            PlayCommandEffect::ExecuteActionWithTargets { action, targets } => {
-                action_builder.with_targets(action, targets)
-            }
         };
         action_builder
             .play_command_speed()

@@ -5,7 +5,7 @@ use crate::{
     game::{
         error::Error,
         events::{
-            action_builder::ActionBuilder,
+            action_builder::ActionPrototypeBuilder,
             action_effect::{ActionEffect, GameAction},
             event::Event,
         },
@@ -57,12 +57,6 @@ impl GameAction for Action {
         context: &crate::game::game_context::GameContext,
     ) -> Result<(), crate::game::error::Error> {
         self.action.can_execute(context)
-    }
-}
-
-impl Action {
-    pub fn builder() -> ActionBuilder {
-        ActionBuilder::new()
     }
 }
 

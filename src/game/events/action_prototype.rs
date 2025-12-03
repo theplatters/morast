@@ -5,12 +5,11 @@ use crate::game::{
     card::card_id::CardID,
     events::{
         action::{Action, ActionTiming, SpellSpeed},
-        action_builder::ActionBuilderError,
+        action_builder::{ActionBuilderError, ActionPrototypeBuilder},
         action_context::ActionContext,
         action_effect::{Condition, TargetingType},
     },
     janet_action::JanetAction,
-    player::PlayerID,
 };
 
 #[derive(Debug)]
@@ -23,9 +22,7 @@ pub struct ActionPrototype {
 
 impl ActionPrototype {
     fn finalize(self, action_context: ActionContext) -> Result<Action, ActionBuilderError> {
-        Action::builder()
-            .with_prototype(self, action_context)?
-            .build()
+        Action::from_prototype(self, action_context)
     }
 }
 
@@ -92,10 +89,10 @@ impl ActionEffectPrototype {
             | ActionEffectPrototype::DestroyCreature { targeting_type } => {
                 targeting_type.requires_selection()
             }
-            ActionEffectPrototype::PlaceCreature { .. }
-            | ActionEffectPrototype::PlaceTrap { .. }
-            | ActionEffectPrototype::CastSpell { .. }
-            | ActionEffectPrototype::MoveCreature { .. }
+            ActionEffectPrototype::PlaceCreature
+            | ActionEffectPrototype::PlaceTrap
+            | ActionEffectPrototype::CastSpell
+            | ActionEffectPrototype::MoveCreature
             | ActionEffectPrototype::DrawCards { .. }
             | ActionEffectPrototype::AddGold { .. }
             | ActionEffectPrototype::SummonCreature { .. } => false,
@@ -110,12 +107,11 @@ impl ActionEffectPrototype {
                 then_action.has_targeting_type()
                     || else_action
                         .as_ref()
-                        .map_or(false, |action| action.has_targeting_type())
+                        .is_some_and(|action| action.has_targeting_type())
             }
-            ActionEffectPrototype::Custom {
-                action,
-                targeting_type,
-            } => targeting_type.requires_selection(),
+            ActionEffectPrototype::Custom { targeting_type, .. } => {
+                targeting_type.requires_selection()
+            }
             ActionEffectPrototype::EndTurn => false,
         }
     }
@@ -158,5 +154,11 @@ impl ActionEffectPrototype {
             // These cases should never be reached due to has_targeting_type() check
             _ => None,
         }
+    }
+}
+
+impl ActionPrototype {
+    pub fn builder() -> ActionPrototypeBuilder {
+        ActionPrototypeBuilder::new()
     }
 }

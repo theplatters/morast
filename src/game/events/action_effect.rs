@@ -21,8 +21,6 @@ pub trait GameAction {
     fn can_execute(&self, context: &GameContext) -> Result<(), Error>;
 }
 
-pub trait GameActionWithTargets: GameAction {}
-
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub enum TargetingType {
     None,       // No targeting needed
