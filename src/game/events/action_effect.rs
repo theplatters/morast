@@ -142,16 +142,6 @@ pub enum ActionEffect {
     },
 
     // Targeting actions
-    ForEachInArea {
-        center: I16Vec2,
-        radius: u8,
-        action: Box<ActionEffect>,
-    },
-    ForEachCreature {
-        filter: CreatureFilter,
-        action: Box<ActionEffect>,
-    },
-
     Custom {
         action: Box<JanetAction>,
         target: TargetingType,

@@ -17,7 +17,7 @@ use crate::{
 pub struct ActionParser;
 
 impl ActionParser {
-    pub fn parse(action: &JanetEnum) -> Result<Option<Action>, Error> {
+    pub fn parse(action: &JanetEnum) -> Result<Action, Error> {
         let JanetEnum::Table(elements) = action else {
             return Err(Error::Cast("Action value is not a table".into()));
         };
@@ -26,20 +26,21 @@ impl ActionParser {
             return Err(Error::Incomplete("Action type not found".into()));
         };
 
-        let Some(timing) = elements.get("timing") else {
+        let Some(timing_janet) = elements.get("timing") else {
             return Err(Error::Incomplete("Timing not found".into()));
         };
 
-        let Some(speed) = elements.get("speed") else {
-            return Err(Error::Incomplete("Speed not found".into()));
-        };
+        let speed: SpellSpeed = elements
+            .get("speed")
+            .map(|speed| speed.try_into())
+            .transpose()?
+            .unwrap_or_default();
 
-        let timing = Self::parse_timing(&timing)?;
-        print!("Action Timing {:?}", timing);
+        let timing = Self::parse_timing(&timing_janet)?;
         let action_type = Self::parse_action_effect(&action_type_table)?;
-        let action_speed = Self::parse_spell_speed(&speed);
 
-        todo!("action parsing not fully implemented")
+        todo!("action parsing not fully implemented");
+        let action_builder = Action::builder().with_speed(speed).with_timing(timing);
     }
 
     fn parse_action_effect(action: &Table) -> Result<ActionEffect, Error> {
@@ -59,8 +60,6 @@ impl ActionParser {
             ))),
         }
     }
-
-    fn parse_spell_speed(content: &JanetEnum) -> Result<SpellSpeed, Error> {}
 
     fn parse_timing(timing_janet: &JanetEnum) -> Result<ActionTiming, Error> {
         if !(timing_janet.is_tuple() || timing_janet.is_string()) {

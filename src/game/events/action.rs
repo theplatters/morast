@@ -1,14 +1,18 @@
 use std::{cmp::Ordering, ops::SubAssign};
 
-use crate::game::{
-    events::{
-        action_builder::ActionBuilder,
-        action_effect::{ActionEffect, GameAction},
-        event::Event,
-        execution_result::ExecutionResult,
+use crate::{
+    engine::janet_handler::types::janetenum::JanetEnum,
+    game::{
+        error::Error,
+        events::{
+            action_builder::ActionBuilder,
+            action_effect::{ActionEffect, GameAction},
+            event::Event,
+            execution_result::ExecutionResult,
+        },
+        phases::Phase,
+        player::PlayerID,
     },
-    phases::Phase,
-    player::PlayerID,
 };
 
 #[derive(Debug, Clone)]
@@ -87,6 +91,32 @@ pub enum SpellSpeed {
     Slow = 1, // Can only be cast during main phase, when stack is empty
     Fast = 2,    // Can be cast anytime you have priority
     Instant = 3, // Can be cast anytime, even during opponent's turn
+}
+
+impl TryFrom<JanetEnum> for SpellSpeed {
+    type Error = Error;
+
+    fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
+        match value {
+            JanetEnum::Int(0) => Ok(SpellSpeed::Slow),
+            JanetEnum::Int(1) => Ok(SpellSpeed::Fast),
+            JanetEnum::Int(2) => Ok(SpellSpeed::Instant),
+            JanetEnum::Int(num) => Err(Error::Cast(format!("Invalid SpellSpeed number: {}", num))),
+
+            JanetEnum::UInt(0) => Ok(SpellSpeed::Slow),
+            JanetEnum::UInt(1) => Ok(SpellSpeed::Fast),
+            JanetEnum::UInt(2) => Ok(SpellSpeed::Instant),
+            JanetEnum::UInt(num) => Err(Error::Cast(format!("Invalid SpellSpeed number: {}", num))),
+
+            JanetEnum::String(s) => match s.as_str() {
+                "slow " => Ok(SpellSpeed::Slow),
+                "fast" => Ok(SpellSpeed::Fast),
+                "instant" => Ok(SpellSpeed::Instant),
+                _ => Err(Error::Cast(format!("Invalid SpellSpeed string: {}", s))),
+            },
+            _ => Err(Error::Cast(format!("Invalid SpellSpeed type "))),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

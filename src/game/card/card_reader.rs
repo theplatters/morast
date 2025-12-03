@@ -53,17 +53,15 @@ impl<'a> FieldExtractor<'a> {
     }
 
     fn get_optional_actions(&self, field: &str) -> Result<Option<Action>, Error> {
-        match self.table.get(field) {
-            Some(value) => ActionParser::parse(&value),
-            None => Ok(None),
-        }
+        self.table
+            .get(field)
+            .map(|value| ActionParser::parse(&value))
+            .transpose()
     }
 
     fn get_required_actions(&self, field: &str) -> Result<Action, Error> {
         match self.table.get(field) {
-            Some(value) => ActionParser::parse(&value)
-                .transpose()
-                .ok_or(Error::Incomplete("Requires action"))?,
+            Some(value) => ActionParser::parse(&value),
             None => Err(Error::NotFound(format!("{}: {}", self.context, field))),
         }
     }
@@ -110,10 +108,9 @@ impl CardDataRetriever {
         action_name: &str,
         card_name: &str,
     ) -> Result<Option<Action>, Error> {
-        match JanetEnum::get(env, action_name, Some(card_name)) {
-            Some(value) => ActionParser::parse(&value),
-            None => Err(Error::NotFound(format!("{}: {}", card_name, action_name))),
-        }
+        JanetEnum::get(env, action_name, Some(card_name))
+            .map(|value| ActionParser::parse(&value))
+            .transpose()
     }
 }
 
