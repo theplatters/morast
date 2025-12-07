@@ -1,3 +1,5 @@
+use crate::{engine::janet_handler::types::janetenum::JanetEnum, game::error::Error};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Phase {
     Start, // Beginning of a turn
@@ -13,5 +15,19 @@ impl From<i32> for Phase {
             2 => Phase::End,
             _ => Phase::End,
         }
+    }
+}
+
+impl TryFrom<JanetEnum> for Phase {
+    type Error = Error;
+
+    fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
+        if !value.is_int() {
+            return Err(Error::Cast(
+                "Phase is not given in the correct format (int)".into(),
+            ));
+        };
+
+        Ok(value.as_int().unwrap().into())
     }
 }

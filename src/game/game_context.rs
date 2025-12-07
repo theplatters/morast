@@ -146,7 +146,7 @@ impl GameContext {
         card_index: usize,
         position: I16Vec2,
         card_registry: &CardRegistry,
-    ) -> Result<(), Error> {
+    ) -> Result<CardID, Error> {
         let (card_id, cost) = self.validate_card_play(player_id, card_index, card_registry)?;
 
         let Card::Trap(trap) = card_registry.get(&card_id).ok_or(Error::CardNotFound)? else {
@@ -159,10 +159,11 @@ impl GameContext {
         let player = self
             .get_player_mut(player_id)
             .ok_or(Error::PlayerNotFound)?;
+
         player.remove_card_from_hand(card_index);
         player.remove_gold(cost.into());
 
-        Ok(())
+        Ok(card_id)
     }
 
     pub(crate) fn get_board_mut(&mut self) -> &mut Board {
@@ -246,7 +247,7 @@ impl GameContext {
         Ok(player.get_gold())
     }
 
-    pub fn add_gold(&mut self, player_id: PlayerID, amount: i64) -> Result<(), Error> {
+    pub fn add_gold(&mut self, player_id: PlayerID, amount: u16) -> Result<(), Error> {
         let player = self
             .get_player_mut(player_id)
             .ok_or(Error::PlayerNotFound)?;

@@ -66,12 +66,12 @@ impl Player {
         };
         self.discard_pile.push(card);
     }
-    pub fn add_gold(&mut self, amount: i64) {
-        self.money = cmp::max(self.money + amount, 0)
+    pub fn add_gold(&mut self, amount: u16) {
+        self.money = cmp::max(self.money + amount as i64, 0)
     }
 
-    pub fn remove_gold(&mut self, amount: i64) {
-        self.money -= amount;
+    pub fn remove_gold(&mut self, amount: u16) {
+        self.money -= amount as i64;
     }
 
     pub fn get_gold(&self) -> i64 {

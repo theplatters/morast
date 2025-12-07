@@ -1,14 +1,19 @@
+use macroquad::math::I16Vec2;
+
 use crate::game::{
     board::effect::Effect,
     card::card_id::CardID,
     events::{
-        action::{Action, ActionTiming, SpellSpeed},
+        action::{Action, SpellSpeed},
         action_context::ActionContext,
-        action_effect::{ActionEffect, Condition, TargetingType},
+        action_effect::{ActionEffect, Condition},
         action_prototype::{ActionEffectPrototype, ActionPrototype},
         event::Event,
+        targeting::TargetingType,
+        timing::ActionTiming,
     },
     phases::Phase,
+    player::PlayerID,
 };
 
 // The verification macro
@@ -40,6 +45,10 @@ impl ActionPrototypeBuilder {
         }
     }
 
+    pub fn with_action(mut self, action: ActionEffectPrototype) -> Self {
+        self.action = Some(action);
+        self
+    }
     // Core action setters
     pub fn place_creature(mut self) -> Self {
         self.action = Some(ActionEffectPrototype::PlaceCreature);
@@ -61,8 +70,8 @@ impl ActionPrototypeBuilder {
         self
     }
 
-    pub fn move_creature(mut self) -> Self {
-        self.action = Some(ActionEffectPrototype::MoveCreature);
+    pub fn move_creature(mut self, direction: I16Vec2) -> Self {
+        self.action = Some(ActionEffectPrototype::MoveCreature { direction });
         self
     }
 
@@ -87,7 +96,7 @@ impl ActionPrototypeBuilder {
         self
     }
 
-    pub fn add_gold(mut self, amount: i64) -> Self {
+    pub fn add_gold(mut self, amount: u16) -> Self {
         self.action = Some(ActionEffectPrototype::AddGold { amount });
         self
     }
@@ -99,9 +108,9 @@ impl ActionPrototypeBuilder {
         duration: u32,
     ) -> Self {
         self.action = Some(ActionEffectPrototype::ApplyEffect {
-            effect,
+            effect: effect.effect_type,
+            duration: effect.duration(),
             targeting_type,
-            duration,
         });
         self
     }
@@ -236,11 +245,212 @@ impl std::fmt::Display for ActionBuilderError {
     }
 }
 
+pub struct ActionBuilder {
+    pub action: Option<ActionEffect>,
+    pub timing: Option<ActionTiming>,
+    pub speed: Option<SpellSpeed>,
+    pub priority: Option<u32>,
+    pub player: Option<PlayerID>,
+    pub can_be_countered: bool,
+}
+impl Action {
+    pub fn builder() -> ActionBuilder {
+        ActionBuilder::new()
+    }
+}
+impl ActionBuilder {
+    pub fn new() -> Self {
+        Self {
+            action: None,
+            timing: None,
+            speed: None,
+            priority: None,
+            player: None,
+            can_be_countered: true,
+        }
+    }
+
+    // Core action setters
+    pub fn place_creature(mut self, card_index: usize, position: I16Vec2) -> Self {
+        self.action = Some(ActionEffect::PlaceCreature {
+            card_index,
+            position,
+        });
+        self
+    }
+
+    pub fn place_trap(mut self, card_index: usize, position: I16Vec2) -> Self {
+        self.action = Some(ActionEffect::PlaceTrap {
+            card_index,
+            position,
+        });
+        self
+    }
+
+    pub fn end_turn(mut self) -> Self {
+        self.action = Some(ActionEffect::EndTurn);
+        self
+    }
+
+    pub fn cast_spell(mut self, card_index: usize) -> Self {
+        self.action = Some(ActionEffect::CastSpell { card_index });
+        self
+    }
+
+    pub fn move_creature(mut self, from: I16Vec2, to: I16Vec2) -> Self {
+        self.action = Some(ActionEffect::MoveCreature { from, to });
+        self
+    }
+
+    pub fn deal_damage(mut self, target: Vec<I16Vec2>, amount: u16) -> Self {
+        self.action = Some(ActionEffect::DealDamage { amount, target });
+        self
+    }
+
+    pub fn heal_creature(mut self, target: Vec<I16Vec2>, amount: u16) -> Self {
+        self.action = Some(ActionEffect::HealCreature { target, amount });
+        self
+    }
+
+    pub fn draw_cards(mut self, count: u16, player_id: PlayerID) -> Self {
+        self.action = Some(ActionEffect::DrawCards { count, player_id });
+        self
+    }
+
+    pub fn add_gold(mut self, amount: u16, player_id: PlayerID) -> Self {
+        self.action = Some(ActionEffect::AddGold { amount, player_id });
+        self
+    }
+
+    pub fn apply_effect(mut self, effect: Effect, targets: Vec<I16Vec2>, duration: u32) -> Self {
+        self.action = Some(ActionEffect::ApplyEffect { effect, targets });
+        self
+    }
+
+    pub fn summon_creature(
+        mut self,
+        creature_id: CardID,
+        position: I16Vec2,
+        owner: PlayerID,
+    ) -> Self {
+        self.action = Some(ActionEffect::SummonCreature {
+            creature_id,
+            position,
+            owner,
+        });
+        self
+    }
+
+    pub fn destroy_creature(mut self, targets: Vec<I16Vec2>) -> Self {
+        self.action = Some(ActionEffect::DestroyCreature { targets });
+        self
+    }
+
+    // Composite actions
+    pub fn sequence(mut self, actions: Vec<ActionEffect>) -> Self {
+        self.action = Some(ActionEffect::Sequence(actions));
+        self
+    }
+
+    pub fn conditional(
+        mut self,
+        condition: Condition,
+        then_action: ActionEffect,
+        else_action: Option<ActionEffect>,
+    ) -> Self {
+        self.action = Some(ActionEffect::Conditional {
+            condition,
+            then_action: Box::new(then_action),
+            else_action: else_action.map(Box::new),
+        });
+        self
+    }
+
+    // Action properties
+    pub fn with_timing(mut self, timing: ActionTiming) -> Self {
+        self.timing = Some(timing);
+        self
+    }
+
+    pub fn immediate(mut self) -> Self {
+        self.timing = Some(ActionTiming::Immediate);
+        self
+    }
+
+    pub fn delayed(mut self, turns: u32, phase: Phase) -> Self {
+        self.timing = Some(ActionTiming::Delayed { turns, phase });
+        self
+    }
+
+    pub fn at_trigger(mut self, event: Event) -> Self {
+        self.timing = Some(ActionTiming::AtTrigger { trigger: event });
+        self
+    }
+
+    pub fn with_speed(mut self, speed: SpellSpeed) -> Self {
+        self.speed = Some(speed);
+        self
+    }
+
+    pub fn slow_speed(mut self) -> Self {
+        self.speed = Some(SpellSpeed::Slow);
+        self
+    }
+
+    pub fn fast_speed(mut self) -> Self {
+        self.speed = Some(SpellSpeed::Fast);
+        self
+    }
+
+    pub fn instant_speed(mut self) -> Self {
+        self.speed = Some(SpellSpeed::Instant);
+        self
+    }
+
+    pub fn uncounterable(mut self) -> Self {
+        self.can_be_countered = false;
+        self
+    }
+
+    pub fn counterable(mut self) -> Self {
+        self.can_be_countered = true;
+        self
+    }
+
+    pub fn play_command_speed(mut self) -> Self {
+        self.can_be_countered = true;
+        self.speed = Some(SpellSpeed::Slow);
+        self.timing = Some(ActionTiming::Immediate);
+        self
+    }
+
+    pub fn with_player(mut self, player_id: PlayerID) -> Self {
+        self.player = Some(player_id);
+        self
+    }
+
+    // Build the final Action
+    pub fn build(self) -> Result<Action, ActionBuilderError> {
+        let action = self.action.ok_or(ActionBuilderError::NoActionSet)?;
+
+        Ok(Action {
+            action,
+            timing: self.timing.unwrap_or_default(),
+            priority: self.priority.unwrap_or_default(),
+            speed: self.speed.unwrap_or_default(),
+            player: self
+                .player
+                .ok_or(ActionBuilderError::MissingRequiredField("player"))?,
+            can_be_countered: self.can_be_countered,
+        })
+    }
+}
+
 impl Action {
     // NEW: Create ActionBuilder from prototype + context
     pub fn from_prototype(
         proto: ActionPrototype,
-        ctx: ActionContext,
+        ctx: &ActionContext,
     ) -> Result<Action, ActionBuilderError> {
         let effect = Self::finalize_prototype_effect(proto.action, &ctx)?;
 
@@ -292,16 +502,9 @@ impl Action {
                 targeting_type,
                 amount,
             } => {
-                let (source, target) = (
-                    req!(source),
-                    verify_targets!(targeting_type, req!(targets.clone())),
-                );
+                let target = verify_targets!(targeting_type, req!(targets.clone()));
 
-                E::DealDamage {
-                    target,
-                    amount,
-                    source,
-                }
+                E::DealDamage { target, amount }
             }
             P::HealCreature {
                 targeting_type,
@@ -309,7 +512,6 @@ impl Action {
             } => E::HealCreature {
                 target: verify_targets!(targeting_type, req!(targets.clone())),
                 amount,
-                source: req!(source),
             },
             P::DestroyCreature { targeting_type } => E::DestroyCreature {
                 targets: verify_targets!(targeting_type, req!(targets.clone())),
@@ -318,28 +520,27 @@ impl Action {
                 effect,
                 targeting_type,
                 duration,
-            } => E::ApplyEffect {
-                effect,
-                targets: verify_targets!(targeting_type, req!(targets.clone())),
-                duration,
-            },
+            } => {
+                let effect = Effect::new(effect, duration, req!(player_id));
+                E::ApplyEffect {
+                    effect,
+                    targets: verify_targets!(targeting_type, req!(targets.clone())),
+                }
+            }
 
             // Actions requiring player + card_index + position
             P::PlaceCreature {} => E::PlaceCreature {
                 card_index: req!(card_index),
                 position: req!(position),
-                player_id: req!(player_id),
             },
             P::PlaceTrap => E::PlaceTrap {
                 card_index: req!(card_index),
                 position: req!(position),
-                player_id: req!(player_id),
             },
 
             // Actions requiring player + card_index
             P::CastSpell => E::CastSpell {
                 card_index: req!(card_index),
-                player_id: req!(player_id),
             },
 
             // Actions requiring player only
@@ -360,10 +561,9 @@ impl Action {
             },
 
             // Actions requiring from/to positions
-            P::MoveCreature => E::MoveCreature {
+            P::MoveCreature { .. } => E::MoveCreature {
                 from: req!(from),
                 to: req!(to),
-                player_id: req!(player_id),
             },
 
             // No context required

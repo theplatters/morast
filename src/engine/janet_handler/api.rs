@@ -53,7 +53,7 @@ pub unsafe extern "C" fn cfun_add_gold_to_player(argc: i32, argv: *mut Janet) ->
     let context = (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()
         .expect("Couldn't cast reference");
-    let amount = janet_getinteger64(argv, 1);
+    let amount = janet_getuinteger16(argv, 1);
     let player_id = janet_getinteger64(argv, 2) as u16;
 
     context.add_gold(PlayerID::new(player_id), amount);

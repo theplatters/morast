@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::engine::error::EngineError;
+use crate::{engine::error::EngineError, game::events::action_builder::ActionBuilderError};
 
 use super::board::place_error::BoardError;
 
@@ -21,6 +21,7 @@ pub enum Error {
     InvalidCardType,
     WrongState,
     ActionError(&'static str),
+    ActionBuilderError(ActionBuilderError),
 }
 
 impl Display for Error {
@@ -41,6 +42,9 @@ impl Display for Error {
             Error::InvalidCardType => write!(f, "InvalidCardType"),
             Error::WrongState => write!(f, "Wrong State"),
             Error::ActionError(s) => write!(f, "Error when performing action: {}", s),
+            Error::ActionBuilderError(action_builder_error) => {
+                write!(f, "Error when building action: {}", action_builder_error)
+            }
         }
     }
 }

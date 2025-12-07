@@ -16,7 +16,7 @@ use crate::{
     game::{
         card::{abilities::Abilities, Card},
         error::Error,
-        events::{action_parser::ActionParser, action_prototype::ActionPrototype},
+        events::action_prototype::ActionPrototype,
     },
 };
 
@@ -55,13 +55,13 @@ impl<'a> FieldExtractor<'a> {
     fn get_optional_actions(&self, field: &str) -> Result<Option<ActionPrototype>, Error> {
         self.table
             .get(field)
-            .map(|value| ActionParser::parse(&value))
+            .map(|value| value.try_into())
             .transpose()
     }
 
     fn get_required_actions(&self, field: &str) -> Result<ActionPrototype, Error> {
         match self.table.get(field) {
-            Some(value) => ActionParser::parse(&value),
+            Some(value) => value.try_into(),
             None => Err(Error::NotFound(format!("{}: {}", self.context, field))),
         }
     }
@@ -109,7 +109,7 @@ impl CardDataRetriever {
         card_name: &str,
     ) -> Result<Option<ActionPrototype>, Error> {
         JanetEnum::get(env, action_name, Some(card_name))
-            .map(|value| ActionParser::parse(&value))
+            .map(|value| value.try_into())
             .transpose()
     }
 }

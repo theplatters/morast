@@ -3,11 +3,13 @@ use std::{cmp::Ordering, ops::SubAssign};
 use crate::{
     engine::janet_handler::types::janetenum::JanetEnum,
     game::{
+        card::{self, creature::Creature, Card},
         error::Error,
         events::{
             action_builder::ActionPrototypeBuilder,
             action_effect::{ActionEffect, GameAction},
             event::Event,
+            timing::ActionTiming,
         },
         phases::Phase,
         player::PlayerID,
@@ -49,14 +51,108 @@ impl GameAction for Action {
         context: &mut crate::game::game_context::GameContext,
         card_registry: &crate::game::card::card_registry::CardRegistry,
     ) -> Result<Option<Event>, crate::game::error::Error> {
-        self.action.execute(context, card_registry)
+        match &self.action {
+            ActionEffect::PlaceCreature {
+                card_index,
+                position,
+            } => {
+                let card_id = context.execute_creature_placement(
+                    self.player,
+                    *card_index,
+                    *position,
+                    card_registry,
+                )?;
+                let event = Some(Event::CreaturePlayed {
+                    card_id,
+                    owner: self.player,
+                });
+                Ok(event)
+            }
+            ActionEffect::CastSpell { card_index } => {
+                let card_id =
+                    context.cast_spell_from_hand(self.player, *card_index, card_registry)?;
+                let event = Some(Event::SpellPlayed {
+                    card_id,
+                    owner: self.player,
+                });
+                Ok(event)
+            }
+            ActionEffect::EndTurn => Ok(Some(Event::TurnEnd)),
+            ActionEffect::PlaceTrap {
+                card_index,
+                position,
+            } => {
+                let card_id = context.execute_trap_placement(
+                    self.player,
+                    *card_index,
+                    *position,
+                    card_registry,
+                )?;
+                Ok(Some(Event::TrapPlaced {
+                    card_id,
+                    owner: self.player,
+                }))
+            }
+            ActionEffect::MoveCreature { from, to } => {
+                context.move_card(&from, &to, card_registry)?;
+                Ok(None)
+            }
+            ActionEffect::DealDamage { target, amount } => todo!(),
+            ActionEffect::HealCreature { target, amount } => todo!(),
+            ActionEffect::DrawCards { player_id, count } => {
+                context.draw_cards(*player_id, *count);
+                Ok(Some(Event::CardsDrawn {
+                    player_id: *player_id,
+                    count: *count,
+                }))
+            }
+            ActionEffect::AddGold { player_id, amount } => {
+                context.add_gold(*player_id, *amount);
+                Ok(Some(Event::GoldAdded {
+                    player_id: *player_id,
+                    amount: *amount,
+                }))
+            }
+            ActionEffect::ApplyEffect {
+                effect, targets, ..
+            } => {
+                context
+                    .get_board_mut()
+                    .add_effects(*effect, targets.as_slice());
+                Ok(Some(Event::EffectAdded { effect: *effect }))
+            }
+
+            ActionEffect::SummonCreature {
+                creature_id,
+                position,
+                owner,
+            } => {
+                let Some(Card::Creature(creature)) = card_registry.get(&creature_id) else {
+                    return Err(Error::CardNotFound);
+                };
+                context.place_creature(*creature_id, creature, *position, card_registry)?;
+                Ok(Some(Event::CreaturePlayed {
+                    card_id: *creature_id,
+                    owner: *owner,
+                }))
+            }
+            ActionEffect::DestroyCreature { targets } => todo!(),
+            ActionEffect::WithTargets { action, targets } => todo!(),
+            ActionEffect::Sequence(action_effects) => todo!(),
+            ActionEffect::Conditional {
+                condition,
+                then_action,
+                else_action,
+            } => todo!(),
+            ActionEffect::Custom { action, target } => todo!(),
+        }
     }
 
     fn can_execute(
         &self,
         context: &crate::game::game_context::GameContext,
     ) -> Result<(), crate::game::error::Error> {
-        self.action.can_execute(context)
+        todo!()
     }
 }
 
@@ -91,77 +187,5 @@ impl TryFrom<JanetEnum> for SpellSpeed {
             },
             _ => Err(Error::Cast(format!("Invalid SpellSpeed type "))),
         }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum ActionTiming {
-    #[default]
-    Immediate, // Goes on stack immediately
-    Delayed {
-        phase: Phase,
-        turns: u32,
-    }, // End of current turn
-    AtTrigger {
-        trigger: Event,
-    }, // Start of next turn
-}
-
-impl SubAssign<u32> for ActionTiming {
-    fn sub_assign(&mut self, rhs: u32) {
-        if let ActionTiming::Delayed { turns, .. } = self {
-            *turns = turns.saturating_sub(rhs);
-        }
-        // Immediate and AtTrigger variants are unchanged
-    }
-}
-
-impl PartialOrd for ActionTiming {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match (self, other) {
-            // Immediate actions always come first
-            (ActionTiming::Immediate, ActionTiming::Immediate) => Some(Ordering::Equal),
-            (ActionTiming::Immediate, _) => Some(Ordering::Less),
-            (_, ActionTiming::Immediate) => Some(Ordering::Greater),
-
-            // Compare delayed actions by turns, then by phase
-            (
-                ActionTiming::Delayed {
-                    phase: p1,
-                    turns: t1,
-                },
-                ActionTiming::Delayed {
-                    phase: p2,
-                    turns: t2,
-                },
-            ) => match t1.cmp(t2) {
-                Ordering::Equal => p1.partial_cmp(p2),
-                other => Some(other),
-            },
-
-            // AtTrigger actions cannot be compared with Delayed actions
-            // (they depend on external events, not time)
-            (ActionTiming::Delayed { .. }, ActionTiming::AtTrigger { .. }) => None,
-            (ActionTiming::AtTrigger { .. }, ActionTiming::Delayed { .. }) => None,
-
-            // AtTrigger actions are equal to each other for ordering purposes
-            // (actual execution order would depend on trigger resolution)
-            (ActionTiming::AtTrigger { .. }, ActionTiming::AtTrigger { .. }) => {
-                Some(Ordering::Equal)
-            }
-        }
-    }
-}
-
-impl Ord for ActionTiming {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap_or_else(|| {
-            // Handle the incomparable cases by defining an arbitrary but consistent ordering
-            match (self, other) {
-                (ActionTiming::Delayed { .. }, ActionTiming::AtTrigger { .. }) => Ordering::Less,
-                (ActionTiming::AtTrigger { .. }, ActionTiming::Delayed { .. }) => Ordering::Greater,
-                _ => unreachable!("All other cases should be comparable"),
-            }
-        })
     }
 }

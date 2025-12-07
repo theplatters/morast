@@ -18,7 +18,7 @@ use crate::engine::{
             JANET_TYPE_JANET_TABLE, JANET_TYPE_JANET_TUPLE,
         },
         controller::Environment,
-        types::{array::Array, tuple::Tuple},
+        types::tuple::Tuple,
     },
 };
 
@@ -683,5 +683,75 @@ impl TryFrom<&JanetEnum> for bool {
         value
             .as_bool()
             .ok_or_else(|| EngineError::Cast(format!("Expected Bool, got {}", value)))
+    }
+}
+
+impl TryFrom<JanetEnum> for u16 {
+    type Error = EngineError;
+
+    fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
+        match value {
+            JanetEnum::Int(i) => Ok(i as u16),
+            JanetEnum::UInt(u) => Ok(u as u16),
+            _ => Err(EngineError::Cast(format!(
+                "expected integer type got  {}",
+                value
+            ))),
+        }
+    }
+}
+
+impl TryFrom<JanetEnum> for i16 {
+    type Error = EngineError;
+
+    fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
+        match value {
+            JanetEnum::Int(i) => Ok(i as i16),
+            JanetEnum::UInt(u) => Ok(u as i16),
+            _ => Err(EngineError::Cast(format!(
+                "expected integer type got  {}",
+                value
+            ))),
+        }
+    }
+}
+
+impl TryFrom<&JanetEnum> for i16 {
+    type Error = EngineError;
+
+    fn try_from(value: &JanetEnum) -> Result<Self, Self::Error> {
+        match value {
+            JanetEnum::Int(i) => Ok(*i as i16),
+            JanetEnum::UInt(u) => Ok(*u as i16),
+            _ => Err(EngineError::Cast(format!(
+                "expected integer type got  {}",
+                value
+            ))),
+        }
+    }
+}
+
+impl TryFrom<JanetEnum> for I16Vec2 {
+    type Error = EngineError;
+
+    fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
+        match value {
+            JanetEnum::Array(a) if a.len() == 2 => {
+                let x = a.get(0).expect("Fail");
+                let y = a.get(1).expect("Fail");
+
+                Ok(I16Vec2::new(x.try_into()?, y.try_into()?))
+            }
+            JanetEnum::Tuple(t) => {
+                let x = t.get(0).expect("Fail");
+                let y = t.get(1).expect("Fail");
+
+                Ok(I16Vec2::new(x.try_into()?, y.try_into()?))
+            }
+            _ => Err(EngineError::Cast(format!(
+                "Janet type not supported expected array or tuple, got {}",
+                value
+            ))),
+        }
     }
 }

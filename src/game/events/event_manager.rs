@@ -3,11 +3,7 @@ use std::{collections::BinaryHeap, fmt::Debug};
 use crate::game::{
     card::card_registry::CardRegistry,
     error::Error,
-    events::{
-        action::{Action, ActionTiming},
-        event::Event,
-        event_stack::EventStack,
-    },
+    events::{action::Action, event::Event, event_stack::EventStack, timing::ActionTiming},
     game_context::GameContext,
     phases::Phase,
 };

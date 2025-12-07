@@ -8,8 +8,8 @@ use crate::{
         card::{card_registry::CardRegistry, Card},
         error::Error,
         events::{
-            action::Action, action_context::ActionContext, action_effect::TargetingType,
-            action_prototype::ActionPrototype, event::Event,
+            action_context::ActionContext, action_prototype::ActionPrototype, event::Event,
+            targeting::TargetingType,
         },
         game_context::GameContext,
         turn_controller::{
@@ -97,11 +97,11 @@ impl TurnController {
         }
     }
 
-    pub fn update(
-        &mut self,
+    pub fn update<'a>(
+        &'a mut self,
         context: &mut GameContext,
         card_registry: &CardRegistry,
-    ) -> Result<Option<PlayCommand>, Error> {
+    ) -> Result<Option<PlayCommand<'a>>, Error> {
         // Handle input based on current state
         match self.state.clone() {
             TurnState::Idle => self.handle_idle_state(context),
@@ -135,7 +135,7 @@ impl TurnController {
     }
 
     pub(crate) fn process_event(&mut self, event: Event) -> Result<Option<PlayCommand>, Error> {
-        todo!()
+        Ok(None)
     }
 }
 
@@ -168,7 +168,7 @@ impl TurnController {
             let command = PlayCommandBuilder::new()
                 .with_effect(PlayCommandEffect::BuildAction {
                     action,
-                    action_context: self.action_context,
+                    action_context: &self.action_context,
                 })
                 .with_owner(current_player)
                 .build();

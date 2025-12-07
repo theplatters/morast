@@ -3,12 +3,12 @@ use crate::game::{
     turn_controller::play_command::{PlayCommand, PlayCommandEffect},
 };
 
-pub struct PlayCommandBuilder {
-    effect: Option<PlayCommandEffect>,
+pub struct PlayCommandBuilder<'a> {
+    effect: Option<PlayCommandEffect<'a>>,
     owner: Option<PlayerID>,
 }
 
-impl PlayCommandBuilder {
+impl<'a> PlayCommandBuilder<'a> {
     pub fn new() -> Self {
         Self {
             effect: None,
@@ -16,7 +16,7 @@ impl PlayCommandBuilder {
         }
     }
 
-    pub fn with_effect(mut self, effect: PlayCommandEffect) -> Self {
+    pub fn with_effect(mut self, effect: PlayCommandEffect<'a>) -> Self {
         self.effect = Some(effect);
         self
     }
@@ -26,7 +26,7 @@ impl PlayCommandBuilder {
         self
     }
 
-    pub fn build(self) -> PlayCommand {
+    pub fn build(self) -> PlayCommand<'a> {
         PlayCommand::new(self.effect.unwrap(), self.owner.unwrap())
     }
 }

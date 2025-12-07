@@ -1,27 +1,31 @@
 use macroquad::math::I16Vec2;
 
 use crate::game::{
-    events::{action::Action, action_context::ActionContext, action_prototype::ActionPrototype},
+    error::Error,
+    events::{
+        action::Action, action_builder::ActionBuilder, action_context::ActionContext,
+        action_prototype::ActionPrototype,
+    },
     player::PlayerID,
     turn_controller::play_command_builder::PlayCommandBuilder,
 };
 
-pub struct PlayCommand {
-    effect: PlayCommandEffect,
+pub struct PlayCommand<'a> {
+    effect: PlayCommandEffect<'a>,
     owner: PlayerID,
 }
 
-impl PlayCommand {
-    fn builder() -> PlayCommandBuilder {
+impl<'a> PlayCommand<'a> {
+    fn builder() -> PlayCommandBuilder<'a> {
         PlayCommandBuilder::new()
     }
 
-    pub(crate) fn new(effect: PlayCommandEffect, owner: PlayerID) -> Self {
+    pub(crate) fn new(effect: PlayCommandEffect<'a>, owner: PlayerID) -> Self {
         Self { effect, owner }
     }
 }
 
-pub enum PlayCommandEffect {
+pub enum PlayCommandEffect<'a> {
     PlaceCreature {
         card_index: usize,
         position: I16Vec2,
@@ -40,34 +44,41 @@ pub enum PlayCommandEffect {
     EndTurn,
     BuildAction {
         action: Box<ActionPrototype>,
-        action_context: ActionContext,
+        action_context: &'a ActionContext,
     },
 }
 
-impl From<PlayCommand> for Action {
-    fn from(value: PlayCommand) -> Self {
-        let mut action_builder = Action::builder();
-        let player_id = value.owner;
-        action_builder = match value.effect {
+impl<'a> TryFrom<PlayCommand<'a>> for Action {
+    type Error = Error;
+    fn try_from(value: PlayCommand) -> Result<Self, Self::Error> {
+        let base_builder = Action::builder()
+            .play_command_speed()
+            .with_player(value.owner);
+
+        let build = |builder: ActionBuilder| -> Result<Action, Error> {
+            builder.build().map_err(Error::ActionBuilderError)
+        };
+
+        match value.effect {
             PlayCommandEffect::PlaceCreature {
                 card_index,
                 position,
-            } => Action::new(),
+            } => build(base_builder.place_creature(card_index, position)),
             PlayCommandEffect::CastSpell { card_index } => {
-                action_builder.cast_spell(card_index, player_id)
+                build(base_builder.cast_spell(card_index))
             }
             PlayCommandEffect::PlaceTrap {
                 card_index,
                 position,
-            } => action_builder.place_trap(card_index, position, player_id),
+            } => build(base_builder.place_trap(card_index, position)),
             PlayCommandEffect::MoveCreature { from, to } => {
-                action_builder.move_creature(from, to, player_id)
+                build(base_builder.move_creature(from, to))
             }
-            PlayCommandEffect::EndTurn => action_builder.end_turn(),
-        };
-        action_builder
-            .play_command_speed()
-            .build()
-            .expect("Could not build place creature action")
+            PlayCommandEffect::EndTurn => build(base_builder.end_turn()),
+            PlayCommandEffect::BuildAction {
+                action,
+                action_context,
+            } => Action::from_prototype(*action, action_context).map_err(Error::ActionBuilderError),
+        }
     }
 }
