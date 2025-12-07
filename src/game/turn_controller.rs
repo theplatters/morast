@@ -140,13 +140,13 @@ impl TurnController {
 }
 
 impl TurnController {
-    fn handle_targeting(
-        &mut self,
+    fn handle_targeting<'a>(
+        &'a mut self,
         targeting_type: &TargetingType,
         selected_targets: &[I16Vec2],
         remaining_targets: u8,
         context: &GameContext,
-    ) -> Result<Option<PlayCommand>, Error> {
+    ) -> Result<Option<PlayCommand<'a>>, Error> {
         let Some(next_target) = self.input_handler.get_board_click() else {
             return Ok(None);
         };
@@ -177,12 +177,12 @@ impl TurnController {
         }
     }
 
-    fn handle_figure_selected(
-        &mut self,
+    fn handle_figure_selected<'a>(
+        &'a mut self,
         position: &I16Vec2,
         context: &GameContext,
         card_registry: &CardRegistry,
-    ) -> Result<Option<PlayCommand>, Error> {
+    ) -> Result<Option<PlayCommand<'a>>, Error> {
         let Some(next_position) = self.input_handler.get_board_click() else {
             return Ok(None);
         };
@@ -206,7 +206,10 @@ impl TurnController {
         Ok(Some(command))
     }
 
-    fn handle_idle_state(&mut self, context: &GameContext) -> Result<Option<PlayCommand>, Error> {
+    fn handle_idle_state<'a>(
+        &'a mut self,
+        context: &GameContext,
+    ) -> Result<Option<PlayCommand<'a>>, Error> {
         // Check for card selection
         if let Some(card_index) = self.input_handler.get_card_left_click(
             context
@@ -234,12 +237,12 @@ impl TurnController {
         Ok(None)
     }
 
-    fn handle_card_selected(
-        &mut self,
+    fn handle_card_selected<'a>(
+        &'a mut self,
         card_index: usize,
         context: &GameContext,
         card_registry: &CardRegistry,
-    ) -> Result<Option<PlayCommand>, Error> {
+    ) -> Result<Option<PlayCommand<'a>>, Error> {
         let Some(pos) = self.input_handler.get_board_click() else {
             return Ok(None);
         };
