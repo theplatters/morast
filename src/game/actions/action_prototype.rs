@@ -3,10 +3,7 @@ use macroquad::math::I16Vec2;
 use crate::{
     engine::janet_handler::types::{janetenum::JanetEnum, table::Table},
     game::{
-        board::effect::EffectType,
-        card::card_id::CardID,
-        error::Error,
-        events::{
+        actions::{
             action::{Action, SpellSpeed},
             action_builder::{ActionBuilderError, ActionPrototypeBuilder},
             action_context::ActionContext,
@@ -14,11 +11,14 @@ use crate::{
             targeting::TargetingType,
             timing::ActionTiming,
         },
+        board::effect::EffectType,
+        card::card_id::CardID,
+        error::Error,
         janet_action::JanetAction,
     },
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ActionPrototype {
     pub action: ActionEffectPrototype,
     pub timing: ActionTiming,
@@ -27,8 +27,16 @@ pub struct ActionPrototype {
 }
 
 impl ActionPrototype {
-    fn finalize(self, action_context: &ActionContext) -> Result<Action, ActionBuilderError> {
+    pub fn finalize(self, action_context: &ActionContext) -> Result<Action, ActionBuilderError> {
         Action::from_prototype(self, action_context)
+    }
+
+    pub fn has_targeting_type(&self) -> bool {
+        self.action.has_targeting_type()
+    }
+
+    pub fn targeting_type(&self) -> TargetingType {
+        self.action.targeting_type()
     }
 }
 
@@ -161,9 +169,9 @@ impl ActionEffectPrototype {
     }
 
     /// Returns the targeting type if this action requires targeting
-    fn targeting_type(&self) -> Option<TargetingType> {
+    fn targeting_type(&self) -> TargetingType {
         if !self.has_targeting_type() {
-            return None;
+            return TargetingType::None;
         }
 
         match self {
@@ -171,32 +179,29 @@ impl ActionEffectPrototype {
             | ActionEffectPrototype::HealCreature { targeting_type, .. }
             | ActionEffectPrototype::ApplyEffect { targeting_type, .. }
             | ActionEffectPrototype::Custom { targeting_type, .. }
-            | ActionEffectPrototype::DestroyCreature { targeting_type } => {
-                if targeting_type.requires_selection() {
-                    Some(*targeting_type)
-                } else {
-                    None
-                }
-            }
+            | ActionEffectPrototype::DestroyCreature { targeting_type } => *targeting_type,
 
             // For composite actions, return the first targeting type found
             // Note: This assumes only one action in a sequence requires targeting
             // You might want to handle this differently based on your game's needs
-            ActionEffectPrototype::Sequence(actions) => {
-                actions.iter().find_map(|action| action.targeting_type())
-            }
+            ActionEffectPrototype::Sequence(actions) => actions
+                .iter()
+                .next()
+                .and_then(|a| Some(a.targeting_type()))
+                .unwrap_or(TargetingType::None),
             ActionEffectPrototype::Conditional {
                 then_action,
                 else_action,
                 ..
-            } => then_action.targeting_type().or_else(|| {
-                else_action
-                    .as_ref()
-                    .and_then(|action| action.targeting_type())
-            }),
+            } => if then_action.targeting_type() != TargetingType::None {
+                then_action.targeting_type()
+            } else {
+                else_action.as_ref().and_then(|a| Some(a.targeting_type())).unwrap_or(TargetingType::None)
+            }
+            ,
 
             // These cases should never be reached due to has_targeting_type() check
-            _ => None,
+            _ => TargetingType::None,
         }
     }
 }

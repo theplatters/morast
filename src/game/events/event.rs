@@ -1,3 +1,5 @@
+use macroquad::math::I16Vec2;
+
 use crate::game::{card::card_id::CardID, player::PlayerID};
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
@@ -7,14 +9,17 @@ pub enum Event {
         card_id: CardID,
     },
     CreaturePlayed {
-        card_id: CardID,
         owner: PlayerID,
+        card_id: CardID,
+        position: I16Vec2,
     },
-    TurnEnd,
+
     TrapPlaced {
         owner: PlayerID,
         card_id: CardID,
+        position: I16Vec2,
     },
+    TurnEnd,
     EffectAdded {
         effect: crate::game::board::effect::Effect,
     },

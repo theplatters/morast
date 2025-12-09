@@ -1,10 +1,10 @@
 use crate::game::{
+    actions::{action::Action, action_prototype::ActionPrototype},
     card::{
         abilities::Abilities, card_reader::CommonData, creature::Creature, spell_card::Spell,
         trap_card::Trap, Card,
     },
     error::Error,
-    events::{action::Action, action_prototype::ActionPrototype},
 };
 use macroquad::math::I16Vec2;
 

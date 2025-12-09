@@ -1,21 +1,14 @@
-use std::fmt::format;
-
 use macroquad::math::I16Vec2;
 
-use crate::{
-    engine::janet_handler::{
-        bindings::janet_tuple_head,
-        types::{janetenum::JanetEnum, tuple::Tuple},
-    },
-    game::{
-        board::effect::Effect,
-        card::{card_id::CardID, card_registry::CardRegistry, in_play_id::InPlayID},
-        error::Error,
-        events::{action::Action, event::Event},
-        game_context::GameContext,
-        janet_action::JanetAction,
-        player::PlayerID,
-    },
+use crate::game::{
+    actions::action::Action,
+    board::effect::Effect,
+    card::{card_id::CardID, card_registry::CardRegistry},
+    error::Error,
+    events::event::Event,
+    game_context::GameContext,
+    janet_action::JanetAction,
+    player::PlayerID,
 };
 
 // Core action trait

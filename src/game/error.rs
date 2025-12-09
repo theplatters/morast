@@ -1,6 +1,6 @@
-use std::fmt::Display;
+use std::fmt::{write, Display};
 
-use crate::{engine::error::EngineError, game::events::action_builder::ActionBuilderError};
+use crate::{engine::error::EngineError, game::actions::action_builder::ActionBuilderError};
 
 use super::board::place_error::BoardError;
 
@@ -22,6 +22,8 @@ pub enum Error {
     WrongState,
     ActionError(&'static str),
     ActionBuilderError(ActionBuilderError),
+    InputCancelled,
+    NoInputReceived,
 }
 
 impl Display for Error {
@@ -45,6 +47,8 @@ impl Display for Error {
             Error::ActionBuilderError(action_builder_error) => {
                 write!(f, "Error when building action: {}", action_builder_error)
             }
+            Error::InputCancelled => write!(f, "Input cancelled"),
+            Error::NoInputReceived => write!(f, "No input recieved"),
         }
     }
 }

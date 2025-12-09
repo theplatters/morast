@@ -14,9 +14,9 @@ use crate::{
         },
     },
     game::{
+        actions::action_prototype::ActionPrototype,
         card::{abilities::Abilities, Card},
         error::Error,
-        events::action_prototype::ActionPrototype,
     },
 };
 

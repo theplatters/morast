@@ -10,6 +10,7 @@ pub struct ActionContext {
     pub targets: Option<Vec<I16Vec2>>, // Explicit target tiles/positions
     pub card_index: Option<usize>, // Index of the card in hand/deck
     pub from: Option<I16Vec2>,
+    pub caster_position: Option<I16Vec2>,
     pub to: Option<I16Vec2>,
     pub priority: u32,
     // You can extend with other runtime info as needed
@@ -26,7 +27,13 @@ impl ActionContext {
             to: None,
             card_index: None,
             priority: 0,
+            caster_position: None,
         }
+    }
+
+    pub fn with_caster_position(mut self, pos: I16Vec2) -> Self {
+        self.caster_position = Some(pos);
+        self
     }
 
     pub fn with_from_to(mut self, from: I16Vec2, to: I16Vec2) -> Self {

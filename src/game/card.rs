@@ -1,9 +1,6 @@
 use crate::game::card::creature::Creature;
-use crate::game::card::in_play_id::InPlayID;
 use crate::game::card::spell_card::Spell;
 use crate::game::card::trap_card::Trap;
-use crate::game::events::event_manager::EventManager;
-use crate::game::player::PlayerID;
 
 pub mod abilities;
 pub mod card_builder;
@@ -29,10 +26,6 @@ pub trait CardBehavior {
     fn name(&self) -> &str;
     fn display_image_asset_string(&self) -> &str;
     // Add other common methods here
-}
-
-pub trait Placeable {
-    fn on_place(&self, scheduler: &mut EventManager, owner: PlayerID, id: InPlayID);
 }
 
 impl Card {

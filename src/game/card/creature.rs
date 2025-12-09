@@ -1,8 +1,8 @@
 use macroquad::math::I16Vec2;
 
 use crate::game::{
+    actions::{action::Action, action_prototype::ActionPrototype},
     card::{abilities::Abilities, CardBehavior},
-    events::{action::Action, action_prototype::ActionPrototype},
 };
 
 #[derive(Debug)]
@@ -14,7 +14,7 @@ pub struct Creature {
     pub attack_strength: u16,
     pub defense: u16,
     pub cost: u16,
-    pub play_action: Option<ActionPrototype>,
+    on_play_action: Option<ActionPrototype>,
     pub turn_begin_action: Option<ActionPrototype>,
     pub turn_end_action: Option<ActionPrototype>,
     pub draw_action: Option<ActionPrototype>,
@@ -68,7 +68,7 @@ impl Creature {
             attack_strength,
             defense,
             cost,
-            play_action,
+            on_play_action: play_action,
             turn_begin_action,
             turn_end_action,
             draw_action,
@@ -88,5 +88,9 @@ impl Creature {
 
     pub fn is_powerful(&self) -> bool {
         self.attack_strength > 5 || self.defense > 5
+    }
+
+    pub fn on_play_action(&self) -> Option<&ActionPrototype> {
+        self.on_play_action.as_ref()
     }
 }

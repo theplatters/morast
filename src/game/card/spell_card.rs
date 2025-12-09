@@ -1,6 +1,6 @@
 use crate::game::{
+    actions::{action::Action, action_prototype::ActionPrototype},
     card::CardBehavior,
-    events::{action::Action, action_prototype::ActionPrototype},
 };
 
 #[derive(Debug)]
@@ -8,7 +8,7 @@ pub struct Spell {
     name: String,
     cost: u16,
     description: String,
-    pub on_play_action: ActionPrototype,
+    on_play_action: ActionPrototype,
     display_image_asset_string: String,
 }
 
@@ -48,5 +48,9 @@ impl Spell {
             on_play_action,
             display_image_asset_string,
         }
+    }
+
+    pub fn on_play_action(&self) -> &ActionPrototype {
+        &self.on_play_action
     }
 }

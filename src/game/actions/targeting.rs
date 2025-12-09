@@ -7,6 +7,7 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub enum TargetingType {
+    None,
     SingleTile, // Click a tile
     Tiles { amount: u8 },
     Area { radius: u8 }, // Area around clicked tile
@@ -47,6 +48,7 @@ impl TryFrom<String> for TargetingType {
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         match value.as_str() {
+            "none" => Ok(Self::None),
             "caster" => Ok(Self::Caster),
             "single-tile" => Ok(Self::SingleTile),
             "all-enemies" => Ok(Self::AllEnemies),

@@ -1,17 +1,17 @@
 use macroquad::math::I16Vec2;
 
 use crate::game::{
-    board::effect::Effect,
-    card::card_id::CardID,
-    events::{
+    actions::{
         action::{Action, SpellSpeed},
         action_context::ActionContext,
         action_effect::{ActionEffect, Condition},
         action_prototype::{ActionEffectPrototype, ActionPrototype},
-        event::Event,
         targeting::TargetingType,
         timing::ActionTiming,
     },
+    board::effect::Effect,
+    card::card_id::CardID,
+    events::event::Event,
     phases::Phase,
     player::PlayerID,
 };
@@ -522,14 +522,26 @@ impl Action {
                 duration,
             } => {
                 let effect = Effect::new(effect, duration, req!(player_id));
-                E::ApplyEffect {
-                    effect,
-                    targets: verify_targets!(targeting_type, req!(targets.clone())),
+                if matches!(
+                    targeting_type,
+                    TargetingType::Area { .. }
+                        | TargetingType::Line { .. }
+                        | TargetingType::Tiles { .. }
+                ) {
+                    E::ApplyEffect {
+                        effect,
+                        targets: verify_targets!(targeting_type, req!(targets.clone())),
+                    }
+                } else {
+                    E::ApplyEffect {
+                        effect,
+                        targets: vec![req!(caster_position)],
+                    }
                 }
             }
 
             // Actions requiring player + card_index + position
-            P::PlaceCreature {} => E::PlaceCreature {
+            P::PlaceCreature => E::PlaceCreature {
                 card_index: req!(card_index),
                 position: req!(position),
             },

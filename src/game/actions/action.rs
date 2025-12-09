@@ -1,17 +1,13 @@
-use std::{cmp::Ordering, ops::SubAssign};
-
 use crate::{
     engine::janet_handler::types::janetenum::JanetEnum,
     game::{
-        card::{self, creature::Creature, Card},
-        error::Error,
-        events::{
-            action_builder::ActionPrototypeBuilder,
+        actions::{
             action_effect::{ActionEffect, GameAction},
-            event::Event,
             timing::ActionTiming,
         },
-        phases::Phase,
+        card::Card,
+        error::Error,
+        events::event::Event,
         player::PlayerID,
     },
 };
@@ -65,6 +61,7 @@ impl GameAction for Action {
                 let event = Some(Event::CreaturePlayed {
                     card_id,
                     owner: self.player,
+                    position: *position,
                 });
                 Ok(event)
             }
@@ -91,23 +88,24 @@ impl GameAction for Action {
                 Ok(Some(Event::TrapPlaced {
                     card_id,
                     owner: self.player,
+                    position: *position,
                 }))
             }
             ActionEffect::MoveCreature { from, to } => {
-                context.move_card(&from, &to, card_registry)?;
+                context.move_card(from, to, card_registry)?;
                 Ok(None)
             }
             ActionEffect::DealDamage { target, amount } => todo!(),
             ActionEffect::HealCreature { target, amount } => todo!(),
             ActionEffect::DrawCards { player_id, count } => {
-                context.draw_cards(*player_id, *count);
+                context.draw_cards(*player_id, *count)?;
                 Ok(Some(Event::CardsDrawn {
                     player_id: *player_id,
                     count: *count,
                 }))
             }
             ActionEffect::AddGold { player_id, amount } => {
-                context.add_gold(*player_id, *amount);
+                context.add_gold(*player_id, *amount)?;
                 Ok(Some(Event::GoldAdded {
                     player_id: *player_id,
                     amount: *amount,
@@ -118,7 +116,8 @@ impl GameAction for Action {
             } => {
                 context
                     .get_board_mut()
-                    .add_effects(*effect, targets.as_slice());
+                    .add_effects(*effect, targets.as_slice())
+                    .map_err(Error::PlaceError)?;
                 Ok(Some(Event::EffectAdded { effect: *effect }))
             }
 
@@ -127,13 +126,14 @@ impl GameAction for Action {
                 position,
                 owner,
             } => {
-                let Some(Card::Creature(creature)) = card_registry.get(&creature_id) else {
+                let Some(Card::Creature(creature)) = card_registry.get(creature_id) else {
                     return Err(Error::CardNotFound);
                 };
                 context.place_creature(*creature_id, creature, *position, card_registry)?;
                 Ok(Some(Event::CreaturePlayed {
                     card_id: *creature_id,
                     owner: *owner,
+                    position: *position,
                 }))
             }
             ActionEffect::DestroyCreature { targets } => todo!(),

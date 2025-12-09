@@ -1,6 +1,6 @@
 use crate::game::{
+    actions::{action::Action, action_prototype::ActionPrototype},
     card::CardBehavior,
-    events::{action::Action, action_prototype::ActionPrototype},
 };
 
 #[derive(Debug)]
@@ -48,5 +48,9 @@ impl Trap {
             reveal_action,
             display_image_asset_string,
         }
+    }
+
+    pub fn on_play_action(&self) -> Option<&ActionPrototype> {
+        self.on_play_action.as_ref()
     }
 }

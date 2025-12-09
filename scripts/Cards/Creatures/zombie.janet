@@ -18,7 +18,5 @@
     'speed spell/slow
     }
 
-
   'description "He has seen better days"
-
   'display-image-asset-string "missing"})

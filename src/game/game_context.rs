@@ -9,10 +9,10 @@ use crate::game::{
 };
 
 use super::{
+    actions::action_manager::ActionManager,
     board::{effect::Effect, place_error::BoardError, Board},
     card::{card_id::CardID, card_registry::CardRegistry, in_play_id::InPlayID},
     error::Error,
-    events::event_manager::EventManager,
     player::{Player, PlayerID},
 };
 
@@ -277,7 +277,7 @@ impl GameContext {
 
     fn process_turn_end(
         &mut self,
-        scheduler: &mut EventManager,
+        scheduler: &mut ActionManager,
         card_registry: &CardRegistry,
     ) -> Result<(), Error> {
         debug!(
@@ -286,7 +286,7 @@ impl GameContext {
         );
         scheduler.advance_to_phase(Phase::End);
 
-        scheduler.process_events(self, card_registry)?;
+        scheduler.process_actions(self, card_registry)?;
         match self.board.player_base_take_damage() {
             [PlayerBaseStatus::Alive, PlayerBaseStatus::Destroyed] => {
                 println!("Player 1 wins");
@@ -307,14 +307,14 @@ impl GameContext {
         Ok(())
     }
 
-    pub(crate) fn advance_turn(&mut self, scheduler: &mut EventManager) {
+    pub(crate) fn advance_turn(&mut self, scheduler: &mut ActionManager) {
         self.change_turn_player();
         scheduler.advance_turn();
     }
 
     pub fn process_turn_begin(
         &mut self,
-        scheduler: &mut EventManager,
+        scheduler: &mut ActionManager,
         card_registry: &CardRegistry,
     ) -> Result<(), Error> {
         self.draw_cards(self.turn_player_id(), NUM_CARDS_AT_START)?;
@@ -322,11 +322,11 @@ impl GameContext {
         self.board
             .refresh_movement_points(self.turn_player_id(), card_registry)?;
         self.board.update_effects(self.turn_player);
-        scheduler.process_events(self, card_registry)?;
+        scheduler.process_actions(self, card_registry)?;
         Ok(())
     }
 
-    pub(crate) fn process_main_phase(&self, scheduler: &mut EventManager) -> Result<(), Error> {
+    pub(crate) fn process_main_phase(&self, scheduler: &mut ActionManager) -> Result<(), Error> {
         scheduler.advance_to_phase(Phase::Main);
         Ok(())
     }

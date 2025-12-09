@@ -1,16 +1,17 @@
 use std::collections::BinaryHeap;
 
 use crate::game::{
+    actions::{action::Action, action_effect::GameAction},
     card::card_registry::CardRegistry,
-    events::{self, action::Action, action_effect::GameAction, event::Event},
+    events::event::Event,
 };
 
 #[derive(Debug)]
-pub struct EventStack {
+pub struct ActionStack {
     events: BinaryHeap<Action>,
 }
 
-impl EventStack {
+impl ActionStack {
     pub fn new() -> Self {
         Self {
             events: BinaryHeap::new(),
