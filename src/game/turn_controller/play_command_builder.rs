@@ -1,3 +1,5 @@
+use macroquad::math::I16Vec2;
+
 use crate::game::{
     actions::{action_context::ActionContext, action_prototype::ActionPrototype},
     player::PlayerID,
@@ -19,6 +21,11 @@ impl<'a> PlayCommandBuilder {
 
     pub fn with_effect(mut self, effect: PlayCommandEffect) -> Self {
         self.effect = Some(effect);
+        self
+    }
+
+    pub fn move_creature(mut self, from: I16Vec2, to: I16Vec2) -> Self {
+        self.effect = Some(PlayCommandEffect::MoveCreature { from, to });
         self
     }
 

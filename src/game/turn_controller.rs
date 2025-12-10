@@ -208,10 +208,7 @@ impl TurnController {
         };
 
         let command = PlayCommandBuilder::new()
-            .with_effect(PlayCommandEffect::BuildAction {
-                action: pending_action,
-                action_context,
-            })
+            .build_action(pending_action, action_context)
             .with_owner(player)
             .build();
 
@@ -238,10 +235,7 @@ impl TurnController {
         let current_player = context.turn_player_id();
 
         let command = PlayCommandBuilder::new()
-            .with_effect(PlayCommandEffect::MoveCreature {
-                from: *position,
-                to: next_position,
-            })
+            .move_creature(*position, next_position)
             .with_owner(current_player)
             .build();
 

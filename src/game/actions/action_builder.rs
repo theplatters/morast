@@ -452,7 +452,7 @@ impl Action {
         proto: ActionPrototype,
         ctx: &ActionContext,
     ) -> Result<Action, ActionBuilderError> {
-        let effect = Self::finalize_prototype_effect(proto.action, &ctx)?;
+        let effect = Self::finalize_prototype_effect(proto.action, ctx)?;
 
         // Set player from context if available
         let Some(player_id) = ctx.player_id else {

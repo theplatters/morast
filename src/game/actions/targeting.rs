@@ -25,6 +25,19 @@ impl TargetingType {
         )
     }
 
+    pub fn verify_and_build(&self, targets: &[I16Vec2]) -> Result<Vec<I16Vec2>, Error> {
+        match self {
+            TargetingType::None => todo!(),
+            TargetingType::SingleTile => todo!(),
+            TargetingType::Tiles { amount } => todo!(),
+            TargetingType::Area { radius } => todo!(),
+            TargetingType::Line { length } => todo!(),
+            TargetingType::Caster => todo!(),
+            TargetingType::AreaAroundCaster { radius } => todo!(),
+            TargetingType::AllEnemies => todo!(),
+        }
+    }
+
     pub(crate) fn required_targets(&self) -> u8 {
         if let Self::Tiles { amount } = self {
             *amount
