@@ -9,9 +9,7 @@ pub struct ActionContext {
     pub player_id: Option<PlayerID>, // Owning player
     pub targets: Option<Vec<I16Vec2>>, // Explicit target tiles/positions
     pub card_index: Option<usize>, // Index of the card in hand/deck
-    pub from: Option<I16Vec2>,
     pub caster_position: Option<I16Vec2>,
-    pub to: Option<I16Vec2>,
     pub priority: u32,
     // You can extend with other runtime info as needed
 }
@@ -23,8 +21,6 @@ impl ActionContext {
             position: None,
             player_id: None,
             targets: None,
-            from: None,
-            to: None,
             card_index: None,
             priority: 0,
             caster_position: None,
@@ -36,12 +32,6 @@ impl ActionContext {
         self
     }
 
-    pub fn with_from_to(mut self, from: I16Vec2, to: I16Vec2) -> Self {
-        self.from = Some(from);
-        self.to = Some(to);
-        self
-    }
-    // Fluent setters for building up context easily:
     pub fn with_source(mut self, source: InPlayID) -> Self {
         self.source = Some(source);
         self

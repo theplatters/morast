@@ -24,6 +24,7 @@ pub struct ActionPrototype {
     pub timing: ActionTiming,
     pub speed: SpellSpeed,
     pub can_be_countered: bool,
+    pub optional: bool,
 }
 
 impl ActionPrototype {

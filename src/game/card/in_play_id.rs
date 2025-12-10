@@ -42,14 +42,14 @@ impl From<InPlayID> for i64 {
     }
 }
 
-impl Into<InPlayID> for u16 {
-    fn into(self) -> InPlayID {
-        InPlayID::new(self as u32)
+impl From<u16> for InPlayID {
+    fn from(val: u16) -> Self {
+        InPlayID::new(val as u32)
     }
 }
 
-impl Into<InPlayID> for u32 {
-    fn into(self) -> InPlayID {
-        InPlayID::new(self)
+impl From<u32> for InPlayID {
+    fn from(val: u32) -> Self {
+        InPlayID::new(val)
     }
 }

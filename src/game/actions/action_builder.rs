@@ -33,6 +33,7 @@ pub struct ActionPrototypeBuilder {
     timing: ActionTiming,
     speed: SpellSpeed,
     can_be_countered: bool,
+    optional: bool,
 }
 
 impl ActionPrototypeBuilder {
@@ -42,6 +43,7 @@ impl ActionPrototypeBuilder {
             timing: ActionTiming::Immediate,
             speed: SpellSpeed::Slow,
             can_be_countered: true,
+            optional: false,
         }
     }
 
@@ -98,6 +100,11 @@ impl ActionPrototypeBuilder {
 
     pub fn add_gold(mut self, amount: u16) -> Self {
         self.action = Some(ActionEffectPrototype::AddGold { amount });
+        self
+    }
+
+    pub fn optional(mut self) -> Self {
+        self.optional = true;
         self
     }
 
@@ -211,6 +218,7 @@ impl ActionPrototypeBuilder {
             action,
             timing: self.timing,
             speed: self.speed,
+            optional: self.optional,
             can_be_countered: self.can_be_countered,
         })
     }
