@@ -1,12 +1,13 @@
 [package]
 name = "Morast"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 
 [dependencies]
 log = "0.4.25"
 macroquad = "0.4.13"
+tokio = {version = "1.48.0", features = ["sync"]}
 
 [build-dependencies]
-bindgen = "0.71.0"
+bindgen = "0.72.0"
 cc = "1.2.9"

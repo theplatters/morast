@@ -2,14 +2,17 @@ use log::debug;
 use macroquad::{math::I16Vec2, rand::ChooseRandom};
 
 use crate::game::{
-    board::card_on_board::CardOnBoard, game_objects::player_base::PlayerBaseStatus, phases::Phase,
+    board::card_on_board::CreatureOnBoard,
+    card::{creature::Creature, trap_card::Trap, Card, CardBehavior},
+    game_objects::player_base::PlayerBaseStatus,
+    phases::Phase,
 };
 
 use super::{
+    actions::action_manager::ActionManager,
     board::{effect::Effect, place_error::BoardError, Board},
-    card::{card_id::CardID, card_registry::CardRegistry, in_play_id::InPlayID, Card},
+    card::{card_id::CardID, card_registry::CardRegistry, in_play_id::InPlayID},
     error::Error,
-    events::event_scheduler::GameScheduler,
     player::{Player, PlayerID},
 };
 
@@ -19,6 +22,149 @@ pub struct GameContext {
     players: [Player; 2],
     board: Board,
     turn_player: PlayerID,
+}
+
+impl GameContext {
+    pub fn place_creature(
+        &mut self,
+        card_id: CardID,
+        creature: &Creature,
+        index: I16Vec2,
+        card_registry: &CardRegistry,
+    ) -> Result<InPlayID, Error> {
+        println!("Placing card {:?} at index {:?}", creature.name(), index);
+
+        // Ensure the tile is empty
+        if self.board.get_card_at_index(&index).is_some() {
+            return Err(Error::PlaceError(BoardError::TileOccupied));
+        }
+
+        let card_on_board =
+            CreatureOnBoard::new(card_id, self.turn_player_id(), creature.movement_points);
+        let in_play_id = self
+            .board
+            .place(index, card_on_board)
+            .map_err(Error::PlaceError)?;
+
+        self.update_attack_values(card_registry)?;
+        Ok(in_play_id)
+    }
+
+    pub fn place_trap(
+        &mut self,
+        card_id: CardID,
+        trap: &Trap,
+        index: I16Vec2,
+        card_registry: &CardRegistry,
+    ) -> Result<(), Error> {
+        println!("Placing trap {:?} at index {:?}", trap.name(), index);
+
+        // Ensure the tile is empty
+        if self.board.get_card_at_index(&index).is_some() {
+            return Err(Error::PlaceError(BoardError::TileOccupied));
+        }
+
+        let card_on_board = CreatureOnBoard::new(card_id, self.turn_player_id(), 0);
+        self.board
+            .place(index, card_on_board)
+            .map_err(Error::PlaceError)?;
+
+        self.update_attack_values(card_registry)?;
+        Ok(())
+    }
+
+    fn validate_card_play(
+        &self,
+        player_id: PlayerID,
+        card_index: usize,
+        card_registry: &CardRegistry,
+    ) -> Result<(CardID, u16), Error> {
+        let player = self.get_player(player_id).ok_or(Error::PlayerNotFound)?;
+
+        let card_id = player
+            .get_card_in_hand(card_index)
+            .ok_or(Error::InvalidHandPosition(card_index))?;
+
+        let card = card_registry.get(&card_id).ok_or(Error::CardNotFound)?;
+        let cost = card.cost();
+
+        if player.get_gold() <= cost.into() {
+            return Err(Error::InsufficientGold);
+        }
+
+        Ok((card_id, cost))
+    }
+
+    pub(crate) fn execute_creature_placement(
+        &mut self,
+        player_id: PlayerID,
+        card_index: usize,
+        position: I16Vec2,
+        card_registry: &CardRegistry,
+    ) -> Result<CardID, Error> {
+        let (card_id, cost) = self.validate_card_play(player_id, card_index, card_registry)?;
+
+        let Card::Creature(creature) = card_registry.get(&card_id).ok_or(Error::CardNotFound)?
+        else {
+            return Err(Error::InvalidCardType);
+        };
+        self.place_creature(card_id, creature, position, card_registry)?;
+
+        let player = self
+            .get_player_mut(player_id)
+            .ok_or(Error::PlayerNotFound)?;
+        player.remove_card_from_hand(card_index);
+        player.remove_gold(cost);
+        Ok(card_id)
+    }
+
+    pub(crate) fn cast_spell_from_hand(
+        &mut self,
+        player_id: PlayerID,
+        card_index: usize,
+        card_registry: &CardRegistry,
+    ) -> Result<CardID, Error> {
+        let (card_id, cost) = self.validate_card_play(player_id, card_index, card_registry)?;
+
+        // Deduct cost and remove card?
+        let player = self
+            .get_player_mut(player_id)
+            .ok_or(Error::PlayerNotFound)?;
+        player.remove_card_from_hand(card_index);
+        player.remove_gold(cost);
+
+        Ok(card_id)
+    }
+
+    pub(crate) fn execute_trap_placement(
+        &mut self,
+        player_id: PlayerID,
+        card_index: usize,
+        position: I16Vec2,
+        card_registry: &CardRegistry,
+    ) -> Result<CardID, Error> {
+        let (card_id, cost) = self.validate_card_play(player_id, card_index, card_registry)?;
+
+        let Card::Trap(trap) = card_registry.get(&card_id).ok_or(Error::CardNotFound)? else {
+            return Err(Error::InvalidCardType);
+        };
+
+        self.place_trap(card_id, trap, position, card_registry)?;
+
+        // Deduct cost and remove card
+        let player = self
+            .get_player_mut(player_id)
+            .ok_or(Error::PlayerNotFound)?;
+
+        player.remove_card_from_hand(card_index);
+        player.remove_gold(cost);
+
+        Ok(card_id)
+    }
+
+    pub(crate) fn get_board_mut(&mut self) -> &mut Board {
+        &mut self.board
+    }
 }
 
 impl GameContext {
@@ -97,7 +243,7 @@ impl GameContext {
         Ok(player.get_gold())
     }
 
-    pub fn add_gold(&mut self, player_id: PlayerID, amount: i64) -> Result<(), Error> {
+    pub fn add_gold(&mut self, player_id: PlayerID, amount: u16) -> Result<(), Error> {
         let player = self
             .get_player_mut(player_id)
             .ok_or(Error::PlayerNotFound)?;
@@ -112,46 +258,6 @@ impl GameContext {
         Some(())
     }
 
-    pub fn place_card_from_hand(
-        &mut self,
-        player_id: PlayerID,
-        card_index: usize,
-        position: I16Vec2,
-        card_registry: &CardRegistry,
-        scheduler: &mut GameScheduler,
-    ) -> Result<(), Error> {
-        // Validate side of the board
-        if !self.is_on_player_side(position, player_id) {
-            return Err(Error::InvalidMove);
-        }
-
-        // Ensure the tile is empty
-        if self.board.get_card_at_index(&position).is_some() {
-            return Err(Error::PlaceError(BoardError::TileOccupied));
-        }
-
-        let player = self
-            .get_player_mut(player_id)
-            .ok_or(Error::PlayerNotFound)?;
-
-        let card_id = player
-            .get_card_in_hand(card_index)
-            .ok_or(Error::CardNotFound)?;
-
-        let card = card_registry.get(&card_id).ok_or(Error::CardNotFound)?;
-
-        if player.get_gold() <= card.cost.into() {
-            return Err(Error::InsufficientGold);
-        }
-
-        player.remove_card_from_hand(card_index);
-
-        player.remove_gold(card.cost.into());
-        // Place onto the board
-        self.place(card_id, position, card_registry, scheduler)?;
-        Ok(())
-    }
-
     pub fn is_on_player_side(&self, pos: I16Vec2, player_id: PlayerID) -> bool {
         let board_width = self.board.width();
         if player_id.get() == 0 {
@@ -161,51 +267,22 @@ impl GameContext {
         }
     }
 
-    pub fn place(
-        &mut self,
-        card_id: CardID,
-        index: I16Vec2,
-        card_registry: &CardRegistry,
-        scheduler: &mut GameScheduler,
-    ) -> Result<(), Error> {
-        println!("Placing card {:?} at index {:?}", card_id, index);
-
-        let card = card_registry.get(&card_id).ok_or(Error::CardNotFound)?;
-        let card_on_board = CardOnBoard::new(card_id, self.turn_player_id(), card.movement_points);
-        match self.board.place(index, card_on_board) {
-            Ok(id) => {
-                card.on_place(scheduler, self.turn_player_id(), id);
-                scheduler.process_events(self)?;
-            }
-            Err(err) => Err(Error::PlaceError(err))?,
-        }
-
-        self.update_attack_values(card_registry)?;
-        Ok(())
-    }
-
     pub fn get_turn_player(&self) -> Option<&Player> {
         self.players.get(self.turn_player_id().index())
     }
 
     pub fn process_turn_end(
         &mut self,
-        scheduler: &mut GameScheduler,
+        scheduler: &mut ActionManager,
         card_registry: &CardRegistry,
     ) -> Result<(), Error> {
         debug!(
             "Processing turn {:?} beginning ",
             scheduler.get_turn_count()
         );
-        scheduler.advance_to_phase(Phase::End, self);
-        for (id, card) in &self.board.cards_placed {
-            card_registry
-                .get(&card.card_id)
-                .ok_or(Error::CardNotFound)?
-                .on_turn_start(scheduler, self.turn_player_id(), *id);
-        }
+        scheduler.advance_to_phase(Phase::End);
 
-        scheduler.process_events(self)?;
+        scheduler.process_actions(self, card_registry)?;
         match self.board.player_base_take_damage() {
             [PlayerBaseStatus::Alive, PlayerBaseStatus::Destroyed] => {
                 println!("Player 1 wins");
@@ -226,37 +303,27 @@ impl GameContext {
         Ok(())
     }
 
-    pub(crate) fn advance_turn(&mut self, scheduler: &mut GameScheduler) {
+    pub(crate) fn advance_turn(&mut self, scheduler: &mut ActionManager) {
         self.change_turn_player();
-        scheduler.advance_turn(self);
+        scheduler.advance_turn();
     }
 
     pub fn process_turn_begin(
         &mut self,
-        scheduler: &mut GameScheduler,
+        scheduler: &mut ActionManager,
         card_registry: &CardRegistry,
     ) -> Result<(), Error> {
         self.draw_cards(self.turn_player_id(), NUM_CARDS_AT_START)?;
-        for (id, card) in &self.board.cards_placed {
-            println!("Processing card {:?}", card);
-            card_registry
-                .get(&card.card_id)
-                .ok_or(Error::CardNotFound)?
-                .on_turn_end(scheduler, self.turn_player_id(), *id);
-        }
 
         self.board
             .refresh_movement_points(self.turn_player_id(), card_registry)?;
         self.board.update_effects(self.turn_player);
-        scheduler.process_events(self)?;
+        scheduler.process_actions(self, card_registry)?;
         Ok(())
     }
 
-    pub(crate) fn process_main_phase(
-        &mut self,
-        scheduler: &mut GameScheduler,
-    ) -> Result<(), Error> {
-        scheduler.advance_to_phase(Phase::Main, self);
+    pub(crate) fn process_main_phase(&self, scheduler: &mut ActionManager) -> Result<(), Error> {
+        scheduler.advance_to_phase(Phase::Main);
         Ok(())
     }
 
@@ -274,23 +341,23 @@ impl GameContext {
     ) -> Result<(), BoardError> {
         self.board.remove_effects(effect, tiles)
     }
-    pub fn is_legal_move(&self, from: I16Vec2, to: I16Vec2, card: &Card) -> bool {
-        card.movement.contains(&(from - to))
+    pub fn is_legal_move(&self, from: &I16Vec2, to: &I16Vec2, card: &Creature) -> bool {
+        card.movement.contains(&(*from - *to))
     }
 
     pub fn move_card(
         &mut self,
-        from: I16Vec2,
-        to: I16Vec2,
+        from: &I16Vec2,
+        to: &I16Vec2,
         card_registry: &CardRegistry,
     ) -> Result<(), Error> {
-        let card_at_start = *self
+        let card_at_start = self
             .board
-            .get_card_at_index(&from)
-            .ok_or(Error::PlaceError(BoardError::TileEmpty))?;
+            .get_card_at_index(from)
+            .ok_or(Error::PlaceError(BoardError::TileEmpty(*from)))?;
 
         let card = card_registry
-            .get(&card_at_start.card_id)
+            .get_creature(&card_at_start.card_id)
             .ok_or(Error::CardNotFound)?;
 
         if !self.is_legal_move(from, to, card) {
@@ -307,10 +374,10 @@ impl GameContext {
         &mut self,
         card_registry: &CardRegistry,
     ) -> Result<(), Error> {
-        let mut removed = self.board.update_attack_values(card_registry)?;
+        let mut removed_cards = self.board.update_attack_values(card_registry)?;
 
-        while !removed.is_empty() {
-            removed = self.board.update_attack_values(card_registry)?;
+        while !removed_cards.is_empty() {
+            removed_cards = self.board.update_attack_values(card_registry)?;
         }
         Ok(())
     }

@@ -5,14 +5,17 @@ use std::{
 
 use crate::engine::{
     error::EngineError,
-    janet_handler::api::{cfun_from_current_position, cfun_is_owners_turn},
+    janet_handler::{
+        api::{cfun_from_current_position, cfun_is_owners_turn},
+        bindings::janet_def,
+    },
 };
 
 use super::{
     api::{
         cfun_add_gold_to_player, cfun_apply_effect, cfun_card_owner, cfun_cross, cfun_discard,
         cfun_draw, cfun_get_current_index, cfun_gold_amount, cfun_other_player, cfun_plus,
-        cfun_shuffle_deck, cfun_turn_count, cfun_turn_player,
+        cfun_shuffle_deck, cfun_turn_player,
     },
     bindings::{
         janet_cfuns_prefix, janet_core_env, janet_deinit, janet_dostring, janet_env_lookup,
@@ -39,91 +42,31 @@ impl Environment {
                 lookup: Table { raw: _lookup },
             };
             env.register_core_functions();
+            env.register_core_constants();
+
             env
         }
     }
 
-    fn register_core_functions(&self) {
-        let functions = [
-            (
-                "draw",
-                cfun_draw as JanetRawCFunction,
-                "Draws a card for the current player",
-            ),
-            (
-                "discard",
-                cfun_discard as JanetRawCFunction,
-                "Discards a card from the hand",
-            ),
-            (
-                "get-gold",
-                cfun_add_gold_to_player as JanetRawCFunction,
-                "Get's the amount of gold",
-            ),
-            (
-                "turn-player",
-                cfun_turn_player as JanetRawCFunction,
-                "Get's the current player",
-            ),
-            (
-                "other-player",
-                cfun_other_player as JanetRawCFunction,
-                "Get's the other player",
-            ),
-            (
-                "plus",
-                cfun_plus as JanetRawCFunction,
-                "Generates a Plus of size n",
-            ),
-            (
-                "cross",
-                cfun_cross as JanetRawCFunction,
-                "Generates a Cross of size n",
-            ),
-            (
-                "player-gold",
-                cfun_gold_amount as JanetRawCFunction,
-                "Get's the amount of gold a player has",
-            ),
-            (
-                "turn-count",
-                cfun_turn_count as JanetRawCFunction,
-                "Get's the current turn number",
-            ),
-            (
-                "shuffle",
-                cfun_shuffle_deck as JanetRawCFunction,
-                "Shuffles the deck of the player, returns nill if the function failed, returns true on success and false if the Player does not exisShuffles the deck of the player, returns nill if the function failed, retu true on success and false if the Player does not existt",
-            ),
-        (
-                "owner",
-                cfun_card_owner as JanetRawCFunction,
-                "Returns the owner of the card",
-            ),
-        (
-                "apply-effect",
-                cfun_apply_effect as JanetRawCFunction,
-                "Applies an Effect to the given offset",
-            ),
-        (
-                "current-index",
-                cfun_get_current_index as JanetRawCFunction,
-                "Get's the current index of the card",
-            ),
-        (
-                "from-current-position",
-                cfun_from_current_position as JanetRawCFunction,
-                "Maps an array relative to a position",
-            ),
-            ( "is-owners-turn?", 
-                cfun_is_owners_turn as JanetRawCFunction,
-                "returns true if the turn player is the owner of the card")
-        ];
+    pub fn register_constant(
+        &self,
+        name: &str,
+        value: &JanetEnum,
+        docs: Option<&str>,
+    ) -> Result<(), NulError> {
+        let name_cstr = CString::new(name)?;
+        let doc_cstr = docs.map(CString::new).transpose()?;
 
-        for (name, fun, desc) in functions {
-            self.register(name, fun, desc, Some("std"))
-                .unwrap_or_else(|_| panic!("Could not register {} function", name));
+        unsafe {
+            let janet_value = value.to_janet();
+            janet_def(
+                self.env_ptr(),
+                name_cstr.as_ptr(),
+                janet_value,
+                doc_cstr.as_ref().map_or(std::ptr::null(), |s| s.as_ptr()),
+            );
         }
+        Ok(())
     }
 
     pub fn env_ptr(&self) -> *mut JanetTable {

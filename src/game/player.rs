@@ -2,7 +2,7 @@ use std::cmp;
 
 use macroquad::rand::ChooseRandom;
 
-use crate::game::{card::card_registry::CardRegistry, error::Error};
+use crate::game::{card::card_registry::CardRegistry, card::CardBehavior, error::Error};
 
 use super::card::card_id::CardID;
 
@@ -66,12 +66,12 @@ impl Player {
         };
         self.discard_pile.push(card);
     }
-    pub fn add_gold(&mut self, amount: i64) {
-        self.money = cmp::max(self.money + amount, 0)
+    pub fn add_gold(&mut self, amount: u16) {
+        self.money = cmp::max(self.money + amount as i64, 0)
     }
 
-    pub fn remove_gold(&mut self, amount: i64) {
-        self.money -= amount;
+    pub fn remove_gold(&mut self, amount: u16) {
+        self.money -= amount as i64;
     }
 
     pub fn get_gold(&self) -> i64 {
@@ -104,8 +104,10 @@ impl Player {
         card_registry: &CardRegistry,
     ) -> Result<(), Error> {
         let card_id = self.hand.remove(pos);
-        let card = card_registry.get(&card_id).ok_or(Error::CardNotFound)?;
-        self.add_gold(card.cost.into());
+        let card = card_registry
+            .get_creature(&card_id)
+            .ok_or(Error::CardNotFound)?;
+        self.add_gold(card.cost().into());
         Ok(())
     }
 }

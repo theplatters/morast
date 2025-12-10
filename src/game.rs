@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
+use actions::action_manager::ActionManager;
 use card::card_registry::CardRegistry;
 use error::Error;
-use events::event_scheduler::GameScheduler;
 use game_context::GameContext;
 use macroquad::window::next_frame;
 
@@ -12,28 +12,30 @@ use crate::{
         janet_handler::controller::Environment,
         renderer::{render_config::RenderConfig, Renderer},
     },
-    game::turn_controller::TurnController,
+    game::{events::event_manager::EventManager, turn_controller::TurnController},
 };
 
+pub mod actions;
 pub mod board;
 pub mod card;
 pub mod error;
 pub mod events;
-pub mod game_action;
 pub mod game_context;
 pub mod game_objects;
+pub mod janet_action;
 mod phases;
 pub mod player;
 pub mod turn_controller;
 
 pub struct Game {
     pub context: GameContext,
-    pub scheduler: GameScheduler,
+    pub scheduler: ActionManager,
     pub card_registry: CardRegistry,
     env: Environment,
     asset_loader: AssetLoader,
     turn_controller: TurnController,
     renderer: Renderer,
+    event_manager: EventManager,
 }
 
 impl Game {
@@ -49,12 +51,13 @@ impl Game {
         let render_config = Arc::new(RenderConfig::default());
         Self {
             env,
-            scheduler: GameScheduler::new(),
+            scheduler: ActionManager::new(),
             context: GameContext::new(&card_registry),
             card_registry,
             asset_loader,
             turn_controller: TurnController::new(render_config.clone()),
             renderer: Renderer::new(render_config),
+            event_manager: EventManager::default(),
         }
     }
 
@@ -69,22 +72,45 @@ impl Game {
             self.context.process_main_phase(&mut self.scheduler)?;
 
             while !self.turn_controller.turn_over() {
-                let turn_step = self.turn_controller.update(
-                    &mut self.context,
-                    &self.card_registry,
-                    &mut self.scheduler,
-                )?;
+                if let Some(play_command) = self
+                    .turn_controller
+                    .update(&mut self.context, &self.card_registry)?
+                {
+                    self.scheduler.schedule(
+                        play_command
+                            .try_into()
+                            .expect("Could not convert play command"),
+                    );
+                }
+
+                let mut events = self
+                    .scheduler
+                    .process_actions(&mut self.context, &self.card_registry)?;
+
+                while let Some(event) = events.pop() {
+                    let mut actions = self
+                        .event_manager
+                        .process_event(event, &mut self.turn_controller, &self.card_registry)
+                        .await?;
+
+                    while let Some(action) = actions.pop() {
+                        self.scheduler.schedule(action);
+                    }
+                    events.extend(
+                        self.scheduler
+                            .process_actions(&mut self.context, &self.card_registry)?,
+                    );
+                }
 
                 self.renderer.render(
                     &self.context,
-                    &turn_step,
+                    &self.turn_controller.state,
                     &self.asset_loader,
                     &self.card_registry,
                 )?;
 
                 next_frame().await;
             }
-
             self.context
                 .process_turn_end(&mut self.scheduler, &self.card_registry)?;
         }

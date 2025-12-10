@@ -1,4 +1,4 @@
-use std::fmt::{write, Display};
+use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct InPlayID(u32);
@@ -39,5 +39,17 @@ impl From<i64> for InPlayID {
 impl From<InPlayID> for i64 {
     fn from(value: InPlayID) -> Self {
         value.0 as i64
+    }
+}
+
+impl Into<InPlayID> for u16 {
+    fn into(self) -> InPlayID {
+        InPlayID::new(self as u32)
+    }
+}
+
+impl Into<InPlayID> for u32 {
+    fn into(self) -> InPlayID {
+        InPlayID::new(self)
     }
 }

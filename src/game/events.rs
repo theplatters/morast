@@ -1,3 +1,2 @@
-mod event;
-mod event_error;
-pub mod event_scheduler;
+pub mod event;
+pub mod event_manager;
