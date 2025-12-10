@@ -3,7 +3,7 @@
 'on-play  @{
   'action @{
     'type "move-creature"
-    'direction [0 1]
+    'direction [1 0]
   }
   'timing "now"
   'speed spell/slow

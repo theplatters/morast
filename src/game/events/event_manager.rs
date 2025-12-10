@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::game::{
-    actions::action::Action,
+    actions::{action::Action, action_context::ActionContext},
     card::{card_registry::CardRegistry, in_play_id::InPlayID, Card},
     error::Error,
     events::event::Event,
@@ -25,16 +25,17 @@ impl EventManager {
                     return Err(Error::CardNotFound);
                 };
 
-                let action_context = turn_controller
-                    .request_action_context(card.on_play_action())
-                    .await?
-                    .with_player(owner);
-
-                Ok(vec![card
-                    .on_play_action()
-                    .clone()
-                    .finalize(&action_context)
-                    .map_err(Error::ActionBuilderError)?])
+                if card.on_play_action().requires_selection() {
+                    turn_controller.request_action_context(card.on_play_action());
+                    Ok(vec![])
+                } else {
+                    let base_context = ActionContext::new().with_player(owner);
+                    Ok(vec![card
+                        .on_play_action()
+                        .clone()
+                        .finalize(&base_context)
+                        .map_err(Error::ActionBuilderError)?])
+                }
             }
             Event::CreaturePlayed {
                 owner,
@@ -46,18 +47,21 @@ impl EventManager {
                 else {
                     return Err(Error::CardNotFound);
                 };
+
                 match card.on_play_action() {
-                    Some(action) => Ok(vec![{
-                        let context = turn_controller
-                            .request_action_context(action)
-                            .await?
+                    Some(action) if action.requires_selection() => {
+                        turn_controller.request_action_context(action);
+                        Ok(vec![])
+                    }
+                    Some(action) => {
+                        let base_context = ActionContext::new()
                             .with_player(owner)
                             .with_caster_position(position);
-                        action
+                        Ok(vec![action
                             .clone()
-                            .finalize(&context)
-                            .map_err(Error::ActionBuilderError)?
-                    }]),
+                            .finalize(&base_context)
+                            .map_err(Error::ActionBuilderError)?])
+                    }
                     None => Ok(Vec::new()),
                 }
             }
@@ -71,17 +75,10 @@ impl EventManager {
                     return Err(Error::CardNotFound);
                 };
                 match card.on_play_action() {
-                    Some(action) => Ok(vec![{
-                        let context = turn_controller
-                            .request_action_context(action)
-                            .await?
-                            .with_player(owner)
-                            .with_caster_position(position);
-                        action
-                            .clone()
-                            .finalize(&context)
-                            .map_err(Error::ActionBuilderError)?
-                    }]),
+                    Some(action) => {
+                        turn_controller.request_action_context(action);
+                        Ok(vec![])
+                    }
                     None => Ok(Vec::new()),
                 }
             }

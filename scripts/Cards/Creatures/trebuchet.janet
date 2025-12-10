@@ -5,7 +5,7 @@
   'movement (std/plus 1)
   'movement-points 1
 
-  'attack @[ @[0 5]]
+  'attack @[ @[5 0]]
 
   'abilities @[]
 

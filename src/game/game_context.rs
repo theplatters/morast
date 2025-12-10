@@ -114,7 +114,7 @@ impl GameContext {
             .get_player_mut(player_id)
             .ok_or(Error::PlayerNotFound)?;
         player.remove_card_from_hand(card_index);
-        player.remove_gold(cost.into());
+        player.remove_gold(cost);
         Ok(card_id)
     }
 
@@ -126,16 +126,12 @@ impl GameContext {
     ) -> Result<CardID, Error> {
         let (card_id, cost) = self.validate_card_play(player_id, card_index, card_registry)?;
 
-        let Card::Spell(spell) = card_registry.get(&card_id).ok_or(Error::CardNotFound)? else {
-            return Err(Error::InvalidCardType);
-        };
-
         // Deduct cost and remove card?
         let player = self
             .get_player_mut(player_id)
             .ok_or(Error::PlayerNotFound)?;
         player.remove_card_from_hand(card_index);
-        player.remove_gold(cost.into());
+        player.remove_gold(cost);
 
         Ok(card_id)
     }
@@ -161,7 +157,7 @@ impl GameContext {
             .ok_or(Error::PlayerNotFound)?;
 
         player.remove_card_from_hand(card_index);
-        player.remove_gold(cost.into());
+        player.remove_gold(cost);
 
         Ok(card_id)
     }
@@ -275,7 +271,7 @@ impl GameContext {
         self.players.get(self.turn_player_id().index())
     }
 
-    fn process_turn_end(
+    pub fn process_turn_end(
         &mut self,
         scheduler: &mut ActionManager,
         card_registry: &CardRegistry,

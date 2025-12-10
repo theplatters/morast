@@ -10,22 +10,22 @@ use crate::game::{
     turn_controller::play_command_builder::PlayCommandBuilder,
 };
 
-pub struct PlayCommand<'a> {
-    effect: PlayCommandEffect<'a>,
+pub struct PlayCommand {
+    effect: PlayCommandEffect,
     owner: PlayerID,
 }
 
-impl<'a> PlayCommand<'a> {
-    fn builder() -> PlayCommandBuilder<'a> {
+impl<'a> PlayCommand {
+    fn builder() -> PlayCommandBuilder {
         PlayCommandBuilder::new()
     }
 
-    pub(crate) fn new(effect: PlayCommandEffect<'a>, owner: PlayerID) -> Self {
+    pub(crate) fn new(effect: PlayCommandEffect, owner: PlayerID) -> Self {
         Self { effect, owner }
     }
 }
 
-pub enum PlayCommandEffect<'a> {
+pub enum PlayCommandEffect {
     PlaceCreature {
         card_index: usize,
         position: I16Vec2,
@@ -43,12 +43,12 @@ pub enum PlayCommandEffect<'a> {
     },
     EndTurn,
     BuildAction {
-        action: Box<ActionPrototype>,
-        action_context: &'a ActionContext,
+        action: ActionPrototype,
+        action_context: ActionContext,
     },
 }
 
-impl<'a> TryFrom<PlayCommand<'a>> for Action {
+impl<'a> TryFrom<PlayCommand> for Action {
     type Error = Error;
     fn try_from(value: PlayCommand) -> Result<Self, Self::Error> {
         let base_builder = Action::builder()
@@ -78,7 +78,7 @@ impl<'a> TryFrom<PlayCommand<'a>> for Action {
             PlayCommandEffect::BuildAction {
                 action,
                 action_context,
-            } => Action::from_prototype(*action, action_context).map_err(Error::ActionBuilderError),
+            } => Action::from_prototype(action, &action_context).map_err(Error::ActionBuilderError),
         }
     }
 }

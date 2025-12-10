@@ -111,6 +111,8 @@ impl Game {
 
                 next_frame().await;
             }
+            self.context
+                .process_turn_end(&mut self.scheduler, &self.card_registry)?;
         }
     }
 }

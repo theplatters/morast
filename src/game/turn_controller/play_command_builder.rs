@@ -1,14 +1,15 @@
 use crate::game::{
+    actions::{action_context::ActionContext, action_prototype::ActionPrototype},
     player::PlayerID,
     turn_controller::play_command::{PlayCommand, PlayCommandEffect},
 };
 
-pub struct PlayCommandBuilder<'a> {
-    effect: Option<PlayCommandEffect<'a>>,
+pub struct PlayCommandBuilder {
+    effect: Option<PlayCommandEffect>,
     owner: Option<PlayerID>,
 }
 
-impl<'a> PlayCommandBuilder<'a> {
+impl<'a> PlayCommandBuilder {
     pub fn new() -> Self {
         Self {
             effect: None,
@@ -16,8 +17,16 @@ impl<'a> PlayCommandBuilder<'a> {
         }
     }
 
-    pub fn with_effect(mut self, effect: PlayCommandEffect<'a>) -> Self {
+    pub fn with_effect(mut self, effect: PlayCommandEffect) -> Self {
         self.effect = Some(effect);
+        self
+    }
+
+    pub fn build_action(mut self, action: ActionPrototype, action_context: ActionContext) -> Self {
+        self.effect = Some(PlayCommandEffect::BuildAction {
+            action,
+            action_context,
+        });
         self
     }
 
@@ -26,7 +35,7 @@ impl<'a> PlayCommandBuilder<'a> {
         self
     }
 
-    pub fn build(self) -> PlayCommand<'a> {
+    pub fn build(self) -> PlayCommand {
         PlayCommand::new(self.effect.unwrap(), self.owner.unwrap())
     }
 }

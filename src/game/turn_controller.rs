@@ -23,7 +23,9 @@ use crate::{
 pub mod play_command;
 pub mod play_command_builder;
 
+#[derive(Default)]
 pub enum TurnState {
+    #[default]
     Idle,
     CardSelected {
         card_index: usize,
@@ -31,13 +33,13 @@ pub enum TurnState {
     AwaitingInputs {
         targeting_type: TargetingType,
         selected_targets: Vec<I16Vec2>,
+        pending_action: ActionPrototype,
     },
     FigureSelected {
         position: I16Vec2,
     },
     EndTurn,
 }
-
 impl PartialEq for TurnState {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
@@ -53,10 +55,12 @@ impl PartialEq for TurnState {
                 Self::AwaitingInputs {
                     targeting_type: l_targeting_type,
                     selected_targets: l_selected_targets,
+                    ..
                 },
                 Self::AwaitingInputs {
                     targeting_type: r_targeting_type,
                     selected_targets: r_selected_targets,
+                    ..
                 },
             ) => l_targeting_type == r_targeting_type && l_selected_targets == r_selected_targets,
             (
@@ -92,11 +96,11 @@ impl TurnController {
         }
     }
 
-    pub fn update<'a>(
-        &'a mut self,
+    pub fn update(
+        &mut self,
         context: &mut GameContext,
         card_registry: &CardRegistry,
-    ) -> Result<Option<PlayCommand<'a>>, Error> {
+    ) -> Result<Option<PlayCommand>, Error> {
         if self
             .input_handler
             .get_key_press()
@@ -113,7 +117,7 @@ impl TurnController {
             TurnState::CardSelected { card_index } => {
                 self.handle_card_selected(card_index, context, card_registry)
             }
-            TurnState::AwaitingInputs { .. } => self.handle_awaiting_inpput(context),
+            TurnState::AwaitingInputs { .. } => self.handle_awaiting_inputs(context),
             TurnState::FigureSelected { position } => {
                 self.handle_figure_selected(&position, context, card_registry)
             }
@@ -136,112 +140,91 @@ impl TurnController {
         self.state = TurnState::Idle;
     }
 
-    pub async fn request_action_context(
-        &mut self,
-        action: &ActionPrototype,
-    ) -> Result<ActionContext, Error> {
+    pub fn request_action_context(&mut self, action: &ActionPrototype) {
         match action.targeting_type() {
-            TargetingType::SingleTile | TargetingType::Area { .. } => {
-                let target = self.collect_position(action.targeting_type()).await?;
-                Ok(ActionContext::new().with_position(target))
-            }
-            TargetingType::Tiles { .. } | TargetingType::Line { .. } => {
-                let targets = self.collect_targets(action.targeting_type()).await?;
-                Ok(ActionContext::new().with_targets(targets))
+            TargetingType::SingleTile
+            | TargetingType::Area { .. }
+            | TargetingType::Tiles { .. }
+            | TargetingType::Line { .. } => {
+                self.state = TurnState::AwaitingInputs {
+                    targeting_type: action.targeting_type(),
+                    selected_targets: Vec::new(),
+                    pending_action: action.clone(),
+                };
             }
             TargetingType::Caster
             | TargetingType::AreaAroundCaster { .. }
             | TargetingType::AllEnemies
-            | TargetingType::None => Ok(ActionContext::new()),
+            | TargetingType::None => {}
         }
-    }
-    // Async method to collect targets from user input
-    async fn collect_targets(
-        &mut self,
-        targeting_type: TargetingType,
-    ) -> Result<Vec<I16Vec2>, Error> {
-        let (sender, receiver) = oneshot::channel();
-
-        self.state = TurnState::AwaitingInputs {
-            targeting_type,
-            selected_targets: Vec::new(),
-        };
-
-        self.sender = Some(sender);
-        // Wait for the input to be collected
-        receiver.await.map_err(|_| Error::InputCancelled)
-    }
-
-    // Async method to collect a single position
-    async fn collect_position(&mut self, targeting_type: TargetingType) -> Result<I16Vec2, Error> {
-        let (sender, receiver) = oneshot::channel();
-
-        self.state = TurnState::AwaitingInputs {
-            targeting_type,
-            selected_targets: Vec::new(),
-        };
-
-        self.sender = Some(sender);
-        // Wait for position and take the first one
-        let positions = receiver.await.map_err(|_| Error::InputCancelled)?;
-        positions.into_iter().next().ok_or(Error::NoInputReceived)
     }
 }
 
 impl TurnController {
-    fn handle_awaiting_inpput<'a>(
-        &'a mut self,
+    fn handle_awaiting_inputs(
+        &mut self,
         context: &GameContext,
-    ) -> Result<Option<PlayCommand<'a>>, Error> {
+    ) -> Result<Option<PlayCommand>, Error> {
         let Some(click_pos) = self.input_handler.get_board_click() else {
             return Ok(None);
         };
-        let sender = &mut self.sender;
+
         let TurnState::AwaitingInputs {
             targeting_type,
-            selected_targets,
-        } = &mut self.state
+            mut selected_targets,
+            pending_action,
+        } = std::mem::take(&mut self.state)
         else {
-            panic!("Selecting called, when state is something else")
+            unreachable!("handle_awaiting_inputs called in wrong state")
         };
 
-        match *targeting_type {
-            TargetingType::SingleTile | TargetingType::Area { .. } => {
-                if let Some(sender) = sender.take() {
-                    let _ = sender.send(vec![click_pos]);
-                    self.state = TurnState::Idle;
-                }
-            }
-            TargetingType::Tiles { amount } => {
-                selected_targets.push(click_pos);
-                if selected_targets.len() == amount.into() {
-                    if let Some(sender) = sender.take() {
-                        let _ = sender.send(selected_targets.clone());
-                        self.state = TurnState::Idle;
-                    }
-                }
-            }
-            TargetingType::Line { .. } => {
-                selected_targets.push(click_pos);
-                if selected_targets.len() == 2 {
-                    if let Some(sender) = sender.take() {
-                        let _ = sender.send(selected_targets.clone());
-                        self.state = TurnState::Idle;
-                    }
-                }
-            }
-            _ => {}
+        selected_targets.push(click_pos);
+
+        let required_targets = match targeting_type {
+            TargetingType::SingleTile | TargetingType::Area { .. } => 1,
+            TargetingType::Tiles { amount } => amount.into(),
+            TargetingType::Line { .. } => 2,
+            _ => todo!(),
+        };
+
+        if selected_targets.len() < required_targets {
+            self.state = TurnState::AwaitingInputs {
+                targeting_type,
+                selected_targets,
+                pending_action,
+            };
+            return Ok(None);
         }
 
-        Ok(None)
+        let player = context.turn_player_id();
+        let action_context = if selected_targets.len() == 1 {
+            ActionContext::new()
+                .with_player(player)
+                .with_position(selected_targets[0])
+        } else {
+            ActionContext::new()
+                .with_player(player)
+                .with_targets(selected_targets)
+        };
+
+        let command = PlayCommandBuilder::new()
+            .with_effect(PlayCommandEffect::BuildAction {
+                action: pending_action,
+                action_context,
+            })
+            .with_owner(player)
+            .build();
+
+        println!("Sending Play Command ");
+        Ok(Some(command))
     }
 
-    fn handle_figure_selected<'a>(
-        &'a mut self,
+    fn handle_figure_selected(
+        &mut self,
         position: &I16Vec2,
         context: &GameContext,
         card_registry: &CardRegistry,
-    ) -> Result<Option<PlayCommand<'a>>, Error> {
+    ) -> Result<Option<PlayCommand>, Error> {
         let Some(next_position) = self.input_handler.get_board_click() else {
             return Ok(None);
         };
@@ -265,10 +248,7 @@ impl TurnController {
         Ok(Some(command))
     }
 
-    fn handle_idle_state<'a>(
-        &'a mut self,
-        context: &GameContext,
-    ) -> Result<Option<PlayCommand<'a>>, Error> {
+    fn handle_idle_state(&mut self, context: &GameContext) -> Result<Option<PlayCommand>, Error> {
         // Check for card selection
         if let Some(card_index) = self.input_handler.get_card_left_click(
             context
@@ -296,12 +276,12 @@ impl TurnController {
         Ok(None)
     }
 
-    fn handle_card_selected<'a>(
-        &'a mut self,
+    fn handle_card_selected(
+        &mut self,
         card_index: usize,
         context: &GameContext,
         card_registry: &CardRegistry,
-    ) -> Result<Option<PlayCommand<'a>>, Error> {
+    ) -> Result<Option<PlayCommand>, Error> {
         let Some(pos) = self.input_handler.get_board_click() else {
             return Ok(None);
         };

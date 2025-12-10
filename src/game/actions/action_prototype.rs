@@ -31,8 +31,8 @@ impl ActionPrototype {
         Action::from_prototype(self, action_context)
     }
 
-    pub fn has_targeting_type(&self) -> bool {
-        self.action.has_targeting_type()
+    pub fn requires_selection(&self) -> bool {
+        self.action.requires_selection()
     }
 
     pub fn targeting_type(&self) -> TargetingType {
@@ -133,7 +133,7 @@ pub enum ActionEffectPrototype {
 
 impl ActionEffectPrototype {
     /// Returns true if this action effect requires targeting from the player
-    fn has_targeting_type(&self) -> bool {
+    fn requires_selection(&self) -> bool {
         match self {
             ActionEffectPrototype::DealDamage { targeting_type, .. }
             | ActionEffectPrototype::HealCreature { targeting_type, .. }
@@ -149,17 +149,17 @@ impl ActionEffectPrototype {
             | ActionEffectPrototype::AddGold { .. }
             | ActionEffectPrototype::SummonCreature { .. } => false,
             ActionEffectPrototype::Sequence(actions) => {
-                actions.iter().any(|action| action.has_targeting_type())
+                actions.iter().any(|action| action.requires_selection())
             }
             ActionEffectPrototype::Conditional {
                 then_action,
                 else_action,
                 ..
             } => {
-                then_action.has_targeting_type()
+                then_action.requires_selection()
                     || else_action
                         .as_ref()
-                        .is_some_and(|action| action.has_targeting_type())
+                        .is_some_and(|action| action.requires_selection())
             }
             ActionEffectPrototype::Custom { targeting_type, .. } => {
                 targeting_type.requires_selection()
@@ -170,16 +170,14 @@ impl ActionEffectPrototype {
 
     /// Returns the targeting type if this action requires targeting
     fn targeting_type(&self) -> TargetingType {
-        if !self.has_targeting_type() {
-            return TargetingType::None;
-        }
-
         match self {
             ActionEffectPrototype::DealDamage { targeting_type, .. }
             | ActionEffectPrototype::HealCreature { targeting_type, .. }
             | ActionEffectPrototype::ApplyEffect { targeting_type, .. }
             | ActionEffectPrototype::Custom { targeting_type, .. }
             | ActionEffectPrototype::DestroyCreature { targeting_type } => *targeting_type,
+
+            ActionEffectPrototype::MoveCreature { .. } => TargetingType::SingleTile,
 
             // For composite actions, return the first targeting type found
             // Note: This assumes only one action in a sequence requires targeting

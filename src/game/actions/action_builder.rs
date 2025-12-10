@@ -573,10 +573,11 @@ impl Action {
             },
 
             // Actions requiring from/to positions
-            P::MoveCreature { .. } => E::MoveCreature {
-                from: req!(from),
-                to: req!(to),
-            },
+            P::MoveCreature { direction } => {
+                let from = req!(position);
+                let to = from + direction;
+                E::MoveCreature { from, to }
+            }
 
             // No context required
             P::EndTurn => E::EndTurn,
