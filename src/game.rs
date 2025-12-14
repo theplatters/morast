@@ -24,7 +24,6 @@ pub mod components;
 pub mod error;
 pub mod events;
 pub mod game_context;
-pub mod game_objects;
 pub mod janet_action;
 mod phases;
 pub mod player;

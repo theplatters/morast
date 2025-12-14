@@ -5,9 +5,6 @@ use macroquad::math::I16Vec2;
 
 use crate::game::card::card_id::CardID;
 
-#[derive(Component)]
-pub struct CardRef(pub CardID);
-
 // ============================================
 // CARD TYPE MARKERS (still useful for queries)
 // ============================================
@@ -26,10 +23,7 @@ pub struct TrapCard;
 // ============================================
 
 #[derive(Component)]
-pub struct InDeck {
-    pub owner: Entity,
-    pub position: usize,
-}
+pub struct InDeck;
 
 #[derive(Component)]
 pub struct InHand {
@@ -53,12 +47,10 @@ pub struct InGraveyard {
 // MUTABLE INSTANCE STATE (what changes during play)
 // ============================================
 
-/// Current combat state for a creature on the board
 #[derive(Component)]
 pub struct CombatState {
     pub current_attack: i16, // Can be modified by buffs/debuffs
     pub current_defense: i16,
-    pub health: u16,
 }
 
 /// Current movement state
@@ -75,6 +67,3 @@ pub struct Modifiers {
     pub movement: i16,
     pub cost: i16, // For cards in hand
 }
-
-#[derive(Component)]
-pub struct Owner(pub Entity);

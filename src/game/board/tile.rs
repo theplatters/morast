@@ -12,7 +12,6 @@ use super::effect::Effect;
 pub struct TileBundel {
     tile: Tile,
     attack_on_tile: AttackOnTile,
-    occupant: Occupant,
     effects_on_tile: EffectsOnTile,
 }
 
@@ -22,8 +21,8 @@ pub struct Tile;
 #[derive(Component, Default)]
 pub struct AttackOnTile(pub U16Vec2);
 
-#[derive(Component, Default)]
-pub struct Occupant(pub Option<Entity>);
+#[derive(Component)]
+pub struct Occupant(pub Entity);
 
 #[derive(Component, Default)]
 pub struct EffectsOnTile(pub Vec<Effect>);

@@ -8,10 +8,10 @@ use place_error::BoardError;
 use tile::Tile;
 
 use crate::game::{
-    board::tile::TileBundel,
+    board::tile::{AttackOnTile, Occupant, TileBundel},
     card::creature::Creature,
+    components::{player_components::Player, Health, Owner},
     error::Error,
-    game_objects::player_base::{PlayerBase, PlayerBaseStatus},
 };
 
 use super::{
@@ -24,10 +24,29 @@ pub mod effect;
 pub mod place_error;
 pub mod tile;
 
+#[derive(Bundle)]
+pub struct PlayerBaseBundle {
+    player_base: PlayerBase,
+    health: Health,
+}
+
+impl PlayerBaseBundle {
+    fn new(owner: Entity) -> Self {
+        Self {
+            player_base: PlayerBase::default(),
+            health: Health::player_base_health(),
+        }
+    }
+}
+
+#[derive(Component, Default)]
+pub struct PlayerBase;
+
 #[derive(Debug, Resource)]
 pub struct Board {
     tiles: HashMap<I16Vec2, Entity>,
     size: I16Vec2,
+    player_base_positions: [I16Vec2; 2],
 }
 
 impl Board {
@@ -52,63 +71,33 @@ impl Board {
         commands.insert_resource(Board {
             tiles,
             size: I16Vec2::new(x_size, y_size),
+            player_base_positions,
         });
-
-        // Spawn player bases as entities (after players are spawned)
-        // This would be in a separate system that runs after player setup
     }
 
     fn setup_player_bases(
         mut commands: Commands,
-        mut board: ResMut<Board>,
-        players: Query<(Entity, &Player)>,
-    ) {
-        for (player_entity, player) in &players {
-            let pos = board.player_base_positions[player.id.0 as usize];
-
+        board: Res<Board>,
+        players: Query<Entity, With<Player>>,
+    ) -> Result<(), BoardError> {
+        for (player_entity, pos) in players
+            .iter()
+            .zip(board.player_base_positions.into_iter())
+            .into_iter()
+        {
             let base_entity = commands
-                .spawn((
-                    PlayerBase {
-                        health: 20,
-                        position: pos,
-                    },
-                    Owner(player_entity),
-                ))
+                .spawn((PlayerBaseBundle::new(player_entity), Owner(player_entity)))
                 .id();
-
-            // You could store this in the tile if needed
-            // board.tiles.get_mut(&pos).unwrap().player_base = Some(base_entity);
+            let tile = board.get_tile_mut(&pos).ok_or(BoardError::TileNotFound)?;
+            commands.entity(*tile).insert(Occupant(base_entity));
         }
-    }
-    pub fn new() -> Self {
-        let mut tiles = HashMap::new();
-        let x_size: i16 = 24;
-        let y_size: i16 = 12;
-        for x in 0..x_size {
-            for y in 0..y_size {
-                let position = I16Vec2::new(x, y);
-
-                let tile = if x == 2 && y == y_size / 2 {
-                    Tile::new().with_player_base(PlayerBase::new(PlayerID(0)))
-                } else if x == x_size - 3 && y == y_size / 2 {
-                    Tile::new().with_player_base(PlayerBase::new(PlayerID(1)))
-                } else {
-                    Tile::new()
-                };
-
-                tiles.insert(position, tile);
-            }
-        }
-        Self {
-            tiles,
-            size: I16Vec2::new(x_size, y_size),
-        }
+        Ok(())
     }
 
-    fn zero_out_attack(&mut self) {
-        self.tiles
-            .values_mut()
-            .for_each(|tile| tile.attack_on_tile = U16Vec2::ZERO);
+    fn zero_out_attack(tiles: Query<&mut AttackOnTile, With<Tile>>) {
+        for mut tile in tiles {
+            tile.0 = U16Vec2::ZERO;
+        }
     }
 
     fn get_attack_vector(
@@ -309,8 +298,12 @@ impl Board {
         Ok(())
     }
 
-    pub fn get_tile(&self, pos: &I16Vec2) -> Option<&Tile> {
+    pub fn get_tile(&self, pos: &I16Vec2) -> Option<&Entity> {
         self.tiles.get(pos)
+    }
+
+    pub fn get_tile_mut(&self, pos: &I16Vec2) -> Option<&mut Entity> {
+        self.tiles.get_mut(pos)
     }
 
     pub(crate) fn refresh_movement_points(

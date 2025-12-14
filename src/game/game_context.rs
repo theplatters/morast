@@ -4,7 +4,6 @@ use macroquad::math::I16Vec2;
 use crate::game::{
     board::card_on_board::CreatureOnBoard,
     card::{creature::Creature, deck_builder::DeckBuilder, trap_card::Trap, Card, CardBehavior},
-    game_objects::player_base::PlayerBaseStatus,
     phases::Phase,
 };
 
@@ -20,7 +19,6 @@ const NUM_CARDS_AT_START: u16 = 2;
 
 pub struct GameContext {
     players: [Player; 2],
-    board: Board,
     turn_player: PlayerID,
 }
 
@@ -176,13 +174,8 @@ impl GameContext {
 
         Self {
             players,
-            board: Board::new(),
             turn_player: PlayerID::new(1),
         }
-    }
-
-    pub fn get_board(&self) -> &Board {
-        &self.board
     }
 
     pub fn change_turn_player(&mut self) {

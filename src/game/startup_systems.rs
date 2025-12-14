@@ -1,15 +1,13 @@
 use bevy::prelude::*;
 
 use crate::{
-    engine::{
-        asset_loader::{self, AssetLoader},
-        janet_handler::controller::Environment,
-    },
+    engine::{asset_loader::AssetLoader, janet_handler::controller::Environment},
     game::{
-        card::{card_registry::CardRegistry, deck_builder::DeckBuilder, Card},
+        card::{card_registry::CardRegistry, deck_builder::DeckBuilder},
         components::{
-            card_components::{CardRef, InDeck, Owner},
+            card_components::InDeck,
             player_components::{Deck, Player, PlayerResources, TurnPlayer},
+            Owner,
         },
     },
 };
@@ -33,7 +31,7 @@ pub fn add_cards(
     for (player_id, mut deck) in players {
         let cards: Vec<_> = DeckBuilder::standard_deck(&card_registry)
             .iter()
-            .map(move |id| (*id, Owner(player_id)))
+            .map(move |id| (*id, Owner(player_id), InDeck))
             .collect();
 
         for card in cards {
