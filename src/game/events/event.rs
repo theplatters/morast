@@ -1,34 +1,51 @@
-use macroquad::math::I16Vec2;
+use bevy::ecs::{entity::Entity, event::Event};
+use macroquad::math::{I16Vec2, U16Vec2};
 
-use crate::game::{card::card_id::CardID, player::PlayerID};
+use crate::game::{components::player_components::Player, player::PlayerID};
 
-#[derive(Debug, Clone, PartialEq, Eq, Copy)]
-pub enum Event {
-    SpellPlayed {
-        owner: PlayerID,
-        card_id: CardID,
-    },
-    CreaturePlayed {
-        owner: PlayerID,
-        card_id: CardID,
-        position: I16Vec2,
-    },
+#[derive(Event, Debug, Clone, PartialEq, Eq, Copy)]
+pub struct SpellPlayed {
+    owner: PlayerID,
+    card: Entity,
+}
 
-    TrapPlaced {
-        owner: PlayerID,
-        card_id: CardID,
-        position: I16Vec2,
-    },
-    TurnEnd,
-    EffectAdded {
-        effect: crate::game::board::effect::Effect,
-    },
-    GoldAdded {
-        player_id: PlayerID,
-        amount: u16,
-    },
-    CardsDrawn {
-        player_id: PlayerID,
-        count: u16,
-    },
+#[derive(Event, Debug, Clone, PartialEq, Eq, Copy)]
+pub struct CreaturePlayed {
+    owner: Player,
+    card: Entity,
+    position: U16Vec2,
+}
+
+#[derive(Event, Debug, Clone, PartialEq, Eq, Copy)]
+pub struct TrapPlaced {
+    owner: PlayerID,
+    card: Entity,
+    position: U16Vec2,
+}
+
+#[derive(Event, Debug, Clone, PartialEq, Eq, Copy)]
+pub struct CardMoved {
+    card: Entity,
+    from: U16Vec2,
+    to: U16Vec2,
+}
+
+#[derive(Event, Debug, Clone, PartialEq, Eq, Copy)]
+pub struct TurnEnd;
+
+#[derive(Event, Debug, Clone, PartialEq, Eq, Copy)]
+pub struct EffectAdded {
+    effect: crate::game::board::effect::Effect,
+}
+
+#[derive(Event, Debug, Clone, PartialEq, Eq, Copy)]
+pub struct GoldAdded {
+    player_id: Player,
+    amount: u16,
+}
+
+#[derive(Event, Debug, Clone, PartialEq, Eq, Copy)]
+pub struct CardsDrawn {
+    player_id: Player,
+    count: u16,
 }

@@ -1,3 +1,5 @@
+use bevy::ecs::component::Component;
+
 use crate::game::card::creature::Creature;
 use crate::game::card::spell_card::Spell;
 use crate::game::card::trap_card::Trap;
@@ -20,6 +22,15 @@ pub enum Card {
     Spell(Spell),
     Trap(Trap),
 }
+
+#[derive(Component)]
+pub struct CreatureCard;
+
+#[derive(Component)]
+pub struct SpellCard;
+
+#[derive(Component)]
+pub struct TrapCard;
 
 pub trait CardBehavior {
     fn cost(&self) -> u16;

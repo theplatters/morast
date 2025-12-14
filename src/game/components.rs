@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+use crate::game::components::player_components::Player;
+
 pub mod card_components;
 pub mod player_components;
 
@@ -13,4 +15,4 @@ impl Health {
 }
 
 #[derive(Component)]
-pub struct Owner(pub Entity);
+pub struct Owner(pub Player);

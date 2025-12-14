@@ -2,7 +2,7 @@ use std::{cmp::Ordering, ops::SubAssign};
 
 use crate::{
     engine::janet_handler::types::{janetenum::JanetEnum, tuple::Tuple},
-    game::{error::Error, events::event::Event, phases::Phase},
+    game::{error::Error, events::event::GameEvent, phases::Phase},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -14,7 +14,7 @@ pub enum ActionTiming {
         turns: u32,
     }, // End of current turn
     AtTrigger {
-        trigger: Event,
+        trigger: GameEvent,
     }, // Start of next turn
 }
 

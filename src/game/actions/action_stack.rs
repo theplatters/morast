@@ -3,7 +3,7 @@ use std::collections::BinaryHeap;
 use crate::game::{
     actions::{action::Action, action_effect::GameAction},
     card::card_registry::CardRegistry,
-    events::event::Event,
+    events::event::GameEvent,
 };
 
 #[derive(Debug)]
@@ -26,7 +26,7 @@ impl ActionStack {
         &mut self,
         context: &mut crate::game::game_context::GameContext,
         card_registry: &CardRegistry,
-    ) -> Result<Vec<Event>, crate::game::error::Error> {
+    ) -> Result<Vec<GameEvent>, crate::game::error::Error> {
         let mut events = Vec::new();
         while let Some(action) = self.events.pop() {
             if let Some(event) = action.execute(context, card_registry)? {

@@ -8,10 +8,18 @@ use place_error::BoardError;
 use tile::Tile;
 
 use crate::game::{
-    board::tile::{AttackOnTile, Occupant, TileBundel},
-    card::creature::Creature,
-    components::{player_components::Player, Health, Owner},
+    board::{
+        effect::EffectType,
+        tile::{AttackOnTile, Occupant, TileBundel},
+    },
+    card::CreatureCard,
+    components::{
+        card_components::{AttackPattern, CurrentAttack, OnBoard},
+        player_components::Player,
+        Health, Owner,
+    },
     error::Error,
+    events::event::{CardMoved, CreaturePlayed},
 };
 
 use super::{
@@ -31,7 +39,7 @@ pub struct PlayerBaseBundle {
 }
 
 impl PlayerBaseBundle {
-    fn new(owner: Entity) -> Self {
+    fn new() -> Self {
         Self {
             player_base: PlayerBase::default(),
             health: Health::player_base_health(),
@@ -44,25 +52,25 @@ pub struct PlayerBase;
 
 #[derive(Debug, Resource)]
 pub struct Board {
-    tiles: HashMap<I16Vec2, Entity>,
-    size: I16Vec2,
-    player_base_positions: [I16Vec2; 2],
+    tiles: HashMap<U16Vec2, Entity>,
+    size: U16Vec2,
+    player_base_positions: [U16Vec2; 2],
 }
 
 impl Board {
-    fn setup_board(mut commands: Commands) {
-        let x_size: i16 = 24;
-        let y_size: i16 = 12;
+    pub fn setup_board(mut commands: Commands) {
+        let x_size: u16 = 24;
+        let y_size: u16 = 12;
 
         let mut tiles = HashMap::new();
         let player_base_positions = [
-            I16Vec2::new(2, y_size / 2),
-            I16Vec2::new(x_size - 3, y_size / 2),
+            U16Vec2::new(2, y_size / 2),
+            U16Vec2::new(x_size - 3, y_size / 2),
         ];
 
         for x in 0..x_size {
             for y in 0..y_size {
-                let position = I16Vec2::new(x, y);
+                let position = U16Vec2::new(x, y);
                 let tile_id = commands.spawn(TileBundel::default()).id();
                 tiles.insert(position, tile_id);
             }
@@ -70,218 +78,118 @@ impl Board {
 
         commands.insert_resource(Board {
             tiles,
-            size: I16Vec2::new(x_size, y_size),
+            size: U16Vec2::new(x_size, y_size),
             player_base_positions,
         });
     }
 
-    fn setup_player_bases(
-        mut commands: Commands,
-        board: Res<Board>,
-        players: Query<Entity, With<Player>>,
-    ) -> Result<(), BoardError> {
+    pub fn setup_player_bases(mut commands: Commands, board: Res<Board>, players: Query<&Player>) {
         for (player_entity, pos) in players
             .iter()
             .zip(board.player_base_positions.into_iter())
             .into_iter()
         {
             let base_entity = commands
-                .spawn((PlayerBaseBundle::new(player_entity), Owner(player_entity)))
+                .spawn((PlayerBaseBundle::new(), Owner(*player_entity)))
                 .id();
-            let tile = board.get_tile_mut(&pos).ok_or(BoardError::TileNotFound)?;
-            commands.entity(*tile).insert(Occupant(base_entity));
+            let tile = board
+                .get_tile(&pos)
+                .ok_or(BoardError::TileNotFound)
+                .expect("This is a setup error and should never happen");
+            commands.entity(tile).insert(Occupant(base_entity));
+        }
+    }
+
+    fn zero_out_attack(tiles: &mut Query<&mut AttackOnTile>) {
+        for mut tile in tiles.iter_mut() {
+            tile.zero_out();
+        }
+    }
+
+    pub fn update_attack_values_on_add(
+        _event: On<Replace, OnBoard>,
+        tiles: Query<&mut AttackOnTile>,
+        creatures: Query<(&CurrentAttack, &AttackPattern, &OnBoard, &Owner), With<CreatureCard>>,
+        board: Res<Board>,
+    ) {
+        Self::update_attack_values(tiles, creatures, board);
+    }
+
+    pub fn update_attack_values_on_move(
+        _event: On<Add, OnBoard>,
+        tiles: Query<&mut AttackOnTile>,
+        creatures: Query<(&CurrentAttack, &AttackPattern, &OnBoard, &Owner), With<CreatureCard>>,
+        board: Res<Board>,
+    ) {
+        Self::update_attack_values(tiles, creatures, board);
+    }
+
+    pub fn update_attack_values(
+        mut tiles: Query<&mut AttackOnTile>,
+        creatures: Query<(&CurrentAttack, &AttackPattern, &OnBoard, &Owner), With<CreatureCard>>,
+        board: Res<Board>,
+    ) -> Result<(), BoardError> {
+        Board::zero_out_attack(&mut tiles);
+        for (attack, pattern, on_board, owner) in &creatures {
+            for relative_tile in pattern {
+                if let Some(tile_index) = board.add_relative_tile(on_board.position, *relative_tile)
+                {
+                    let tile = board
+                        .get_tile(&tile_index)
+                        .ok_or(BoardError::TileNotFound)?;
+
+                    let mut tile = tiles.get_mut(tile).unwrap();
+                    let attack_delta = match owner.0.number {
+                        1 => U16Vec2::new(0, attack.value),
+                        2 => U16Vec2::new(attack.value, 0),
+                        _ => panic!("Invalid player number: {}", owner.0.number),
+                    };
+                    **tile += attack_delta;
+                }
+            }
         }
         Ok(())
     }
 
-    fn zero_out_attack(tiles: Query<&mut AttackOnTile, With<Tile>>) {
-        for mut tile in tiles {
-            tile.0 = U16Vec2::ZERO;
-        }
-    }
+    pub fn add_relative_tile(&self, pos: U16Vec2, reltile: I16Vec2) -> Option<U16Vec2> {
+        let new_x = pos.x.checked_add_signed(reltile.x as i16)?;
+        let new_y = pos.y.checked_add_signed(reltile.y as i16)?;
 
-    fn get_attack_vector(
-        &self,
-        card_on_board: &CreatureOnBoard,
-        tile: &Tile,
-        card: &Creature,
-    ) -> Result<U16Vec2, Error> {
-        let effective_attack = self.calculate_effective_attack_strength(
-            card.attack_strength,
-            card_on_board.player_id,
-            tile,
-        );
+        let new_pos = U16Vec2::new(new_x, new_y);
 
-        let attack_vector = match card_on_board.player_id {
-            PlayerID(0) => U16Vec2::X,
-            _ => U16Vec2::Y,
-        };
-
-        Ok(attack_vector * effective_attack)
-    }
-
-    fn calculate_effective_attack_strength(
-        &self,
-        base_attack: u16,
-        player_id: PlayerID,
-        tile: &Tile,
-    ) -> u16 {
-        let opponent = player_id.next();
-
-        if tile.has_effect(opponent, effect::EffectType::Weakening) {
-            base_attack / 2
+        if new_pos.x < self.size.x && new_pos.y < self.size.y {
+            Some(new_pos)
         } else {
-            base_attack
+            None
         }
     }
 
-    fn get_attack_updates(
-        &self,
-        card_registry: &CardRegistry,
-    ) -> Result<HashMap<I16Vec2, U16Vec2>, Error> {
-        // First collect all attack contributions
-        let mut attack_updates = HashMap::new();
-
-        // Immutable phase - collect data
-        for (index, curr_tile) in self.tiles.iter() {
-            if let Some(in_play_id) = &curr_tile.ontile {
-                let card_on_board = self
-                    .cards_placed
-                    .get(in_play_id)
-                    .ok_or(Error::CardNotFound)?;
-                let card = card_registry
-                    .get_creature(&card_on_board.card_id)
-                    .ok_or(Error::CardNotFound)?;
-
-                let attack_vector = self.get_attack_vector(card_on_board, curr_tile, card)?;
-                for attack in &card.attack {
-                    let adjusted_attack = if card_on_board.player_id == PlayerID(1) {
-                        I16Vec2::new(-attack.x, attack.y)
-                    } else {
-                        *attack
-                    };
-                    let target_index = index.wrapping_add(adjusted_attack);
-                    attack_updates
-                        .entry(target_index)
-                        .and_modify(|v| *v += attack_vector)
-                        .or_insert(attack_vector);
-                }
-            }
-        }
-        Ok(attack_updates)
-    }
-
-    fn apply_attack_updates(&mut self, attack_updates: &HashMap<I16Vec2, U16Vec2>) {
-        for (index, attack) in attack_updates {
-            if let Some(tile) = self.tiles.get_mut(index) {
-                tile.attack_on_tile += *attack;
-            }
-        }
-    }
-
-    pub(crate) fn update_attack_values(
-        &mut self,
-        card_registry: &CardRegistry,
-    ) -> Result<HashSet<InPlayID>, Error> {
-        self.zero_out_attack();
-
-        //Get new attack updates
-        let attack_updates = self.get_attack_updates(card_registry)?;
-
-        // Mutable phase - apply updates
-        self.apply_attack_updates(&attack_updates);
-
-        // Now handle card removal in a separate pass
-        let mut removed = HashSet::new();
-        for tile in self.tiles.values_mut() {
-            if let Some(in_play_id) = &tile.ontile {
-                let card = self
-                    .cards_placed
-                    .get(in_play_id)
-                    .ok_or(Error::CardNotFound)?;
-                let defense = card_registry
-                    .get_creature(&card.card_id)
-                    .ok_or(Error::CardNotFound)?
-                    .defense;
-
-                let attacked_idx = card.player_id.next().get() as usize;
-                if defense < tile.attack_on_tile[attacked_idx] {
-                    removed.insert(*in_play_id);
-                    tile.ontile = None;
-                }
-            }
-        }
-
-        Ok(removed)
-    }
-
-    pub(crate) fn get_card_at_index(&self, from: &I16Vec2) -> Option<&CreatureOnBoard> {
-        let card_on_tile = self.get_tile(from)?.ontile?;
-        self.cards_placed.get(&card_on_tile)
-    }
-
-    pub fn generate_in_play_id(&mut self) -> InPlayID {
-        let id = self.next_id;
-        self.next_id = self.next_id.next();
-        id
-    }
-
-    pub fn place(
-        &mut self,
-        index: I16Vec2,
-        card_on_board: CreatureOnBoard,
-    ) -> Result<InPlayID, BoardError> {
-        let Some(tile) = self.tiles.get_mut(&index) else {
-            return Err(BoardError::Index);
-        };
-
-        if tile.is_occupied() {
-            return Err(BoardError::TileOccupied);
-        }
-
-        tile.place(self.next_id);
-        let id = self.generate_in_play_id();
-
-        self.cards_placed.insert(id, card_on_board);
-        Ok(id)
-    }
-
-    pub fn width(&self) -> i16 {
+    pub fn width(&self) -> u16 {
         self.size.x
     }
 
-    pub fn height(&self) -> i16 {
+    pub fn height(&self) -> u16 {
         self.size.y
     }
 
-    pub fn add_effect(&mut self, effect: Effect, index: I16Vec2) -> Result<(), BoardError> {
-        let tile = self.tiles.get_mut(&index).ok_or(BoardError::Index)?;
-        tile.add_effect(effect);
+    pub fn add_effect(
+        mut commands: Commands,
+        effect: Effect,
+        index: U16Vec2,
+        board: Res<Board>,
+    ) -> Result<(), BoardError> {
+        let tile = board.get_tile(&index).ok_or(BoardError::Index)?;
+        commands
+            .get_entity(tile)
+            .map_err(|_| BoardError::TileNotFound)?
+            .insert(effect);
         Ok(())
     }
 
-    pub fn remove_effect(&mut self, effect: Effect, index: I16Vec2) -> Result<(), BoardError> {
+    pub fn remove_effect(&mut self, effect: EffectType, index: I16Vec2) -> Result<(), BoardError> {
         let tile = self.tiles.get_mut(&index).ok_or(BoardError::Index)?;
         tile.remove_effect(effect);
         Ok(())
-    }
-
-    pub(crate) fn add_effects(
-        &mut self,
-        effect: Effect,
-        tiles: &[I16Vec2],
-    ) -> Result<(), BoardError> {
-        for tile in tiles {
-            self.tiles
-                .get_mut(tile)
-                .ok_or(BoardError::Index)?
-                .add_effect(effect);
-        }
-        Ok(())
-    }
-
-    pub fn tile_pos_iter(&self) -> impl Iterator<Item = I16Vec2> + '_ {
-        self.tiles.keys().copied()
     }
 
     pub(crate) fn remove_effects(
@@ -298,12 +206,8 @@ impl Board {
         Ok(())
     }
 
-    pub fn get_tile(&self, pos: &I16Vec2) -> Option<&Entity> {
-        self.tiles.get(pos)
-    }
-
-    pub fn get_tile_mut(&self, pos: &I16Vec2) -> Option<&mut Entity> {
-        self.tiles.get_mut(pos)
+    pub fn get_tile(&self, pos: &U16Vec2) -> Option<Entity> {
+        self.tiles.get(pos).copied()
     }
 
     pub(crate) fn refresh_movement_points(
@@ -438,5 +342,51 @@ impl Board {
 
     pub(crate) fn destroy_card(&self, tile: &I16Vec2) {
         todo!()
+    }
+}
+
+// Define an extension trait
+pub trait BoardCommandsExt {
+    fn add_effect_to_tile(
+        &mut self,
+        board: &Board,
+        effect: Effect,
+        index: U16Vec2,
+    ) -> Result<(), BoardError>;
+
+    fn remove_effect(
+        &mut self,
+        board: &Board,
+        effect: EffectType,
+        index: U16Vec2,
+    ) -> Result<(), BoardError>;
+}
+
+impl BoardCommandsExt for Commands<'_, '_> {
+    fn add_effect_to_tile(
+        &mut self,
+        board: &Board,
+        effect: Effect,
+        index: U16Vec2,
+    ) -> Result<(), BoardError> {
+        let tile = board.get_tile(&index).ok_or(BoardError::Index)?;
+        self.get_entity(tile)
+            .map_err(|_| BoardError::TileNotFound)?
+            .insert(effect);
+        Ok(())
+    }
+
+    fn remove_effect(
+        &mut self,
+        board: &Board,
+        effect: EffectType,
+        index: U16Vec2,
+    ) -> Result<(), BoardError> {
+        let tile = board.get_tile(&index).ok_or(BoardError::Index)?;
+
+        self.get_entity(tile)
+            .map_err(|_| BoardError::TileNotFound)?
+            .remove::<Effect>();
+        Ok(())
     }
 }

@@ -26,7 +26,6 @@ pub mod events;
 pub mod game_context;
 pub mod janet_action;
 mod phases;
-pub mod player;
 pub mod startup_systems;
 pub mod turn_controller;
 

@@ -4,23 +4,23 @@ use crate::game::{
     actions::{action::Action, action_context::ActionContext},
     card::{card_registry::CardRegistry, in_play_id::InPlayID, Card},
     error::Error,
-    events::event::Event,
+    events::event::GameEvent,
     turn_controller::TurnController,
 };
 
 pub struct EventManager {
-    event_listeners: HashMap<Event, InPlayID>,
+    event_listeners: HashMap<GameEvent, InPlayID>,
 }
 
 impl EventManager {
     pub async fn process_event(
         &self,
-        event: Event,
+        event: GameEvent,
         turn_controller: &mut TurnController,
         card_registry: &CardRegistry,
     ) -> Result<Vec<Action>, Error> {
         match event {
-            Event::SpellPlayed { owner, card_id } => {
+            GameEvent::SpellPlayed { owner, card_id } => {
                 let Some(Card::Spell(card)) = card_registry.get(&card_id) else {
                     return Err(Error::CardNotFound);
                 };
@@ -37,7 +37,7 @@ impl EventManager {
                         .map_err(Error::ActionBuilderError)?])
                 }
             }
-            Event::CreaturePlayed {
+            GameEvent::CreaturePlayed {
                 owner,
                 card_id,
                 position,
@@ -65,7 +65,7 @@ impl EventManager {
                     None => Ok(Vec::new()),
                 }
             }
-            Event::TrapPlaced {
+            GameEvent::TrapPlaced {
                 owner,
                 card_id,
                 position,
@@ -82,10 +82,10 @@ impl EventManager {
                     None => Ok(Vec::new()),
                 }
             }
-            Event::TurnEnd => todo!(),
-            Event::EffectAdded { effect } => Ok(Vec::new()),
-            Event::GoldAdded { player_id, amount } => todo!(),
-            Event::CardsDrawn { player_id, count } => todo!(),
+            GameEvent::TurnEnd => todo!(),
+            GameEvent::EffectAdded { effect } => Ok(Vec::new()),
+            GameEvent::GoldAdded { player_id, amount } => todo!(),
+            GameEvent::CardsDrawn { player_id, count } => todo!(),
         }
     }
 

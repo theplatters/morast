@@ -1,9 +1,6 @@
-use std::fmt::Display;
+use std::ops::Deref;
 
-use bevy::{
-    ecs::{bundle::Bundle, component::Component, entity::Entity},
-    math::I16Vec2,
-};
+use bevy::ecs::{bundle::Bundle, component::Component, entity::Entity};
 use macroquad::math::U16Vec2;
 
 use super::effect::Effect;
@@ -20,6 +17,25 @@ pub struct Tile;
 
 #[derive(Component, Default)]
 pub struct AttackOnTile(pub U16Vec2);
+
+impl AttackOnTile {
+    pub fn zero_out(&mut self) {
+        self.0 = U16Vec2::ZERO;
+    }
+}
+
+impl Deref for AttackOnTile {
+    type Target = U16Vec2;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl std::ops::DerefMut for AttackOnTile {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 #[derive(Component)]
 pub struct Occupant(pub Entity);

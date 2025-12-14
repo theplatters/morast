@@ -1,7 +1,4 @@
-use crate::game::{
-    actions::{action::Action, action_prototype::ActionPrototype},
-    card::CardBehavior,
-};
+use crate::game::{actions::action_prototype::ActionPrototype, card::CardBehavior};
 
 #[derive(Debug)]
 pub struct Spell {

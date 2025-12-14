@@ -13,25 +13,28 @@ use crate::{
 };
 
 pub fn add_player(mut commands: Commands) {
-    commands
-        .spawn((
-            Player,
-            PlayerResources::default(),
-            TurnPlayer,
-            Deck(Vec::new()),
-        ))
-        .id();
+    commands.spawn((
+        Player { number: 0 },
+        PlayerResources::default(),
+        Deck(Vec::new()),
+        TurnPlayer,
+    ));
+    commands.spawn((
+        Player { number: 1 },
+        PlayerResources::default(),
+        Deck(Vec::new()),
+    ));
 }
 
 pub fn add_cards(
     card_registry: Res<CardRegistry>,
-    players: Query<(Entity, &mut Deck), With<Player>>,
+    players: Query<(&Player, &mut Deck)>,
     mut commands: Commands,
 ) {
     for (player_id, mut deck) in players {
         let cards: Vec<_> = DeckBuilder::standard_deck(&card_registry)
             .iter()
-            .map(move |id| (*id, Owner(player_id), InDeck))
+            .map(move |id| (*id, Owner(*player_id), InDeck))
             .collect();
 
         for card in cards {

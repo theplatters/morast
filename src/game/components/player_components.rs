@@ -1,7 +1,9 @@
 use bevy::ecs::{component::Component, entity::Entity};
 
-#[derive(Component)]
-pub struct Player;
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Player {
+    pub number: u8,
+}
 
 /// Player's resources
 #[derive(Component)]

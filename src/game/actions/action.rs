@@ -7,7 +7,7 @@ use crate::{
         },
         card::Card,
         error::Error,
-        events::event::Event,
+        events::event::GameEvent,
         player::PlayerID,
     },
 };
@@ -46,7 +46,7 @@ impl GameAction for Action {
         &self,
         context: &mut crate::game::game_context::GameContext,
         card_registry: &crate::game::card::card_registry::CardRegistry,
-    ) -> Result<Option<Event>, crate::game::error::Error> {
+    ) -> Result<Option<GameEvent>, crate::game::error::Error> {
         match &self.action {
             ActionEffect::PlaceCreature {
                 card_index,
@@ -58,7 +58,7 @@ impl GameAction for Action {
                     *position,
                     card_registry,
                 )?;
-                let event = Some(Event::CreaturePlayed {
+                let event = Some(GameEvent::CreaturePlayed {
                     card_id,
                     owner: self.player,
                     position: *position,
@@ -68,13 +68,13 @@ impl GameAction for Action {
             ActionEffect::CastSpell { card_index } => {
                 let card_id =
                     context.cast_spell_from_hand(self.player, *card_index, card_registry)?;
-                let event = Some(Event::SpellPlayed {
+                let event = Some(GameEvent::SpellPlayed {
                     card_id,
                     owner: self.player,
                 });
                 Ok(event)
             }
-            ActionEffect::EndTurn => Ok(Some(Event::TurnEnd)),
+            ActionEffect::EndTurn => Ok(Some(GameEvent::TurnEnd)),
             ActionEffect::PlaceTrap {
                 card_index,
                 position,
@@ -85,7 +85,7 @@ impl GameAction for Action {
                     *position,
                     card_registry,
                 )?;
-                Ok(Some(Event::TrapPlaced {
+                Ok(Some(GameEvent::TrapPlaced {
                     card_id,
                     owner: self.player,
                     position: *position,
@@ -99,14 +99,14 @@ impl GameAction for Action {
             ActionEffect::HealCreature { target, amount } => todo!(),
             ActionEffect::DrawCards { player_id, count } => {
                 context.draw_cards(*player_id, *count)?;
-                Ok(Some(Event::CardsDrawn {
+                Ok(Some(GameEvent::CardsDrawn {
                     player_id: *player_id,
                     count: *count,
                 }))
             }
             ActionEffect::AddGold { player_id, amount } => {
                 context.add_gold(*player_id, *amount)?;
-                Ok(Some(Event::GoldAdded {
+                Ok(Some(GameEvent::GoldAdded {
                     player_id: *player_id,
                     amount: *amount,
                 }))
@@ -118,7 +118,7 @@ impl GameAction for Action {
                     .get_board_mut()
                     .add_effects(*effect, targets.as_slice())
                     .map_err(Error::PlaceError)?;
-                Ok(Some(Event::EffectAdded { effect: *effect }))
+                Ok(Some(GameEvent::EffectAdded { effect: *effect }))
             }
 
             ActionEffect::SummonCreature {
@@ -130,7 +130,7 @@ impl GameAction for Action {
                     return Err(Error::CardNotFound);
                 };
                 context.place_creature(*creature_id, creature, *position, card_registry)?;
-                Ok(Some(Event::CreaturePlayed {
+                Ok(Some(GameEvent::CreaturePlayed {
                     card_id: *creature_id,
                     owner: *owner,
                     position: *position,

@@ -1,22 +1,11 @@
-// src/game/ecs/components.rs
-
 use bevy::ecs::{component::Component, entity::Entity};
-use macroquad::math::I16Vec2;
-
-use crate::game::card::card_id::CardID;
+use macroquad::math::{I16Vec2, U16Vec2};
+use std::ops::{Deref, DerefMut};
+use std::slice::{Iter, IterMut};
 
 // ============================================
 // CARD TYPE MARKERS (still useful for queries)
 // ============================================
-
-#[derive(Component)]
-pub struct CreatureCard;
-
-#[derive(Component)]
-pub struct SpellCard;
-
-#[derive(Component)]
-pub struct TrapCard;
 
 // ============================================
 // LOCATION COMPONENTS (instance-specific)
@@ -33,8 +22,7 @@ pub struct InHand {
 
 #[derive(Component)]
 pub struct OnBoard {
-    pub owner: Entity,
-    pub board_position: I16Vec2,
+    pub position: U16Vec2,
 }
 
 #[derive(Component)]
@@ -44,26 +32,53 @@ pub struct InGraveyard {
 }
 
 // ============================================
+// IMMUTABLE INSTANCE STATE (what changes during play)
+// ============================================
+#[derive(Component)]
+pub struct BaseAttack(pub u16);
+
+#[derive(Component)]
+pub struct BaseDefense(pub u16);
+
+#[derive(Component)]
+pub struct AttackPattern(pub Vec<I16Vec2>);
+
+impl<'a> IntoIterator for &'a AttackPattern {
+    type Item = &'a I16Vec2;
+    type IntoIter = Iter<'a, I16Vec2>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+#[derive(Component)]
+pub struct MovementPattern(pub Vec<I16Vec2>);
+
+impl<'a> IntoIterator for &'a MovementPattern {
+    type Item = &'a I16Vec2;
+    type IntoIter = Iter<'a, I16Vec2>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+// ============================================
 // MUTABLE INSTANCE STATE (what changes during play)
 // ============================================
 
 #[derive(Component)]
-pub struct CombatState {
-    pub current_attack: i16, // Can be modified by buffs/debuffs
-    pub current_defense: i16,
+pub struct CurrentAttack {
+    pub value: u16,
 }
 
+#[derive(Component)]
+pub struct CurrentDefense {
+    pub value: u16,
+}
 /// Current movement state
 #[derive(Component)]
 pub struct MovementState {
     pub remaining_points: u16,
-}
-
-/// Accumulated stat modifiers from various effects
-#[derive(Component)]
-pub struct Modifiers {
-    pub attack: i16,
-    pub defense: i16,
-    pub movement: i16,
-    pub cost: i16, // For cards in hand
 }

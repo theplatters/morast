@@ -1,8 +1,10 @@
 use std::str::FromStr;
 
+use bevy::ecs::component::Component;
+
 use crate::{
     engine::janet_handler::types::janetenum::JanetEnum,
-    game::{error::Error, player::PlayerID},
+    game::{components::player_components::Player, error::Error, player::PlayerID},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
@@ -11,15 +13,15 @@ pub enum EffectType {
     Weakening,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
 pub struct Effect {
     pub effect_type: EffectType,
     duration: u16,
-    pub owner: PlayerID,
+    pub owner: Player,
 }
 
 impl Effect {
-    pub fn new(effect_type: EffectType, duration: u16, owner: PlayerID) -> Self {
+    pub fn new(effect_type: EffectType, duration: u16, owner: Player) -> Self {
         Self {
             effect_type,
             duration,
@@ -37,10 +39,6 @@ impl Effect {
 
     pub fn decrease_duration(&mut self) {
         self.duration = self.duration.saturating_sub(1);
-    }
-
-    pub(crate) fn get_owner(&self) -> PlayerID {
-        self.owner
     }
 }
 

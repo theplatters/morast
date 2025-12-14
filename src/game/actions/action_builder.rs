@@ -11,7 +11,7 @@ use crate::game::{
     },
     board::effect::Effect,
     card::card_id::CardID,
-    events::event::Event,
+    events::event::GameEvent,
     phases::Phase,
     player::PlayerID,
 };
@@ -168,7 +168,7 @@ impl ActionPrototypeBuilder {
         self
     }
 
-    pub fn at_trigger(mut self, event: Event) -> Self {
+    pub fn at_trigger(mut self, event: GameEvent) -> Self {
         self.timing = ActionTiming::AtTrigger { trigger: event };
         self
     }
@@ -390,7 +390,7 @@ impl ActionBuilder {
         self
     }
 
-    pub fn at_trigger(mut self, event: Event) -> Self {
+    pub fn at_trigger(mut self, event: GameEvent) -> Self {
         self.timing = Some(ActionTiming::AtTrigger { trigger: event });
         self
     }

@@ -5,7 +5,7 @@ use crate::game::{
     board::effect::Effect,
     card::{card_id::CardID, card_registry::CardRegistry},
     error::Error,
-    events::event::Event,
+    events::event::GameEvent,
     game_context::GameContext,
     janet_action::JanetAction,
     player::PlayerID,
@@ -18,7 +18,7 @@ pub trait GameAction {
         &self,
         context: &mut GameContext,
         card_registry: &CardRegistry,
-    ) -> Result<Option<Event>, Error>;
+    ) -> Result<Option<GameEvent>, Error>;
     fn can_execute(&self, context: &GameContext) -> Result<(), Error>;
 }
 
