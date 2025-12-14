@@ -82,7 +82,7 @@ impl Player {
         &self.hand
     }
 
-    pub(crate) fn remove_card_from_hand(&mut self, card_index: usize) -> Option<CardID> {
+    pub fn remove_card_from_hand(&mut self, card_index: usize) -> Option<CardID> {
         if card_index < self.hand.len() {
             Some(self.hand.remove(card_index))
         } else {
@@ -94,20 +94,7 @@ impl Player {
         self.hand.len()
     }
 
-    pub(crate) fn get_card_in_hand(&self, card_index: usize) -> Option<CardID> {
+    pub fn get_card_in_hand(&self, card_index: usize) -> Option<CardID> {
         self.hand.get(card_index).copied()
-    }
-
-    pub(crate) fn sell_card(
-        &mut self,
-        pos: usize,
-        card_registry: &CardRegistry,
-    ) -> Result<(), Error> {
-        let card_id = self.hand.remove(pos);
-        let card = card_registry
-            .get_creature(&card_id)
-            .ok_or(Error::CardNotFound)?;
-        self.add_gold(card.cost().into());
-        Ok(())
     }
 }

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use bevy::ecs::resource::Resource;
 use macroquad::math::{I16Vec2, Vec2};
 
 mod board_renderer;
@@ -21,6 +22,7 @@ use crate::{
     },
 };
 
+#[derive(Resource)]
 pub struct Renderer {
     cards_to_draw: Vec<CardRenderer>,
     board_renderer: BoardRenderer,

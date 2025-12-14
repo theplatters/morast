@@ -1,9 +1,9 @@
 use log::debug;
-use macroquad::{math::I16Vec2, rand::ChooseRandom};
+use macroquad::math::I16Vec2;
 
 use crate::game::{
     board::card_on_board::CreatureOnBoard,
-    card::{creature::Creature, trap_card::Trap, Card, CardBehavior},
+    card::{creature::Creature, deck_builder::DeckBuilder, trap_card::Trap, Card, CardBehavior},
     game_objects::player_base::PlayerBaseStatus,
     phases::Phase,
 };
@@ -168,20 +168,12 @@ impl GameContext {
 }
 
 impl GameContext {
-    pub fn standard_deck(card_registry: &CardRegistry) -> Vec<CardID> {
-        let mut deck = Vec::new();
-        for key in card_registry.registered_ids() {
-            deck.extend(std::iter::repeat_n(*key, 4));
-        }
-        deck.shuffle();
-        deck
-    }
-
     pub fn new(card_registry: &CardRegistry) -> Self {
         let players = [
-            Player::new(PlayerID::new(0), GameContext::standard_deck(card_registry)),
-            Player::new(PlayerID::new(1), GameContext::standard_deck(card_registry)),
+            Player::new(PlayerID::new(0), DeckBuilder::standard_deck(card_registry)),
+            Player::new(PlayerID::new(1), DeckBuilder::standard_deck(card_registry)),
         ];
+
         Self {
             players,
             board: Board::new(),
@@ -380,14 +372,6 @@ impl GameContext {
             removed_cards = self.board.update_attack_values(card_registry)?;
         }
         Ok(())
-    }
-
-    pub(crate) fn get_card_owner(&self, id: InPlayID) -> Option<PlayerID> {
-        self.board
-            .cards_placed
-            .iter()
-            .find(|x| *x.0 == id)
-            .map(|x| x.1.player_id)
     }
 
     pub(crate) fn get_turn_player_mut(&mut self) -> Option<&mut Player> {

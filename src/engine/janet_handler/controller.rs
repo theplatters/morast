@@ -1,22 +1,14 @@
 use std::{
     ffi::{CString, NulError},
     str::FromStr,
+    sync::Mutex,
 };
 
-use crate::engine::{
-    error::EngineError,
-    janet_handler::{
-        api::{cfun_from_current_position, cfun_is_owners_turn},
-        bindings::janet_def,
-    },
-};
+use bevy::ecs::resource::Resource;
+
+use crate::engine::{error::EngineError, janet_handler::bindings::janet_def};
 
 use super::{
-    api::{
-        cfun_add_gold_to_player, cfun_apply_effect, cfun_card_owner, cfun_cross, cfun_discard,
-        cfun_draw, cfun_get_current_index, cfun_gold_amount, cfun_other_player, cfun_plus,
-        cfun_shuffle_deck, cfun_turn_player,
-    },
     bindings::{
         janet_cfuns_prefix, janet_core_env, janet_deinit, janet_dostring, janet_env_lookup,
         janet_init, Janet, JanetReg, JanetTable,

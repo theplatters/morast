@@ -1,4 +1,7 @@
+use bevy::ecs::component::Component;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Component)]
 pub struct CardID(u32);
 impl CardID {
     // Existing methods

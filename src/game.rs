@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use bevy::prelude::*;
+
 use actions::action_manager::ActionManager;
 use card::card_registry::CardRegistry;
 use error::Error;
@@ -18,6 +20,7 @@ use crate::{
 pub mod actions;
 pub mod board;
 pub mod card;
+pub mod components;
 pub mod error;
 pub mod events;
 pub mod game_context;
@@ -25,6 +28,7 @@ pub mod game_objects;
 pub mod janet_action;
 mod phases;
 pub mod player;
+pub mod startup_systems;
 pub mod turn_controller;
 
 pub struct Game {
@@ -49,6 +53,7 @@ impl Game {
         card_registry.init(&mut env, &mut asset_loader).await;
         println!("Card Registry: {:?}", card_registry);
         let render_config = Arc::new(RenderConfig::default());
+
         Self {
             env,
             scheduler: ActionManager::new(),

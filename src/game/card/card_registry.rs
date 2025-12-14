@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use bevy::ecs::{resource::Resource, world::FromWorld};
+
 use crate::{
     engine::{asset_loader::AssetLoader, janet_handler::controller::Environment},
     game::{
@@ -18,7 +20,7 @@ use super::{
     card_reader::{get_card_list, read_creature},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub struct CardRegistry {
     cards: HashMap<CardID, Card>,
     id_counter: CardID,

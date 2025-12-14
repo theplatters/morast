@@ -129,17 +129,7 @@ pub unsafe extern "C" fn cfun_shuffle_deck(argc: i32, argv: *mut Janet) -> Janet
 }
 
 pub unsafe extern "C" fn cfun_card_owner(argc: i32, argv: *mut Janet) -> Janet {
-    janet_fixarity(argc, 2);
-
-    let id = janet_getinteger64(argv, 1);
-    (janet_getpointer(argv, 0) as *mut GameContext)
-        .as_mut()
-        .map_or(janet_wrap_nil(), |game| {
-            match game.get_card_owner(id.into()) {
-                Some(owner) => janet_wrap_u64(owner.get() as u64),
-                None => janet_wrap_nil(),
-            }
-        })
+    janet_wrap_nil()
 }
 
 pub unsafe extern "C" fn cfun_get_current_index(argc: i32, argv: *mut Janet) -> Janet {

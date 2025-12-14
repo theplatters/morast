@@ -1,12 +1,14 @@
 use std::collections::{HashMap, HashSet};
 
+use bevy::prelude::*;
 use card_on_board::CreatureOnBoard;
 use effect::Effect;
-use macroquad::math::{I16Vec2, IVec2, U16Vec2};
+use macroquad::math::{I16Vec2, U16Vec2};
 use place_error::BoardError;
 use tile::Tile;
 
 use crate::game::{
+    board::tile::TileBundel,
     card::creature::Creature,
     error::Error,
     game_objects::player_base::{PlayerBase, PlayerBaseStatus},
@@ -22,16 +24,62 @@ pub mod effect;
 pub mod place_error;
 pub mod tile;
 
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub struct Board {
-    tiles: HashMap<I16Vec2, Tile>,
-    next_id: InPlayID,
-    board_size: I16Vec2,
-    pub cards_placed: HashMap<InPlayID, CreatureOnBoard>,
-    player_bases_positions: [I16Vec2; 2],
+    tiles: HashMap<I16Vec2, Entity>,
+    size: I16Vec2,
 }
 
 impl Board {
+    fn setup_board(mut commands: Commands) {
+        let x_size: i16 = 24;
+        let y_size: i16 = 12;
+
+        let mut tiles = HashMap::new();
+        let player_base_positions = [
+            I16Vec2::new(2, y_size / 2),
+            I16Vec2::new(x_size - 3, y_size / 2),
+        ];
+
+        for x in 0..x_size {
+            for y in 0..y_size {
+                let position = I16Vec2::new(x, y);
+                let tile_id = commands.spawn(TileBundel::default()).id();
+                tiles.insert(position, tile_id);
+            }
+        }
+
+        commands.insert_resource(Board {
+            tiles,
+            size: I16Vec2::new(x_size, y_size),
+        });
+
+        // Spawn player bases as entities (after players are spawned)
+        // This would be in a separate system that runs after player setup
+    }
+
+    fn setup_player_bases(
+        mut commands: Commands,
+        mut board: ResMut<Board>,
+        players: Query<(Entity, &Player)>,
+    ) {
+        for (player_entity, player) in &players {
+            let pos = board.player_base_positions[player.id.0 as usize];
+
+            let base_entity = commands
+                .spawn((
+                    PlayerBase {
+                        health: 20,
+                        position: pos,
+                    },
+                    Owner(player_entity),
+                ))
+                .id();
+
+            // You could store this in the tile if needed
+            // board.tiles.get_mut(&pos).unwrap().player_base = Some(base_entity);
+        }
+    }
     pub fn new() -> Self {
         let mut tiles = HashMap::new();
         let x_size: i16 = 24;
@@ -53,13 +101,7 @@ impl Board {
         }
         Self {
             tiles,
-            next_id: InPlayID::new(0),
-            board_size: I16Vec2::new(x_size, y_size),
-            cards_placed: HashMap::new(),
-            player_bases_positions: [
-                I16Vec2::new(2, y_size / 2),
-                I16Vec2::new(x_size - 3, y_size / 2),
-            ],
+            size: I16Vec2::new(x_size, y_size),
         }
     }
 
@@ -216,11 +258,11 @@ impl Board {
     }
 
     pub fn width(&self) -> i16 {
-        self.board_size.x
+        self.size.x
     }
 
     pub fn height(&self) -> i16 {
-        self.board_size.y
+        self.size.y
     }
 
     pub fn add_effect(&mut self, effect: Effect, index: I16Vec2) -> Result<(), BoardError> {

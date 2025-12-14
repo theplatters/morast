@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use bevy::ecs::resource::Resource;
 use macroquad::{
     audio::{load_sound, Sound},
     file::load_file,
@@ -9,6 +10,7 @@ use macroquad::{
 
 use crate::engine::error::EngineError;
 
+#[derive(Resource)]
 pub struct AssetLoader {
     root_path: String,
     textures: HashMap<String, Texture2D>,

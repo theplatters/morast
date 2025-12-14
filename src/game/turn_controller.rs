@@ -1,3 +1,4 @@
+use bevy::ecs::resource::Resource;
 use std::sync::Arc;
 use tokio::sync::oneshot;
 
@@ -76,6 +77,7 @@ impl PartialEq for TurnState {
     }
 }
 
+#[derive(Resource)]
 pub struct TurnController {
     pub state: TurnState,
     input_handler: InputHandler,

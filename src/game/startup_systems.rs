@@ -1,0 +1,52 @@
+use bevy::prelude::*;
+
+use crate::{
+    engine::{
+        asset_loader::{self, AssetLoader},
+        janet_handler::controller::Environment,
+    },
+    game::{
+        card::{card_registry::CardRegistry, deck_builder::DeckBuilder, Card},
+        components::{
+            card_components::{CardRef, InDeck, Owner},
+            player_components::{Deck, Player, PlayerResources, TurnPlayer},
+        },
+    },
+};
+
+pub fn add_player(mut commands: Commands) {
+    commands
+        .spawn((
+            Player,
+            PlayerResources::default(),
+            TurnPlayer,
+            Deck(Vec::new()),
+        ))
+        .id();
+}
+
+pub fn add_cards(
+    card_registry: Res<CardRegistry>,
+    players: Query<(Entity, &mut Deck), With<Player>>,
+    mut commands: Commands,
+) {
+    for (player_id, mut deck) in players {
+        let cards: Vec<_> = DeckBuilder::standard_deck(&card_registry)
+            .iter()
+            .map(move |id| (*id, Owner(player_id)))
+            .collect();
+
+        for card in cards {
+            let id = commands.spawn(card).id();
+            deck.0.push(id);
+        }
+    }
+}
+
+pub fn init_card_registry(
+    mut card_registry: ResMut<CardRegistry>,
+    mut environment: NonSendMut<Environment>,
+    mut asset_loader: ResMut<AssetLoader>,
+) {
+    card_registry.init(&mut environment, &mut asset_loader);
+}
