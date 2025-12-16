@@ -1,314 +1,298 @@
-use bevy::ecs::resource::Resource;
-use std::sync::Arc;
-use tokio::sync::oneshot;
+use bevy::prelude::*;
 
-use macroquad::{input::KeyCode, math::I16Vec2};
+use macroquad::{input::KeyCode, math::U16Vec2};
 
-use crate::{
-    engine::{input_handler::InputHandler, renderer::render_config::RenderConfig},
-    game::{
-        actions::{
-            action_context::ActionContext, action_prototype::ActionPrototype,
-            targeting::TargetingType,
-        },
-        card::{card_registry::CardRegistry, Card},
-        error::Error,
-        game_context::GameContext,
-        turn_controller::{
-            play_command::{PlayCommand, PlayCommandEffect},
-            play_command_builder::PlayCommandBuilder,
-        },
+use crate::game::{
+    actions::{
+        action_prototype::{NeedsTargeting, Pending, ReadyToExecute},
+        targeting::TargetingType,
     },
+    board::{tile::Occupant, Board, MoveRequest},
+    card::{InHand, OnBoard, Selected},
+    player::{Hand, Player, TurnPlayer},
 };
 
-pub mod play_command;
-pub mod play_command_builder;
-
-#[derive(Default)]
+// ============================================================================
+// STATES
+// ============================================================================
+#[derive(States, Default, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TurnState {
     #[default]
     Idle,
-    CardSelected {
-        card_index: usize,
-    },
-    AwaitingInputs {
-        targeting_type: TargetingType,
-        selected_targets: Vec<I16Vec2>,
-        pending_action: ActionPrototype,
-    },
-    FigureSelected {
-        position: I16Vec2,
-    },
+    CardSelected,
+    AwaitingInputs,
+    FigureSelected,
     EndTurn,
 }
-impl PartialEq for TurnState {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (
-                Self::CardSelected {
-                    card_index: l_card_index,
-                },
-                Self::CardSelected {
-                    card_index: r_card_index,
-                },
-            ) => l_card_index == r_card_index,
-            (
-                Self::AwaitingInputs {
-                    targeting_type: l_targeting_type,
-                    selected_targets: l_selected_targets,
-                    ..
-                },
-                Self::AwaitingInputs {
-                    targeting_type: r_targeting_type,
-                    selected_targets: r_selected_targets,
-                    ..
-                },
-            ) => l_targeting_type == r_targeting_type && l_selected_targets == r_selected_targets,
-            (
-                Self::FigureSelected {
-                    position: l_position,
-                },
-                Self::FigureSelected {
-                    position: r_position,
-                },
-            ) => l_position == r_position,
-            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+
+// ============================================================================
+// PLAY COMMANDS
+// ============================================================================
+
+#[derive(Message)]
+pub struct CardPlayRequested {
+    pub card: Entity,
+    pub hand_position: usize,
+    pub pos: U16Vec2,
+}
+
+#[derive(Message)]
+pub struct TargetingComplete;
+
+#[derive(Message)]
+pub struct EndTurn;
+
+// ============================================================================
+// EVENTS / MESSAGES
+// ============================================================================
+
+#[derive(Message)]
+pub struct BoardClicked(pub U16Vec2);
+
+#[derive(Message)]
+pub struct CardClicked(pub usize);
+
+#[derive(Message)]
+pub struct EndTurnPressed;
+
+#[derive(Message)]
+pub struct CancelPressed;
+
+// ============================================================================
+// PLUGIN
+// ============================================================================
+
+pub struct TurnControllerPlugin;
+
+impl Plugin for TurnControllerPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            // States
+            .init_state::<TurnState>()
+            // Events
+            .add_message::<BoardClicked>()
+            .add_message::<CardClicked>()
+            .add_message::<EndTurnPressed>()
+            .add_message::<CancelPressed>()
+            // Systems
+            .add_systems(Update, handle_end_turn_input)
+            .add_systems(Update, handle_cancel_input)
+            .add_systems(Update, handle_idle_state.run_if(in_state(TurnState::Idle)))
+            .add_systems(Update, handle_action.run_if(in_state(TurnState::Idle)))
+            .add_systems(
+                Update,
+                handle_card_selected.run_if(in_state(TurnState::CardSelected)),
+            )
+            .add_systems(
+                Update,
+                handle_awaiting_inputs.run_if(in_state(TurnState::AwaitingInputs)),
+            )
+            .add_systems(
+                Update,
+                handle_figure_selected.run_if(in_state(TurnState::FigureSelected)),
+            )
+            // Cleanup on state exit
+            .add_systems(OnExit(TurnState::CardSelected), cleanup_card_selection)
+            .add_systems(OnExit(TurnState::FigureSelected), cleanup_figure_selection)
+            .add_systems(OnEnter(TurnState::EndTurn), on_turn_end);
+    }
+}
+
+fn handle_end_turn_input(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<TurnState>>,
+) {
+    if keyboard.just_pressed(KeyCode::Enter) {
+        info!("Enter pressed - ending turn");
+        next_state.set(TurnState::EndTurn);
+    }
+}
+
+fn handle_cancel_input(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    current_state: Res<State<TurnState>>,
+    mut next_state: ResMut<NextState<TurnState>>,
+) {
+    if keyboard.just_pressed(KeyCode::Escape) {
+        match current_state.get() {
+            TurnState::AwaitingInputs => {
+                next_state.set(TurnState::Idle);
+            }
+            TurnState::CardSelected | TurnState::FigureSelected => {
+                next_state.set(TurnState::Idle);
+            }
+            _ => {}
         }
     }
 }
 
-#[derive(Resource)]
-pub struct TurnController {
-    pub state: TurnState,
-    input_handler: InputHandler,
-    pending_action: Option<Box<ActionPrototype>>,
-    pub action_context: ActionContext,
-    sender: Option<oneshot::Sender<Vec<I16Vec2>>>,
-}
+// ============================================================================
+// STATE HANDLERS
+// ============================================================================
 
-impl TurnController {
-    pub fn new(render_config: Arc<RenderConfig>) -> Self {
-        let input_handler = InputHandler::new(render_config);
-        Self {
-            state: TurnState::Idle,
-            input_handler,
-            pending_action: None,
-            action_context: ActionContext::new(),
-            sender: None,
-        }
+fn handle_idle_state(
+    mut board_clicks: MessageReader<BoardClicked>,
+    mut card_clicks: MessageReader<CardClicked>,
+    mut next_state: ResMut<NextState<TurnState>>,
+    mut commands: Commands,
+    board: Res<Board>,
+    occupants: Query<(&Occupant, Entity)>,
+    hand: Query<&Hand, With<TurnPlayer>>,
+) {
+    // Check for card selection first
+    for CardClicked(card_index) in card_clicks.read() {
+        let hand = hand.single().unwrap();
+        let card_entity = hand.get_card(*card_index).unwrap();
+        commands.entity(card_entity).insert(Selected);
+        next_state.set(TurnState::CardSelected);
+        return;
     }
 
-    pub fn update(
-        &mut self,
-        context: &mut GameContext,
-        card_registry: &CardRegistry,
-    ) -> Result<Option<PlayCommand>, Error> {
-        if self
-            .input_handler
-            .get_key_press()
-            .is_some_and(|key| key == KeyCode::Enter)
-        {
-            print!("Escape pressed");
-            self.pending_action = None;
-            self.state = TurnState::EndTurn
-        }
-
-        // Handle input based on current state
-        match self.state {
-            TurnState::Idle => self.handle_idle_state(context),
-            TurnState::CardSelected { card_index } => {
-                self.handle_card_selected(card_index, context, card_registry)
+    // Check for figure selection
+    for BoardClicked(pos) in board_clicks.read() {
+        if let Some(tile_entity) = board.get_tile(pos) {
+            if let Ok((_, ent)) = occupants.get(tile_entity) {
+                commands.entity(ent).insert(Selected);
+                next_state.set(TurnState::FigureSelected);
+                return;
             }
-            TurnState::AwaitingInputs { .. } => self.handle_awaiting_inputs(context),
-            TurnState::FigureSelected { position } => {
-                self.handle_figure_selected(&position, context, card_registry)
-            }
-            TurnState::EndTurn => Ok(None),
-        }
-    }
-
-    fn cancel_input(&mut self) {
-        if let TurnState::AwaitingInputs { .. } = &mut self.state {
-            self.sender.take(); // Drop the sender, which will cause the receiver to get an error
-        }
-        self.state = TurnState::Idle;
-    }
-    pub(crate) fn turn_over(&self) -> bool {
-        self.state == TurnState::EndTurn
-    }
-
-    pub(crate) fn reset_state(&mut self) {
-        self.pending_action = None;
-        self.state = TurnState::Idle;
-    }
-
-    pub fn request_action_context(&mut self, action: &ActionPrototype) {
-        match action.targeting_type() {
-            TargetingType::SingleTile
-            | TargetingType::Area { .. }
-            | TargetingType::Tiles { .. }
-            | TargetingType::Line { .. } => {
-                self.state = TurnState::AwaitingInputs {
-                    targeting_type: action.targeting_type(),
-                    selected_targets: Vec::new(),
-                    pending_action: action.clone(),
-                };
-            }
-            TargetingType::Caster
-            | TargetingType::AreaAroundCaster { .. }
-            | TargetingType::AllEnemies
-            | TargetingType::None => {}
         }
     }
 }
 
-impl TurnController {
-    fn handle_awaiting_inputs(
-        &mut self,
-        context: &GameContext,
-    ) -> Result<Option<PlayCommand>, Error> {
-        let Some(click_pos) = self.input_handler.get_board_click() else {
-            return Ok(None);
+fn handle_card_selected(
+    mut board_clicks: MessageReader<BoardClicked>,
+    mut play_commands: MessageWriter<CardPlayRequested>,
+    mut next_state: ResMut<NextState<TurnState>>,
+    player_hands: Query<(&Hand, &Player), With<TurnPlayer>>,
+    selected_card: Query<&InHand, With<Selected>>,
+) {
+    let selected_card = selected_card.single().unwrap();
+    for BoardClicked(pos) in board_clicks.read() {
+        let hand_position = selected_card.hand_index;
+
+        // Get card from hand
+        let Ok((hand, _)) = player_hands.single() else {
+            warn!("Could not find player hand");
+            next_state.set(TurnState::Idle);
+            return;
         };
 
-        let TurnState::AwaitingInputs {
-            targeting_type,
-            mut selected_targets,
-            pending_action,
-        } = std::mem::take(&mut self.state)
-        else {
-            unreachable!("handle_awaiting_inputs called in wrong state")
+        let Some(card_entity) = hand.get_card(hand_position) else {
+            warn!("Invalid card index: {}", hand_position);
+            next_state.set(TurnState::Idle);
+            return;
         };
 
-        selected_targets.push(click_pos);
+        play_commands.write(CardPlayRequested {
+            card: card_entity,
+            hand_position,
+            pos: *pos,
+        });
 
-        let required_targets = match targeting_type {
-            TargetingType::SingleTile | TargetingType::Area { .. } => 1,
-            TargetingType::Tiles { amount } => amount.into(),
-            TargetingType::Line { .. } => 2,
-            _ => todo!(),
-        };
+        next_state.set(TurnState::Idle);
+        return;
+    }
+}
 
-        if selected_targets.len() < required_targets {
-            self.state = TurnState::AwaitingInputs {
-                targeting_type,
-                selected_targets,
-                pending_action,
-            };
-            return Ok(None);
-        }
+fn handle_figure_selected(
+    mut board_clicks: MessageReader<BoardClicked>,
+    mut play_commands: MessageWriter<MoveRequest>,
+    mut next_state: ResMut<NextState<TurnState>>,
+    selected_cards: Query<(Entity, &OnBoard), With<Selected>>,
+) {
+    for BoardClicked(next_position) in board_clicks.read() {
+        let (entity, &OnBoard { position: from }) = selected_cards.single().unwrap();
 
-        let player = context.turn_player_id();
-        let action_context = if selected_targets.len() == 1 {
-            ActionContext::new()
-                .with_player(player)
-                .with_position(selected_targets[0])
-        } else {
-            ActionContext::new()
-                .with_player(player)
-                .with_targets(selected_targets)
-        };
+        info!("Sending move command from {} to {}", from, next_position);
 
-        let command = PlayCommandBuilder::new()
-            .build_action(pending_action, action_context)
-            .with_owner(player)
-            .build();
+        play_commands.write(MoveRequest {
+            entity,
+            from,
+            to: *next_position,
+        });
+        next_state.set(TurnState::Idle);
+        return;
+    }
+}
 
-        println!("Sending Play Command ");
-        Ok(Some(command))
+fn handle_awaiting_inputs(
+    mut board_clicks: MessageReader<BoardClicked>,
+    mut play_commands: MessageWriter<TargetingComplete>,
+    mut next_state: ResMut<NextState<TurnState>>,
+    selected_cards: Query<&mut Selected, With<OnBoard>>,
+    board: Res<Board>,
+    actions: Query<(Entity, &TargetingType), With<NeedsTargeting>>,
+    tiles: Query<&Occupant>,
+    mut commands: Commands,
+) {
+    let (action_entity, targeting) = actions.single().unwrap();
+    if selected_cards.iter().len() as u8 == targeting.required_targets() {
+        play_commands.write(TargetingComplete);
+        info!("Sending Play Command");
+        commands.entity(action_entity).remove::<NeedsTargeting>();
+        commands.entity(action_entity).insert(ReadyToExecute);
+        next_state.set(TurnState::Idle);
     }
 
-    fn handle_figure_selected(
-        &mut self,
-        position: &I16Vec2,
-        context: &GameContext,
-        card_registry: &CardRegistry,
-    ) -> Result<Option<PlayCommand>, Error> {
-        let Some(next_position) = self.input_handler.get_board_click() else {
-            return Ok(None);
-        };
-
-        print!(
-            "Sending move command from {} to {}",
-            position, next_position
-        );
-
-        self.state = TurnState::Idle;
-        let current_player = context.turn_player_id();
-
-        let command = PlayCommandBuilder::new()
-            .move_creature(*position, next_position)
-            .with_owner(current_player)
-            .build();
-
-        Ok(Some(command))
+    for BoardClicked(click_pos) in board_clicks.read() {
+        let tile = board.get_tile(click_pos).unwrap();
+        let card = tiles.get(tile).unwrap().0;
+        commands.entity(card).insert(Selected);
     }
+}
 
-    fn handle_idle_state(&mut self, context: &GameContext) -> Result<Option<PlayCommand>, Error> {
-        // Check for card selection
-        if let Some(card_index) = self.input_handler.get_card_left_click(
-            context
-                .get_turn_player()
-                .ok_or(Error::PlayerNotFound)?
-                .hand_size(),
-        ) {
-            self.state = TurnState::CardSelected { card_index };
-            return Ok(None);
-        }
+pub fn handle_action(
+    mut commands: Commands,
+    actions: Query<(Entity, &TargetingType), With<Pending>>,
+    mut next_state: ResMut<NextState<TurnState>>,
+) {
+    let Some((entity, targeting_type)) = actions.iter().next() else {
+        return;
+    };
 
-        // Check for figure selection
-        if let Some(pos) = self.input_handler.get_board_click() {
-            if context
-                .get_board()
-                .get_tile(&pos)
-                .ok_or(Error::PlaceError(
-                    super::board::place_error::BoardError::TileNotFound,
-                ))?
-                .is_occupied()
-            {
-                self.state = TurnState::FigureSelected { position: pos };
-            }
-        }
-        Ok(None)
+    let needs_targeting = targeting_type.requires_selection();
+
+    commands
+        .entity(entity)
+        .remove::<Pending>()
+        .insert_if(NeedsTargeting, || needs_targeting)
+        .insert_if(ReadyToExecute, || !needs_targeting);
+
+    if needs_targeting {
+        next_state.set(TurnState::AwaitingInputs);
     }
+}
 
-    fn handle_card_selected(
-        &mut self,
-        card_index: usize,
-        context: &GameContext,
-        card_registry: &CardRegistry,
-    ) -> Result<Option<PlayCommand>, Error> {
-        let Some(pos) = self.input_handler.get_board_click() else {
-            return Ok(None);
-        };
+// ============================================================================
+// CLEANUP SYSTEMS
+// ============================================================================
 
-        self.state = TurnState::Idle;
-
-        let card_id = context
-            .get_turn_player()
-            .ok_or(Error::PlayerNotFound)?
-            .get_card_in_hand(card_index)
-            .ok_or(Error::InvalidHandPosition(card_index))?;
-        let card = card_registry.get(&card_id).ok_or(Error::CardNotFound)?;
-        let current_player = context.turn_player_id();
-
-        let effect = match card {
-            Card::Creature(_) => PlayCommandEffect::PlaceCreature {
-                card_index,
-                position: pos,
-            },
-            Card::Spell(_) => PlayCommandEffect::CastSpell { card_index },
-            Card::Trap(_) => PlayCommandEffect::PlaceTrap {
-                card_index,
-                position: pos,
-            },
-        };
-
-        let command = PlayCommandBuilder::new()
-            .with_effect(effect)
-            .with_owner(current_player)
-            .build();
-
-        Ok(Some(command))
+fn cleanup_card_selection(
+    selected_cards: Query<Entity, (With<Selected>, With<InHand>)>,
+    mut commands: Commands,
+) {
+    for card in &selected_cards {
+        commands.entity(card).remove::<Selected>();
     }
+}
+
+fn cleanup_figure_selection(
+    selected_cards: Query<Entity, (With<Selected>, With<OnBoard>)>,
+    mut commands: Commands,
+) {
+    for card in &selected_cards {
+        commands.entity(card).remove::<Selected>();
+    }
+}
+
+fn on_turn_end(mut next_state: ResMut<NextState<TurnState>>) {
+    // Handle turn end logic here
+    // Then reset to idle for next turn
+    info!("Turn ended");
+}
+
+/// Call this when starting a new turn
+pub fn reset_turn(mut next_state: ResMut<NextState<TurnState>>) {
+    next_state.set(TurnState::Idle);
 }

@@ -1,7 +1,7 @@
 use macroquad::math::I16Vec2;
 
 use crate::game::{
-    actions::{action::Action, action_prototype::ActionPrototype},
+    actions::action_prototype::GameAction,
     card::{abilities::Abilities, CardBehavior},
 };
 
@@ -14,11 +14,11 @@ pub struct Creature {
     pub attack_strength: u16,
     pub defense: u16,
     pub cost: u16,
-    on_play_action: Option<ActionPrototype>,
-    pub turn_begin_action: Option<ActionPrototype>,
-    pub turn_end_action: Option<ActionPrototype>,
-    pub draw_action: Option<ActionPrototype>,
-    pub discard_action: Option<ActionPrototype>,
+    on_play_action: Option<GameAction>,
+    pub turn_begin_action: Option<GameAction>,
+    pub turn_end_action: Option<GameAction>,
+    pub draw_action: Option<GameAction>,
+    pub discard_action: Option<GameAction>,
     pub abilities: Vec<Abilities>,
     pub description: String,
     pub display_image_asset_string: String,
@@ -51,11 +51,11 @@ impl Creature {
         attack_strength: u16,
         defense: u16,
         cost: u16,
-        play_action: Option<ActionPrototype>,
-        turn_begin_action: Option<ActionPrototype>,
-        turn_end_action: Option<ActionPrototype>,
-        draw_action: Option<ActionPrototype>,
-        discard_action: Option<ActionPrototype>,
+        play_action: Option<GameAction>,
+        turn_begin_action: Option<GameAction>,
+        turn_end_action: Option<GameAction>,
+        draw_action: Option<GameAction>,
+        discard_action: Option<GameAction>,
         abilities: Vec<Abilities>,
         description: String,
         display_image_asset_string: String,
@@ -90,7 +90,7 @@ impl Creature {
         self.attack_strength > 5 || self.defense > 5
     }
 
-    pub fn on_play_action(&self) -> Option<&ActionPrototype> {
+    pub fn on_play_action(&self) -> Option<&GameAction> {
         self.on_play_action.as_ref()
     }
 }

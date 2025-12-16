@@ -2,6 +2,8 @@ use std::fmt::Display;
 
 use macroquad::math::I16Vec2;
 
+use crate::game::board::MoveValidationError;
+
 #[derive(Debug)]
 pub enum BoardError {
     Index,
@@ -10,6 +12,7 @@ pub enum BoardError {
     TileNotFound,
     NoMovementPoints,
     CardNotFound,
+    InvalidMove(MoveValidationError),
 }
 
 impl Display for BoardError {
@@ -21,6 +24,9 @@ impl Display for BoardError {
             BoardError::TileNotFound => write!(f, "tilenotfound"),
             BoardError::NoMovementPoints => write!(f, "nomovementpoints"),
             BoardError::CardNotFound => write!(f, "cardnotfound"),
+            BoardError::InvalidMove(move_validation_error) => {
+                write!(f, "InvalidMove {}", move_validation_error)
+            }
         }
     }
 }

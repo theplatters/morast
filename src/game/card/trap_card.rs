@@ -1,14 +1,11 @@
-use crate::game::{
-    actions::{action::Action, action_prototype::ActionPrototype},
-    card::CardBehavior,
-};
+use crate::game::{actions::action_prototype::GameAction, card::CardBehavior};
 
 #[derive(Debug)]
 pub struct Trap {
     name: String,
     description: String,
-    on_play_action: Option<ActionPrototype>,
-    reveal_action: Option<ActionPrototype>,
+    on_play_action: Option<GameAction>,
+    reveal_action: Option<GameAction>,
     cost: u16,
     display_image_asset_string: String,
 }
@@ -36,8 +33,8 @@ impl Trap {
         name: String,
         cost: u16,
         description: String,
-        place_action: Option<ActionPrototype>,
-        reveal_action: Option<ActionPrototype>,
+        place_action: Option<GameAction>,
+        reveal_action: Option<GameAction>,
         display_image_asset_string: String,
     ) -> Self {
         Self {
@@ -50,7 +47,7 @@ impl Trap {
         }
     }
 
-    pub fn on_play_action(&self) -> Option<&ActionPrototype> {
+    pub fn on_play_action(&self) -> Option<&GameAction> {
         self.on_play_action.as_ref()
     }
 }

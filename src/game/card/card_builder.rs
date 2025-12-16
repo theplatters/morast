@@ -1,10 +1,10 @@
 use crate::game::{
-    actions::{action::Action, action_prototype::ActionPrototype},
+    actions::action_prototype::GameAction,
     card::{
         abilities::Abilities, card_reader::CommonData, creature::Creature, spell_card::Spell,
         trap_card::Trap, Card,
     },
-    error::Error,
+    error::GameError,
 };
 use macroquad::math::I16Vec2;
 
@@ -25,22 +25,22 @@ pub struct CreatureBuilder {
     attack_strength: Option<u16>,
     defense: Option<u16>,
     abilities: Option<Vec<Abilities>>,
-    on_play_action: Option<ActionPrototype>,
-    turn_begin_action: Option<ActionPrototype>,
-    turn_end_action: Option<ActionPrototype>,
-    draw_action: Option<ActionPrototype>,
-    discard_action: Option<ActionPrototype>,
+    on_play_action: Option<GameAction>,
+    turn_begin_action: Option<GameAction>,
+    turn_end_action: Option<GameAction>,
+    draw_action: Option<GameAction>,
+    discard_action: Option<GameAction>,
 }
 
 pub struct SpellBuilder {
     common: CardBuilder,
-    on_play_action: Option<ActionPrototype>,
+    on_play_action: Option<GameAction>,
 }
 
 pub struct TrapBuilder {
     common: CardBuilder,
-    on_play_action: Option<ActionPrototype>,
-    reveal_action: Option<ActionPrototype>,
+    on_play_action: Option<GameAction>,
+    reveal_action: Option<GameAction>,
 }
 
 impl CardBuilder {
@@ -179,62 +179,62 @@ impl CreatureBuilder {
     }
 
     // Optional on_play_action for creatures
-    pub fn on_play_action_option(mut self, action: Option<ActionPrototype>) -> Self {
+    pub fn on_play_action_option(mut self, action: Option<GameAction>) -> Self {
         self.on_play_action = action;
         self
     }
 
-    pub fn turn_begin_action_option(mut self, action: Option<ActionPrototype>) -> Self {
+    pub fn turn_begin_action_option(mut self, action: Option<GameAction>) -> Self {
         self.turn_begin_action = action;
         self
     }
 
-    pub fn turn_end_action_option(mut self, action: Option<ActionPrototype>) -> Self {
+    pub fn turn_end_action_option(mut self, action: Option<GameAction>) -> Self {
         self.turn_end_action = action;
         self
     }
 
-    pub fn draw_action_option(mut self, action: Option<ActionPrototype>) -> Self {
+    pub fn draw_action_option(mut self, action: Option<GameAction>) -> Self {
         self.draw_action = action;
         self
     }
 
-    pub fn discard_action_option(mut self, action: Option<ActionPrototype>) -> Self {
+    pub fn discard_action_option(mut self, action: Option<GameAction>) -> Self {
         self.discard_action = action;
         self
     }
 
     // Optional on_play_action for creatures
-    pub fn on_play_action(mut self, action: ActionPrototype) -> Self {
+    pub fn on_play_action(mut self, action: GameAction) -> Self {
         self.on_play_action = Some(action);
         self
     }
 
-    pub fn turn_begin_action(mut self, action: ActionPrototype) -> Self {
+    pub fn turn_begin_action(mut self, action: GameAction) -> Self {
         self.turn_begin_action = Some(action);
         self
     }
 
-    pub fn turn_end_action(mut self, action: ActionPrototype) -> Self {
+    pub fn turn_end_action(mut self, action: GameAction) -> Self {
         self.turn_end_action = Some(action);
         self
     }
 
-    pub fn draw_action(mut self, action: ActionPrototype) -> Self {
+    pub fn draw_action(mut self, action: GameAction) -> Self {
         self.draw_action = Some(action);
         self
     }
 
-    pub fn discard_action(mut self, action: ActionPrototype) -> Self {
+    pub fn discard_action(mut self, action: GameAction) -> Self {
         self.discard_action = Some(action);
         self
     }
 
-    pub fn build(self) -> Result<Card, Error> {
+    pub fn build(self) -> Result<Card, GameError> {
         let creature = Creature::new(
             self.common
                 .name
-                .ok_or(Error::Incomplete("Name is required"))?,
+                .ok_or(GameError::Incomplete("Name is required"))?,
             self.movement.unwrap_or_default(),
             self.movement_points.unwrap_or(1),
             self.attack.unwrap_or_default(),
@@ -284,24 +284,25 @@ impl SpellBuilder {
     }
 
     // Required on_play_action for spells
-    pub fn on_play_action(mut self, action: ActionPrototype) -> Self {
+    pub fn on_play_action(mut self, action: GameAction) -> Self {
         self.on_play_action = Some(action);
         self
     }
 
-    pub fn build(self) -> Result<Card, Error> {
+    pub fn build(self) -> Result<Card, GameError> {
         let spell = Spell::new(
             self.common
                 .name
-                .ok_or(Error::Incomplete("Name is required"))?,
+                .ok_or(GameError::Incomplete("Name is required"))?,
             self.common
                 .description
-                .ok_or(Error::Incomplete("Description is required"))?,
+                .ok_or(GameError::Incomplete("Description is required"))?,
             self.common
                 .cost
-                .ok_or(Error::Incomplete("Cost is required"))?,
-            self.on_play_action
-                .ok_or(Error::Incomplete("On play action is required for spells"))?,
+                .ok_or(GameError::Incomplete("Cost is required"))?,
+            self.on_play_action.ok_or(GameError::Incomplete(
+                "On play action is required for spells",
+            ))?,
             self.common
                 .display_image_asset_string
                 .unwrap_or("missing".to_string()),
@@ -338,32 +339,32 @@ impl TrapBuilder {
     }
 
     // Optional on_play_action for traps
-    pub fn on_play_action(mut self, action: Option<ActionPrototype>) -> Self {
+    pub fn on_play_action(mut self, action: Option<GameAction>) -> Self {
         self.on_play_action = action;
         self
     }
 
-    pub fn reveal_action(mut self, action: ActionPrototype) -> Self {
+    pub fn reveal_action(mut self, action: GameAction) -> Self {
         self.reveal_action = Some(action);
         self
     }
 
-    pub fn reveal_action_optional(mut self, action: Option<ActionPrototype>) -> Self {
+    pub fn reveal_action_optional(mut self, action: Option<GameAction>) -> Self {
         self.reveal_action = action;
         self
     }
 
-    pub fn build(self) -> Result<Card, Error> {
+    pub fn build(self) -> Result<Card, GameError> {
         let trap = Trap::new(
             self.common
                 .name
-                .ok_or(Error::Incomplete("Name is required"))?,
+                .ok_or(GameError::Incomplete("Name is required"))?,
             self.common
                 .cost
-                .ok_or(Error::Incomplete("Cost is required"))?,
+                .ok_or(GameError::Incomplete("Cost is required"))?,
             self.common
                 .description
-                .ok_or(Error::Incomplete("Description is required"))?,
+                .ok_or(GameError::Incomplete("Description is required"))?,
             self.on_play_action,
             self.reveal_action,
             self.common

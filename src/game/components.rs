@@ -1,9 +1,6 @@
 use bevy::prelude::*;
 
-use crate::game::components::player_components::Player;
-
-pub mod card_components;
-pub mod player_components;
+use crate::game::player::Player;
 
 #[derive(Component)]
 pub struct Health(u16);

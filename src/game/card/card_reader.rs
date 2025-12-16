@@ -14,9 +14,9 @@ use crate::{
         },
     },
     game::{
-        actions::action_prototype::ActionPrototype,
+        actions::action_prototype::GameAction,
         card::{abilities::Abilities, Card},
-        error::Error,
+        error::GameError,
     },
 };
 
@@ -38,52 +38,52 @@ impl<'a> FieldExtractor<'a> {
         Self { table, context }
     }
 
-    fn get_string(&self, field: &str) -> Result<String, Error> {
+    fn get_string(&self, field: &str) -> Result<String, GameError> {
         match self.table.get(field) {
             Some(JanetEnum::String(value)) => Ok(value.clone()),
-            _ => Err(Error::NotFound(format!("{}: {}", self.context, field))),
+            _ => Err(GameError::NotFound(format!("{}: {}", self.context, field))),
         }
     }
 
-    fn get_int(&self, field: &str) -> Result<i32, Error> {
+    fn get_int(&self, field: &str) -> Result<i32, GameError> {
         match self.table.get(field) {
             Some(JanetEnum::Int(value)) => Ok(value),
-            _ => Err(Error::NotFound(format!("{}: {}", self.context, field))),
+            _ => Err(GameError::NotFound(format!("{}: {}", self.context, field))),
         }
     }
 
-    fn get_optional_actions(&self, field: &str) -> Result<Option<ActionPrototype>, Error> {
+    fn get_optional_actions(&self, field: &str) -> Result<Option<GameAction>, GameError> {
         self.table
             .get(field)
             .map(|value| value.try_into())
             .transpose()
     }
 
-    fn get_required_actions(&self, field: &str) -> Result<ActionPrototype, Error> {
+    fn get_required_actions(&self, field: &str) -> Result<GameAction, GameError> {
         match self.table.get(field) {
             Some(value) => value.try_into(),
-            None => Err(Error::NotFound(format!("{}: {}", self.context, field))),
+            None => Err(GameError::NotFound(format!("{}: {}", self.context, field))),
         }
     }
 
-    fn get_i16_vec(&self, field: &str) -> Result<Vec<I16Vec2>, Error> {
+    fn get_i16_vec(&self, field: &str) -> Result<Vec<I16Vec2>, GameError> {
         let value = self
             .table
             .get(field)
-            .ok_or_else(|| Error::NotFound(format!("{}: {}", self.context, field)))?;
+            .ok_or_else(|| GameError::NotFound(format!("{}: {}", self.context, field)))?;
 
         to_i16_vec(value)
-            .ok_or_else(|| Error::Cast(format!("Failed to cast {} to i16 vector", field)))
+            .ok_or_else(|| GameError::Cast(format!("Failed to cast {} to i16 vector", field)))
     }
 
-    fn get_abilities(&self) -> Result<Vec<Abilities>, Error> {
+    fn get_abilities(&self) -> Result<Vec<Abilities>, GameError> {
         match self.table.get("abilities") {
             Some(JanetEnum::Array(abilities)) => abilities
                 .iter()
                 .map(|el| {
-                    let s: String = el.try_into().map_err(Error::EngineError)?;
+                    let s: String = el.try_into().map_err(GameError::EngineError)?;
                     Abilities::from_str(&s)
-                        .map_err(|e| Error::Cast(format!("Ability could not be casted {}", e)))
+                        .map_err(|e| GameError::Cast(format!("Ability could not be casted {}", e)))
                 })
                 .collect(),
             _ => Ok(Vec::new()),
@@ -95,11 +95,11 @@ impl<'a> FieldExtractor<'a> {
 struct CardDataRetriever;
 
 impl CardDataRetriever {
-    fn get_card_table(env: &Environment, name: &str) -> Result<Table, Error> {
+    fn get_card_table(env: &Environment, name: &str) -> Result<Table, GameError> {
         match JanetEnum::get(env, name, Some(name)) {
             Some(JanetEnum::Table(card_data)) => Ok(card_data),
-            Some(_) => Err(Error::Cast("Card data is not in table format".into())),
-            None => Err(Error::NotFound(format!("Card: {}", name))),
+            Some(_) => Err(GameError::Cast("Card data is not in table format".into())),
+            None => Err(GameError::NotFound(format!("Card: {}", name))),
         }
     }
 
@@ -107,7 +107,7 @@ impl CardDataRetriever {
         env: &Environment,
         action_name: &str,
         card_name: &str,
-    ) -> Result<Option<ActionPrototype>, Error> {
+    ) -> Result<Option<GameAction>, GameError> {
         JanetEnum::get(env, action_name, Some(card_name))
             .map(|value| value.try_into())
             .transpose()
@@ -119,7 +119,7 @@ pub fn read_common_data(
     _env: &Environment,
     name: &str,
     _asset_loader: &mut AssetLoader,
-) -> Result<CommonData, Error> {
+) -> Result<CommonData, GameError> {
     let extractor = FieldExtractor::new(card_data, name);
 
     Ok(CommonData {
@@ -134,7 +134,7 @@ pub async fn read_creature(
     env: &Environment,
     name: &str,
     asset_loader: &mut AssetLoader,
-) -> Result<Card, Error> {
+) -> Result<Card, GameError> {
     println!("Reading card: {}", name);
 
     let card_data = CardDataRetriever::get_card_table(env, name)?;
@@ -180,7 +180,7 @@ pub async fn read_spell(
     env: &Environment,
     name: &str,
     asset_loader: &mut AssetLoader,
-) -> Result<Card, Error> {
+) -> Result<Card, GameError> {
     println!("Reading card: {}", name);
     let card_data = CardDataRetriever::get_card_table(env, name)?;
     let extractor = FieldExtractor::new(&card_data, name);
@@ -199,7 +199,7 @@ pub async fn read_trap(
     env: &Environment,
     name: &str,
     asset_loader: &mut AssetLoader,
-) -> Result<Card, Error> {
+) -> Result<Card, GameError> {
     let card_data = CardDataRetriever::get_card_table(env, name)?;
     let common_data = read_common_data(&card_data, env, name, asset_loader)?;
 

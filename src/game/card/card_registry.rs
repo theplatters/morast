@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use bevy::ecs::{resource::Resource, world::FromWorld};
+use bevy::ecs::resource::Resource;
 
 use crate::{
     engine::{asset_loader::AssetLoader, janet_handler::controller::Environment},
@@ -11,7 +11,7 @@ use crate::{
             creature::Creature,
             Card, CardBehavior,
         },
-        error::Error,
+        error::GameError,
     },
 };
 
@@ -69,7 +69,7 @@ impl CardRegistry {
         name: &str,
         asset_loader: &mut AssetLoader,
         card_type: CardTypes,
-    ) -> Result<CardID, Error> {
+    ) -> Result<CardID, GameError> {
         let card = match card_type {
             CardTypes::Creature => read_creature(env, name, asset_loader).await?,
             CardTypes::Spell => read_spell(env, name, asset_loader).await?,

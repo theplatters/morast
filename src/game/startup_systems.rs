@@ -3,27 +3,15 @@ use bevy::prelude::*;
 use crate::{
     engine::{asset_loader::AssetLoader, janet_handler::controller::Environment},
     game::{
-        card::{card_registry::CardRegistry, deck_builder::DeckBuilder},
-        components::{
-            card_components::InDeck,
-            player_components::{Deck, Player, PlayerResources, TurnPlayer},
-            Owner,
-        },
+        card::{card_registry::CardRegistry, deck_builder::DeckBuilder, InDeck},
+        components::Owner,
+        player::*,
     },
 };
 
 pub fn add_player(mut commands: Commands) {
-    commands.spawn((
-        Player { number: 0 },
-        PlayerResources::default(),
-        Deck(Vec::new()),
-        TurnPlayer,
-    ));
-    commands.spawn((
-        Player { number: 1 },
-        PlayerResources::default(),
-        Deck(Vec::new()),
-    ));
+    commands.spawn((Player { number: 0 }, PlayerBundle::default(), TurnPlayer));
+    commands.spawn((Player { number: 1 }, PlayerBundle::default()));
 }
 
 pub fn add_cards(

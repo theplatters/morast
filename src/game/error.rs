@@ -5,7 +5,7 @@ use crate::{engine::error::EngineError, game::actions::action_builder::ActionBui
 use super::board::place_error::BoardError;
 
 #[derive(Debug)]
-pub enum Error {
+pub enum GameError {
     PlayerNotFound,
     PlaceError(BoardError),
     IncorrectPlayer,
@@ -26,31 +26,31 @@ pub enum Error {
     NoInputReceived,
 }
 
-impl Display for Error {
+impl Display for GameError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::PlayerNotFound => write!(f, "Player not found"),
-            Error::PlaceError(board_error) => write!(f, "Board Error {}", board_error),
-            Error::IncorrectPlayer => write!(f, "Incorrect Player"),
-            Error::InvalidMove => write!(f, "InvalidMove"),
-            Error::CardNotFound => write!(f, "Card not found"),
-            Error::NotFound(s) => write!(f, "Not found: {}", s),
-            Error::Cast(s) => write!(f, "Cast error: {}", s),
-            Error::MacroquadError(error) => write!(f, "MacroquadError: {}", error),
-            Error::InsufficientGold => write!(f, "InsufficientGold"),
-            Error::EngineError(engine_error) => write!(f, "EngineError: {}", engine_error),
-            Error::InvalidHandPosition(pos) => write!(f, "Invalud Hand position: {}", pos),
-            Error::Incomplete(s) => write!(f, "Inclomplete: {}", s),
-            Error::InvalidCardType => write!(f, "InvalidCardType"),
-            Error::WrongState => write!(f, "Wrong State"),
-            Error::ActionError(s) => write!(f, "Error when performing action: {}", s),
-            Error::ActionBuilderError(action_builder_error) => {
+            GameError::PlayerNotFound => write!(f, "Player not found"),
+            GameError::PlaceError(board_error) => write!(f, "Board Error {}", board_error),
+            GameError::IncorrectPlayer => write!(f, "Incorrect Player"),
+            GameError::InvalidMove => write!(f, "InvalidMove"),
+            GameError::CardNotFound => write!(f, "Card not found"),
+            GameError::NotFound(s) => write!(f, "Not found: {}", s),
+            GameError::Cast(s) => write!(f, "Cast error: {}", s),
+            GameError::MacroquadError(error) => write!(f, "MacroquadError: {}", error),
+            GameError::InsufficientGold => write!(f, "InsufficientGold"),
+            GameError::EngineError(engine_error) => write!(f, "EngineError: {}", engine_error),
+            GameError::InvalidHandPosition(pos) => write!(f, "Invalud Hand position: {}", pos),
+            GameError::Incomplete(s) => write!(f, "Inclomplete: {}", s),
+            GameError::InvalidCardType => write!(f, "InvalidCardType"),
+            GameError::WrongState => write!(f, "Wrong State"),
+            GameError::ActionError(s) => write!(f, "Error when performing action: {}", s),
+            GameError::ActionBuilderError(action_builder_error) => {
                 write!(f, "Error when building action: {}", action_builder_error)
             }
-            Error::InputCancelled => write!(f, "Input cancelled"),
-            Error::NoInputReceived => write!(f, "No input recieved"),
+            GameError::InputCancelled => write!(f, "Input cancelled"),
+            GameError::NoInputReceived => write!(f, "No input recieved"),
         }
     }
 }
 
-impl std::error::Error for Error {}
+impl std::error::Error for GameError {}

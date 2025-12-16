@@ -5,11 +5,7 @@ use macroquad::math::I16Vec2;
 
 use crate::{
     engine::janet_handler::{bindings::janet_getsymbol, types::janetenum::ptr_to_i16_vec},
-    game::{
-        board::effect::{Effect, EffectType},
-        game_context::GameContext,
-        player::PlayerID,
-    },
+    game::board::effect::{Effect, EffectType},
 };
 
 use super::{
@@ -61,7 +57,7 @@ pub unsafe extern "C" fn cfun_add_gold_to_player(argc: i32, argv: *mut Janet) ->
     janet_wrap_nil()
 }
 
-pub unsafe extern "C" fn cfun_turn_player(argc: i32, argv: *mut Janet) -> Janet {
+pub unsafe extern "c" fn cfun_turn_player(argc: i32, argv: *mut janet) -> janet {
     janet_fixarity(argc, 1);
     (janet_getpointer(argv, 0) as *mut GameContext)
         .as_mut()

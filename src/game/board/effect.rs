@@ -1,22 +1,34 @@
 use std::str::FromStr;
 
-use bevy::ecs::component::Component;
+use bevy::ecs::{bundle::Bundle, component::Component};
 
 use crate::{
     engine::janet_handler::types::janetenum::JanetEnum,
-    game::{components::player_components::Player, error::Error, player::PlayerID},
+    game::{error::GameError, player::Player},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
 pub enum EffectType {
     Slow,
     Weakening,
 }
 
-#[derive(Component, Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
+#[derive(Component, Debug, Clone, Copy, Eq, PartialEq)]
+pub struct EffectDuration(pub u16);
+impl EffectDuration {
+    pub(crate) fn decrease(&mut self) {
+        self.0.saturating_sub(1);
+    }
+
+    pub(crate) fn over(&self) -> bool {
+        self.0 == 0
+    }
+}
+
+#[derive(Bundle, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Effect {
     pub effect_type: EffectType,
-    duration: u16,
+    duration: EffectDuration,
     pub owner: Player,
 }
 
@@ -24,7 +36,7 @@ impl Effect {
     pub fn new(effect_type: EffectType, duration: u16, owner: Player) -> Self {
         Self {
             effect_type,
-            duration,
+            duration: EffectDuration(duration),
             owner,
         }
     }
@@ -34,11 +46,11 @@ impl Effect {
     }
 
     pub fn duration(&self) -> u16 {
-        self.duration
+        self.duration.0
     }
 
     pub fn decrease_duration(&mut self) {
-        self.duration = self.duration.saturating_sub(1);
+        self.duration.0 = self.duration.0.saturating_sub(1);
     }
 }
 
@@ -55,7 +67,7 @@ impl FromStr for EffectType {
 }
 
 impl TryFrom<JanetEnum> for EffectType {
-    type Error = Error;
+    type Error = GameError;
 
     fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
         match &value {
@@ -66,9 +78,11 @@ impl TryFrom<JanetEnum> for EffectType {
             JanetEnum::String(s) if s == "weakening" => Ok(Self::Weakening),
 
             JanetEnum::Int(_) | JanetEnum::UInt(_) | JanetEnum::String(_) => {
-                Err(Error::Cast("Effect type not impleneted".into()))
+                Err(GameError::Cast("Effect type not impleneted".into()))
             }
-            _ => Err(Error::Cast("Unsupported janet type for effect type".into())),
+            _ => Err(GameError::Cast(
+                "Unsupported janet type for effect type".into(),
+            )),
         }
     }
 }

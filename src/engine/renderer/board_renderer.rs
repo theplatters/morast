@@ -10,8 +10,7 @@ use crate::{
     engine::{asset_loader::AssetLoader, renderer::render_config::RenderConfig},
     game::{
         board::{place_error::BoardError, Board},
-        error::Error,
-        game_objects::player_base::PlayerBase,
+        error::GameError,
     },
 };
 
@@ -134,7 +133,7 @@ impl BoardRenderer {
                     && !context
                         .get_board()
                         .get_tile(tile)
-                        .ok_or(Error::PlaceError(BoardError::TileNotFound))
+                        .ok_or(GameError::PlaceError(BoardError::TileNotFound))
                         .expect("Tile not found")
                         .is_occupied()
             })

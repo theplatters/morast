@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use crate::game::error::Error;
+use crate::game::error::GameError;
 
 #[derive(Debug)]
 pub enum Abilities {
@@ -10,14 +10,14 @@ pub enum Abilities {
 }
 
 impl FromStr for Abilities {
-    type Err = Error;
+    type Err = GameError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "fly" => Ok(Self::Flying),
             "jump" => Ok(Self::Jumping),
             "dig" => Ok(Self::Digging),
-            _ => Err(Error::Cast(format!("Ability not found {}", s))),
+            _ => Err(GameError::Cast(format!("Ability not found {}", s))),
         }
     }
 }

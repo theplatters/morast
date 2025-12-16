@@ -1,11 +1,11 @@
-use crate::game::{actions::action_prototype::ActionPrototype, card::CardBehavior};
+use crate::game::{actions::action_prototype::GameAction, card::CardBehavior};
 
 #[derive(Debug)]
 pub struct Spell {
     name: String,
     cost: u16,
     description: String,
-    on_play_action: ActionPrototype,
+    on_play_action: GameAction,
     display_image_asset_string: String,
 }
 
@@ -35,7 +35,7 @@ impl Spell {
         name: String,
         description: String,
         cost: u16,
-        on_play_action: ActionPrototype,
+        on_play_action: GameAction,
         display_image_asset_string: String,
     ) -> Self {
         Self {
@@ -47,7 +47,7 @@ impl Spell {
         }
     }
 
-    pub fn on_play_action(&self) -> &ActionPrototype {
+    pub fn on_play_action(&self) -> &GameAction {
         &self.on_play_action
     }
 }

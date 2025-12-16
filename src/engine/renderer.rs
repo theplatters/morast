@@ -1,7 +1,17 @@
 use std::sync::Arc;
 
-use bevy::ecs::resource::Resource;
-use macroquad::math::{I16Vec2, Vec2};
+use bevy::{
+    app::{Plugin, Startup},
+    asset::AssetServer,
+    camera::Camera2d,
+    ecs::{
+        resource::Resource,
+        schedule::graph::Direction,
+        system::{Commands, Res},
+    },
+    sprite::Sprite,
+    transform::components::Transform,
+};
 
 mod board_renderer;
 mod card_render;
@@ -16,8 +26,7 @@ use crate::{
     },
     game::{
         card::{card_registry::CardRegistry, Card, CardBehavior},
-        error::Error,
-        game_context::GameContext,
+        error::GameError,
         turn_controller::TurnState,
     },
 };
@@ -75,14 +84,14 @@ impl Renderer {
         turn_step: &TurnState,
         context: &GameContext,
         card_registy: &CardRegistry,
-    ) -> Result<(), Error> {
+    ) -> Result<(), GameError> {
         match turn_step {
             TurnState::FigureSelected { position } => {
                 let board = context.get_board();
                 let card_id = board.get_card_on_tile(position)?;
                 let movement_pattern = &card_registy
                     .get_creature(&card_id.card_id)
-                    .ok_or(Error::CardNotFound)?
+                    .ok_or(GameError::CardNotFound)?
                     .movement;
 
                 let highlights: Vec<I16Vec2> = movement_pattern
@@ -116,8 +125,8 @@ impl Renderer {
         turn_step: &TurnState,
         asset_loader: &AssetLoader,
         card_registry: &CardRegistry,
-    ) -> Result<(), Error> {
-        let player = context.get_turn_player().ok_or(Error::PlayerNotFound)?;
+    ) -> Result<(), GameError> {
+        let player = context.get_turn_player().ok_or(GameError::PlayerNotFound)?;
         let hand = player.get_hand();
         let cards: Vec<_> = hand
             .iter()
@@ -132,3 +141,20 @@ impl Renderer {
         Ok(())
     }
 }
+
+pub struct RendererPlugin;
+
+impl Plugin for RendererPlugin {
+    fn build(&self, app: &mut bevy::app::App) {
+        app.init_resource::<RenderConfig>()
+            .add_systems(Startup, setup_renderer);
+    }
+}
+
+pub fn setup_renderer(mut commands: Commands) {
+    commands.spawn(Camera2d);
+}
+
+pub fn draw_board() {}
+
+pub fn draw_card(cards: Query<&) {}

@@ -1,6 +1,7 @@
+use bevy::ecs::resource::Resource;
 use macroquad::math::Vec2;
 
-#[derive(Debug)]
+#[derive(Resource, Debug)]
 pub struct RenderConfig {
     pub card_width: f32,
     pub card_height: f32,
