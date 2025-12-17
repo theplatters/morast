@@ -65,7 +65,7 @@ impl BoardRes {
         asset_server: Res<AssetServer>,
         window: Query<&Window>,
     ) {
-        let window = window.single().expect("Could not find window query");
+        let window = window.single().expect("Could not find window");
         let x_size: u16 = 24;
         let y_size: u16 = 12;
 

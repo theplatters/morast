@@ -53,8 +53,7 @@ pub struct GoldAdded {
 
 #[derive(Message, Debug, Clone, PartialEq, Eq, Copy)]
 pub struct CardsDrawn {
-    player_id: Player,
-    count: u16,
+    pub card: Entity,
 }
 
 #[derive(Message, Debug, Clone, PartialEq, Eq, Copy)]

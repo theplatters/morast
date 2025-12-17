@@ -49,10 +49,7 @@ pub struct TrapCard;
 pub struct InDeck;
 
 #[derive(Component)]
-pub struct InHand {
-    pub owner: Entity,
-    pub hand_index: usize,
-}
+pub struct InHand;
 
 #[derive(Component, Debug)]
 pub struct OnBoard {
@@ -180,13 +177,13 @@ impl CardBehavior for Card {
 
 pub fn add_cards(
     card_registry: Res<CardRegistry>,
-    players: Query<(&mut Deck, &ChildOf)>,
+    players: Query<(&mut Deck, Entity)>,
     mut commands: Commands,
 ) {
-    for (mut deck, deck_ent) in players {
+    for (mut deck, player) in players {
         let cards: Vec<_> = DeckBuilder::standard_deck(&card_registry)
             .iter()
-            .map(move |id| (*id, Owner(deck_ent.0), InDeck))
+            .map(move |id| (*id, Owner(player), InDeck))
             .collect();
 
         for card in cards {

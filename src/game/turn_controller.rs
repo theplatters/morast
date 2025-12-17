@@ -19,8 +19,8 @@ use crate::game::{
 
 #[derive(States, Default, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TurnPhase {
-    #[default]
     Start,
+    #[default]
     Main,
     End,
 }
@@ -82,6 +82,7 @@ impl Plugin for TurnControllerPlugin {
     fn build(&self, app: &mut App) {
         app
             // States
+            .init_state::<TurnPhase>()
             .init_state::<TurnState>()
             // Events
             .add_message::<BoardClicked>()
@@ -176,18 +177,25 @@ fn handle_card_selected(
     mut play_commands: MessageWriter<CardPlayRequested>,
     mut next_state: ResMut<NextState<TurnState>>,
     player_hands: Query<(&Hand, &Player), With<TurnPlayer>>,
-    selected_card: Query<&InHand, With<Selected>>,
+    selected_card: Query<Entity, (With<Selected>, With<InHand>)>,
 ) {
     let selected_card = selected_card.single().unwrap();
+
+    let Ok((hand, _)) = player_hands.single() else {
+        warn!("Could not find player hand");
+        next_state.set(TurnState::Idle);
+        return;
+    };
+    let Some(hand_index) = hand.0.iter().position(|r| *r == selected_card) else {
+        warn!("Could not find card in players hand");
+        next_state.set(TurnState::Idle);
+        return;
+    };
+
     if let Some(&BoardClicked { position, .. }) = board_clicks.read().next() {
-        let hand_position = selected_card.hand_index;
+        let hand_position = hand_index;
 
         // Get card from hand
-        let Ok((hand, _)) = player_hands.single() else {
-            warn!("Could not find player hand");
-            next_state.set(TurnState::Idle);
-            return;
-        };
 
         let Some(card_entity) = hand.get_card(hand_position) else {
             warn!("Invalid card index: {}", hand_position);

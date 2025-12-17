@@ -1,5 +1,21 @@
-use bevy::ecs::{
-    bundle::Bundle, component::Component, entity::Entity, hierarchy::ChildOf, system::Commands,
+use bevy::{
+    asset::AssetServer,
+    ecs::{
+        bundle::Bundle,
+        component::Component,
+        entity::Entity,
+        hierarchy::ChildOf,
+        query::With,
+        system::{Commands, Query, Res},
+    },
+    sprite::Sprite,
+    state::commands,
+    transform::components::Transform,
+};
+
+use crate::game::{
+    card::{Card, InDeck, InHand},
+    events::CardsDrawn,
 };
 
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
@@ -65,6 +81,7 @@ impl Graveyard {
 pub struct PlayerBundle {
     resources: PlayerResources,
     hand: Hand,
+    deck: Deck,
     graveyard: Graveyard,
 }
 
@@ -73,6 +90,7 @@ impl Default for PlayerBundle {
         Self {
             resources: Default::default(),
             hand: Hand::empty(),
+            deck: Deck::empty(),
             graveyard: Graveyard::empty(),
         }
     }
@@ -85,6 +103,37 @@ pub fn add_player(mut commands: Commands) {
     let player2 = commands
         .spawn((Player { number: 1 }, PlayerBundle::default()))
         .id();
-    commands.spawn((Deck::empty(), ChildOf(player1)));
-    commands.spawn((Deck::empty(), ChildOf(player2)));
+}
+
+pub fn draw_card(
+    deck: &mut Deck,
+    hand: &mut Hand,
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+) {
+    let Some(card) = deck.0.pop() else {
+        return;
+    };
+
+    hand.0.push(card);
+
+    commands
+        .entity(card)
+        .remove::<InDeck>()
+        .insert(InHand)
+        .insert((
+            Sprite::from_image(asset_server.load("card_frame.png")),
+            Transform::from_xyz(200., 200., 200.),
+        ));
+    commands.write_message(CardsDrawn { card });
+}
+
+pub fn draw_starting_cards(
+    mut players: Query<(&mut Deck, &mut Hand)>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+) {
+    for (mut deck, mut hand) in &mut players {
+        draw_card(deck.as_mut(), hand.as_mut(), &mut commands, &asset_server);
+    }
 }
