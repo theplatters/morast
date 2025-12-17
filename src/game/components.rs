@@ -1,7 +1,5 @@
 use bevy::prelude::*;
 
-use crate::game::player::Player;
-
 #[derive(Component)]
 pub struct Health(u16);
 
@@ -12,4 +10,4 @@ impl Health {
 }
 
 #[derive(Component)]
-pub struct Owner(pub Player);
+pub struct Owner(pub Entity);

@@ -1,7 +1,6 @@
 use std::default;
 
-use bevy::ecs::component::Component;
-use macroquad::math::I16Vec2;
+use bevy::{ecs::component::Component, math::I16Vec2};
 
 use crate::{
     engine::janet_handler::types::{janetenum::JanetEnum, tuple::Tuple},

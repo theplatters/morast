@@ -1,4 +1,6 @@
-use bevy::ecs::{bundle::Bundle, component::Component, entity::Entity};
+use bevy::ecs::{
+    bundle::Bundle, component::Component, entity::Entity, hierarchy::ChildOf, system::Commands,
+};
 
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Player {
@@ -62,7 +64,6 @@ impl Graveyard {
 #[derive(Bundle)]
 pub struct PlayerBundle {
     resources: PlayerResources,
-    deck: Deck,
     hand: Hand,
     graveyard: Graveyard,
 }
@@ -71,9 +72,19 @@ impl Default for PlayerBundle {
     fn default() -> Self {
         Self {
             resources: Default::default(),
-            deck: Deck::empty(),
             hand: Hand::empty(),
             graveyard: Graveyard::empty(),
         }
     }
+}
+
+pub fn add_player(mut commands: Commands) {
+    let player1 = commands
+        .spawn((Player { number: 0 }, PlayerBundle::default(), TurnPlayer))
+        .id();
+    let player2 = commands
+        .spawn((Player { number: 1 }, PlayerBundle::default()))
+        .id();
+    commands.spawn((Deck::empty(), ChildOf(player1)));
+    commands.spawn((Deck::empty(), ChildOf(player2)));
 }

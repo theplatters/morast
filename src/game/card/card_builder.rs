@@ -1,3 +1,5 @@
+use bevy::math::I16Vec2;
+
 use crate::game::{
     actions::action_prototype::GameAction,
     card::{
@@ -6,7 +8,6 @@ use crate::game::{
     },
     error::GameError,
 };
-use macroquad::math::I16Vec2;
 
 // Common fields shared by all card types
 pub struct CardBuilder {

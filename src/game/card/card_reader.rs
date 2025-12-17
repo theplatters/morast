@@ -1,16 +1,13 @@
 use std::str::FromStr;
 
-use macroquad::math::I16Vec2;
+use bevy::math::I16Vec2;
 
 use crate::{
-    engine::{
-        asset_loader::AssetLoader,
-        janet_handler::{
-            controller::Environment,
-            types::{
-                janetenum::{to_i16_vec, JanetEnum},
-                table::Table,
-            },
+    engine::janet_handler::{
+        controller::Environment,
+        types::{
+            janetenum::{to_i16_vec, JanetEnum},
+            table::Table,
         },
     },
     game::{
@@ -118,7 +115,6 @@ pub fn read_common_data(
     card_data: &Table,
     _env: &Environment,
     name: &str,
-    _asset_loader: &mut AssetLoader,
 ) -> Result<CommonData, GameError> {
     let extractor = FieldExtractor::new(card_data, name);
 
@@ -130,17 +126,13 @@ pub fn read_common_data(
     })
 }
 
-pub async fn read_creature(
-    env: &Environment,
-    name: &str,
-    asset_loader: &mut AssetLoader,
-) -> Result<Card, GameError> {
+pub fn read_creature(env: &Environment, name: &str) -> Result<Card, GameError> {
     println!("Reading card: {}", name);
 
     let card_data = CardDataRetriever::get_card_table(env, name)?;
     let extractor = FieldExtractor::new(&card_data, name);
 
-    let common_data = read_common_data(&card_data, env, name, asset_loader)?;
+    let common_data = read_common_data(&card_data, env, name)?;
 
     // Parse all actions
     let draw_action = extractor.get_optional_actions("on-draw")?;
@@ -176,16 +168,12 @@ pub async fn read_creature(
         .build()
 }
 
-pub async fn read_spell(
-    env: &Environment,
-    name: &str,
-    asset_loader: &mut AssetLoader,
-) -> Result<Card, GameError> {
+pub fn read_spell(env: &Environment, name: &str) -> Result<Card, GameError> {
     println!("Reading card: {}", name);
     let card_data = CardDataRetriever::get_card_table(env, name)?;
     let extractor = FieldExtractor::new(&card_data, name);
 
-    let common_data = read_common_data(&card_data, env, name, asset_loader)?;
+    let common_data = read_common_data(&card_data, env, name)?;
     let play_action = extractor.get_required_actions("on-play")?;
 
     Card::builder()
@@ -195,13 +183,9 @@ pub async fn read_spell(
         .build()
 }
 
-pub async fn read_trap(
-    env: &Environment,
-    name: &str,
-    asset_loader: &mut AssetLoader,
-) -> Result<Card, GameError> {
+pub fn read_trap(env: &Environment, name: &str) -> Result<Card, GameError> {
     let card_data = CardDataRetriever::get_card_table(env, name)?;
-    let common_data = read_common_data(&card_data, env, name, asset_loader)?;
+    let common_data = read_common_data(&card_data, env, name)?;
 
     let place_action = CardDataRetriever::get_action_from_env(env, "on-play", name)?;
     let reveal_action = CardDataRetriever::get_action_from_env(env, "on-reveal", name)?;

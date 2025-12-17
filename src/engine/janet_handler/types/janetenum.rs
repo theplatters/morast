@@ -1,7 +1,7 @@
 use core::fmt;
 use std::{ffi::CStr, hash::Hash};
 
-use macroquad::math::I16Vec2;
+use bevy::math::I16Vec2;
 
 use crate::engine::{
     error::EngineError,

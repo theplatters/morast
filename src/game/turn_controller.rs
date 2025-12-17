@@ -1,13 +1,14 @@
-use bevy::prelude::*;
-
-use macroquad::{input::KeyCode, math::U16Vec2};
+use bevy::{ecs::entity, math::U16Vec2, prelude::*};
 
 use crate::game::{
     actions::{
         action_prototype::{NeedsTargeting, Pending, ReadyToExecute},
         targeting::TargetingType,
     },
-    board::{tile::Occupant, Board, MoveRequest},
+    board::{
+        tile::{Occupant, Position, Tile},
+        BoardRes, MoveRequest,
+    },
     card::{InHand, OnBoard, Selected},
     player::{Hand, Player, TurnPlayer},
 };
@@ -15,7 +16,17 @@ use crate::game::{
 // ============================================================================
 // STATES
 // ============================================================================
+
 #[derive(States, Default, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TurnPhase {
+    #[default]
+    Start,
+    Main,
+    End,
+}
+
+#[derive(SubStates, Default, Debug, Clone, PartialEq, Eq, Hash)]
+#[source(TurnPhase = TurnPhase::Main)]
 pub enum TurnState {
     #[default]
     Idle,
@@ -33,7 +44,7 @@ pub enum TurnState {
 pub struct CardPlayRequested {
     pub card: Entity,
     pub hand_position: usize,
-    pub pos: U16Vec2,
+    pub position: U16Vec2,
 }
 
 #[derive(Message)]
@@ -47,7 +58,10 @@ pub struct EndTurn;
 // ============================================================================
 
 #[derive(Message)]
-pub struct BoardClicked(pub U16Vec2);
+pub struct BoardClicked {
+    pub entity: Entity,
+    pub position: U16Vec2,
+}
 
 #[derive(Message)]
 pub struct CardClicked(pub usize);
@@ -135,12 +149,12 @@ fn handle_idle_state(
     mut card_clicks: MessageReader<CardClicked>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut commands: Commands,
-    board: Res<Board>,
+    board: Res<BoardRes>,
     occupants: Query<(&Occupant, Entity)>,
     hand: Query<&Hand, With<TurnPlayer>>,
 ) {
     // Check for card selection first
-    for CardClicked(card_index) in card_clicks.read() {
+    if let Some(CardClicked(card_index)) = card_clicks.read().next() {
         let hand = hand.single().unwrap();
         let card_entity = hand.get_card(*card_index).unwrap();
         commands.entity(card_entity).insert(Selected);
@@ -149,13 +163,10 @@ fn handle_idle_state(
     }
 
     // Check for figure selection
-    for BoardClicked(pos) in board_clicks.read() {
-        if let Some(tile_entity) = board.get_tile(pos) {
-            if let Ok((_, ent)) = occupants.get(tile_entity) {
-                commands.entity(ent).insert(Selected);
-                next_state.set(TurnState::FigureSelected);
-                return;
-            }
+    if let Some(&BoardClicked { entity, .. }) = board_clicks.read().next() {
+        if let Ok((_, ent)) = occupants.get(entity) {
+            commands.entity(ent).insert(Selected);
+            next_state.set(TurnState::FigureSelected);
         }
     }
 }
@@ -168,7 +179,7 @@ fn handle_card_selected(
     selected_card: Query<&InHand, With<Selected>>,
 ) {
     let selected_card = selected_card.single().unwrap();
-    for BoardClicked(pos) in board_clicks.read() {
+    if let Some(&BoardClicked { position, .. }) = board_clicks.read().next() {
         let hand_position = selected_card.hand_index;
 
         // Get card from hand
@@ -187,11 +198,10 @@ fn handle_card_selected(
         play_commands.write(CardPlayRequested {
             card: card_entity,
             hand_position,
-            pos: *pos,
+            position,
         });
 
         next_state.set(TurnState::Idle);
-        return;
     }
 }
 
@@ -199,20 +209,23 @@ fn handle_figure_selected(
     mut board_clicks: MessageReader<BoardClicked>,
     mut play_commands: MessageWriter<MoveRequest>,
     mut next_state: ResMut<NextState<TurnState>>,
-    selected_cards: Query<(Entity, &OnBoard), With<Selected>>,
+    selected_cards: Query<(&Tile, &Position, &Occupant), With<Selected>>,
 ) {
-    for BoardClicked(next_position) in board_clicks.read() {
-        let (entity, &OnBoard { position: from }) = selected_cards.single().unwrap();
+    if let Some(&BoardClicked {
+        position: next_position,
+        ..
+    }) = board_clicks.read().next()
+    {
+        let (_, &Position(from), &Occupant(entity)) = selected_cards.single().unwrap();
 
         info!("Sending move command from {} to {}", from, next_position);
 
         play_commands.write(MoveRequest {
             entity,
             from,
-            to: *next_position,
+            to: next_position,
         });
         next_state.set(TurnState::Idle);
-        return;
     }
 }
 
@@ -220,10 +233,12 @@ fn handle_awaiting_inputs(
     mut board_clicks: MessageReader<BoardClicked>,
     mut play_commands: MessageWriter<TargetingComplete>,
     mut next_state: ResMut<NextState<TurnState>>,
-    selected_cards: Query<&mut Selected, With<OnBoard>>,
-    board: Res<Board>,
-    actions: Query<(Entity, &TargetingType), With<NeedsTargeting>>,
-    tiles: Query<&Occupant>,
+    (selected_cards, actions, tiles): (
+        Query<&mut Selected, With<OnBoard>>,
+        Query<(Entity, &TargetingType), With<NeedsTargeting>>,
+        Query<&Occupant>,
+    ),
+    board: Res<BoardRes>,
     mut commands: Commands,
 ) {
     let (action_entity, targeting) = actions.single().unwrap();
@@ -235,9 +250,8 @@ fn handle_awaiting_inputs(
         next_state.set(TurnState::Idle);
     }
 
-    for BoardClicked(click_pos) in board_clicks.read() {
-        let tile = board.get_tile(click_pos).unwrap();
-        let card = tiles.get(tile).unwrap().0;
+    for &BoardClicked { entity, .. } in board_clicks.read() {
+        let card = tiles.get(entity).unwrap().0;
         commands.entity(card).insert(Selected);
     }
 }

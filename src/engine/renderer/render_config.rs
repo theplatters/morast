@@ -1,5 +1,8 @@
-use bevy::ecs::resource::Resource;
-use macroquad::math::Vec2;
+use bevy::{
+    color::Color,
+    ecs::resource::Resource,
+    math::{U16Vec2, Vec2, Vec3},
+};
 
 #[derive(Resource, Debug)]
 pub struct RenderConfig {
@@ -11,6 +14,7 @@ pub struct RenderConfig {
     pub board_width: f32,
     pub board_height: f32,
     pub select_offset: Vec2,
+    pub sprite_color: Color,
 }
 
 impl Default for RenderConfig {
@@ -24,6 +28,14 @@ impl Default for RenderConfig {
             board_width: 1200.0,
             board_height: 600.0,
             select_offset: Vec2::new(0.0, -10.0),
+            sprite_color: Color::WHITE,
         }
+    }
+}
+
+impl RenderConfig {
+    #[inline]
+    pub fn to_absolute_position(&self, pos: U16Vec2) -> Vec3 {
+        (Vec2::new(1.0, -1.0) * pos.as_vec2() * self.tile_size).extend(0.0)
     }
 }

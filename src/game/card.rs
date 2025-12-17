@@ -1,11 +1,17 @@
 use bevy::ecs::component::Component;
 use bevy::ecs::entity::Entity;
+use bevy::ecs::hierarchy::ChildOf;
+use bevy::ecs::system::{Commands, Query, Res};
 use bevy::math::{I16Vec2, U16Vec2};
 use std::slice::Iter;
 
+use crate::game::card::card_registry::CardRegistry;
 use crate::game::card::creature::Creature;
+use crate::game::card::deck_builder::DeckBuilder;
 use crate::game::card::spell_card::Spell;
 use crate::game::card::trap_card::Trap;
+use crate::game::components::Owner;
+use crate::game::player::{Deck, Player};
 
 pub mod abilities;
 pub mod card_builder;
@@ -48,7 +54,7 @@ pub struct InHand {
     pub hand_index: usize,
 }
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct OnBoard {
     pub position: U16Vec2,
 }
@@ -117,6 +123,14 @@ pub struct CurrentMovementPoints {
     pub remaining_points: u16,
 }
 
+pub struct Health {
+    pub value: u16,
+}
+
+pub struct Cost {
+    pub value: u16,
+}
+
 pub trait CardBehavior {
     fn cost(&self) -> u16;
     fn description(&self) -> &str;
@@ -160,6 +174,24 @@ impl CardBehavior for Card {
             Card::Creature(c) => c.display_image_asset_string(),
             Card::Spell(c) => c.display_image_asset_string(),
             Card::Trap(c) => c.display_image_asset_string(),
+        }
+    }
+}
+
+pub fn add_cards(
+    card_registry: Res<CardRegistry>,
+    players: Query<(&mut Deck, &ChildOf)>,
+    mut commands: Commands,
+) {
+    for (mut deck, deck_ent) in players {
+        let cards: Vec<_> = DeckBuilder::standard_deck(&card_registry)
+            .iter()
+            .map(move |id| (*id, Owner(deck_ent.0), InDeck))
+            .collect();
+
+        for card in cards {
+            let id = commands.spawn(card).id();
+            deck.0.push(id);
         }
     }
 }

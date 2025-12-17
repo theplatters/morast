@@ -1,10 +1,7 @@
 use std::{
     ffi::{CString, NulError},
     str::FromStr,
-    sync::Mutex,
 };
-
-use bevy::ecs::resource::Resource;
 
 use crate::engine::{error::EngineError, janet_handler::bindings::janet_def};
 
@@ -17,25 +14,24 @@ use super::{
 };
 
 pub struct Environment {
-    pub env: Table,
+    pub env_pointer: Table,
     pub lookup: Table,
 }
 
 impl Environment {
-    pub fn new() -> Environment {
-        let mut _env = std::ptr::null_mut();
-        let mut _lookup = std::ptr::null_mut();
+    pub fn new(filename: &str) -> Environment {
         unsafe {
             janet_init();
-            _env = janet_core_env(std::ptr::null_mut());
-            _lookup = janet_env_lookup(_env);
+            let env_pointer = janet_core_env(std::ptr::null_mut());
+            let lookup = janet_env_lookup(env_pointer);
             let env = Environment {
-                env: Table { raw: _env },
-                lookup: Table { raw: _lookup },
+                env_pointer: Table { raw: env_pointer },
+                lookup: Table { raw: lookup },
             };
             env.register_core_functions();
             env.register_core_constants();
 
+            env.read_script(filename);
             env
         }
     }
@@ -62,7 +58,7 @@ impl Environment {
     }
 
     pub fn env_ptr(&self) -> *mut JanetTable {
-        self.env.raw
+        self.env_pointer.raw
     }
 
     pub fn register(
@@ -135,20 +131,14 @@ impl Environment {
             janet_dostring(
                 self.env_ptr(),
                 std::ffi::CString::new(script)
-                    .map_err(|e| EngineError::String(e))?
+                    .map_err(EngineError::String)?
                     .as_ptr(),
                 std::ffi::CString::new(filename)
-                    .map_err(|e| EngineError::String(e))?
+                    .map_err(EngineError::String)?
                     .as_ptr(),
                 &mut out as *mut Janet,
             );
         }
         JanetEnum::from(out)
-    }
-}
-
-impl Default for Environment {
-    fn default() -> Self {
-        Self::new()
     }
 }

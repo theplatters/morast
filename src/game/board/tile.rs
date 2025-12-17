@@ -1,7 +1,14 @@
 use std::ops::Deref;
 
-use bevy::ecs::{bundle::Bundle, component::Component, entity::Entity};
-use macroquad::math::U16Vec2;
+use bevy::{
+    ecs::{
+        bundle::Bundle, component::Component, entity::Entity, hierarchy::ChildOf, observer::On,
+        system::Query,
+    },
+    log::info,
+    math::U16Vec2,
+    picking::events::{Click, Pointer},
+};
 
 use super::effect::Effect;
 
@@ -14,6 +21,9 @@ pub struct TileBundel {
 
 #[derive(Component, Default)]
 pub struct Tile;
+
+#[derive(Component)]
+pub struct Position(pub U16Vec2);
 
 #[derive(Component, Default)]
 pub struct AttackOnTile(pub U16Vec2);

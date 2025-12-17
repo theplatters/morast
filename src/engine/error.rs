@@ -3,8 +3,6 @@ use std::{
     fmt::{Debug, Display},
 };
 
-use macroquad::Error;
-
 #[derive(Debug)]
 pub enum EngineError {
     Eval,
@@ -13,7 +11,6 @@ pub enum EngineError {
     Type(String),
     File(String),
     String(NulError),
-    Load(Error),
     OutOfBounds,
 }
 
@@ -26,7 +23,6 @@ impl Display for EngineError {
             Self::Type(arg0) => f.debug_tuple("Type").field(arg0).finish(),
             Self::File(arg0) => f.debug_tuple("File").field(arg0).finish(),
             Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
-            Self::Load(arg0) => f.debug_tuple("Load").field(arg0).finish(),
             Self::OutOfBounds => write!(f, "OutOfBounds"),
         }
     }

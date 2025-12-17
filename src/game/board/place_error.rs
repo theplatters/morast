@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use macroquad::math::I16Vec2;
+use bevy::math::I16Vec2;
 
 use crate::game::board::MoveValidationError;
 
@@ -30,3 +30,5 @@ impl Display for BoardError {
         }
     }
 }
+
+impl std::error::Error for BoardError {}

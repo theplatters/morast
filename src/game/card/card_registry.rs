@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 
-use bevy::ecs::resource::Resource;
+use bevy::ecs::{
+    resource::Resource,
+    system::{NonSendMut, ResMut},
+};
 
 use crate::{
-    engine::{asset_loader::AssetLoader, janet_handler::controller::Environment},
+    engine::janet_handler::controller::Environment,
     game::{
         card::{
             card_reader::{read_spell, read_trap},
@@ -40,40 +43,18 @@ impl CardRegistry {
         self.cards.keys()
     }
 
-    pub async fn init(&mut self, env: &mut Environment, asset_loader: &mut AssetLoader) {
-        let (creature_names, spell_names, trap_names) =
-            get_card_list(env).expect("Could not get list of cards");
+    pub async fn init(&mut self, env: &mut Environment) {}
 
-        for card in creature_names {
-            self.add_card_from_janet(env, card.as_str(), asset_loader, CardTypes::Creature)
-                .await
-                .expect("Could not read card");
-        }
-
-        for card in spell_names {
-            self.add_card_from_janet(env, card.as_str(), asset_loader, CardTypes::Spell)
-                .await
-                .expect("Could not read card");
-        }
-
-        for card in trap_names {
-            self.add_card_from_janet(env, card.as_str(), asset_loader, CardTypes::Trap)
-                .await
-                .expect("Could not read card");
-        }
-    }
-
-    pub async fn add_card_from_janet(
+    pub fn add_card_from_janet(
         &mut self,
         env: &Environment,
         name: &str,
-        asset_loader: &mut AssetLoader,
         card_type: CardTypes,
     ) -> Result<CardID, GameError> {
         let card = match card_type {
-            CardTypes::Creature => read_creature(env, name, asset_loader).await?,
-            CardTypes::Spell => read_spell(env, name, asset_loader).await?,
-            CardTypes::Trap => read_trap(env, name, asset_loader).await?,
+            CardTypes::Creature => read_creature(env, name)?,
+            CardTypes::Spell => read_spell(env, name)?,
+            CardTypes::Trap => read_trap(env, name)?,
         };
         self.names.insert(card.name().to_owned(), self.id_counter);
         self.cards.insert(self.id_counter, card);
@@ -91,5 +72,31 @@ impl CardRegistry {
             return None;
         };
         Some(card)
+    }
+}
+
+pub fn init_card_registry(
+    mut card_registry: ResMut<CardRegistry>,
+    environment: NonSendMut<Environment>,
+) {
+    let (creature_names, spell_names, trap_names) =
+        get_card_list(&environment).expect("Could not get list of cards");
+
+    for card in creature_names {
+        card_registry
+            .add_card_from_janet(&environment, card.as_str(), CardTypes::Creature)
+            .expect("Could not read card");
+    }
+
+    for card in spell_names {
+        card_registry
+            .add_card_from_janet(&environment, card.as_str(), CardTypes::Spell)
+            .expect("Could not read card");
+    }
+
+    for card in trap_names {
+        card_registry
+            .add_card_from_janet(&environment, card.as_str(), CardTypes::Trap)
+            .expect("Could not read card");
     }
 }

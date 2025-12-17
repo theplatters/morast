@@ -25,16 +25,6 @@ pub const CORE_FUNCTIONS: &[CoreFunction] = &[
         docs: "Get's the amount of gold",
     },
     CoreFunction {
-        name: "turn-player",
-        cfun: cfun_turn_player,
-        docs: "Get's the current player",
-    },
-    CoreFunction {
-        name: "other-player",
-        cfun: cfun_other_player,
-        docs: "Get's the other player",
-    },
-    CoreFunction {
         name: "plus",
         cfun: cfun_plus,
         docs: "Generates a Plus of size n",

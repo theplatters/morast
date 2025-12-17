@@ -1,4 +1,4 @@
-use macroquad::math::I16Vec2;
+use bevy::math::I16Vec2;
 
 use crate::game::{
     actions::{
