@@ -1,13 +1,14 @@
-use crate::game::card::{card_id::CardID, card_registry::CardRegistry};
+use crate::game::card::{card_registry::CardRegistry, CardBundle, FromRegistry};
 use rand::seq::SliceRandom;
 
 pub struct DeckBuilder;
 
 impl DeckBuilder {
-    pub fn standard_deck(card_registry: &CardRegistry) -> Vec<CardID> {
+    pub fn standard_deck(card_registry: &CardRegistry) -> Vec<CardBundle> {
         let mut deck = Vec::new();
-        for key in card_registry.registered_ids() {
-            deck.extend(std::iter::repeat_n(*key, 4));
+        for card_id in card_registry.registered_ids() {
+            let el = CardBundle::from_registry(card_registry, *card_id).unwrap();
+            deck.extend(std::iter::repeat_n(el, 4));
         }
 
         let mut rng = rand::rng();

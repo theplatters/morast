@@ -89,6 +89,7 @@ impl Plugin for TurnControllerPlugin {
             .add_message::<CardClicked>()
             .add_message::<EndTurnPressed>()
             .add_message::<CancelPressed>()
+            .add_message::<CardPlayRequested>()
             // Systems
             .add_systems(Update, handle_end_turn_input)
             .add_systems(Update, handle_cancel_input)
@@ -127,8 +128,13 @@ fn handle_cancel_input(
     keyboard: Res<ButtonInput<KeyCode>>,
     current_state: Res<State<TurnState>>,
     mut next_state: ResMut<NextState<TurnState>>,
+    selected: Query<(&Selected, Entity)>,
+    mut commands: Commands,
 ) {
     if keyboard.just_pressed(KeyCode::Escape) {
+        for (_, entity) in &selected {
+            commands.entity(entity).remove::<Selected>();
+        }
         match current_state.get() {
             TurnState::AwaitingInputs => {
                 next_state.set(TurnState::Idle);
@@ -150,7 +156,6 @@ fn handle_idle_state(
     mut card_clicks: MessageReader<CardClicked>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut commands: Commands,
-    board: Res<BoardRes>,
     occupants: Query<(&Occupant, Entity)>,
     hand: Query<&Hand, With<TurnPlayer>>,
 ) {
@@ -179,23 +184,20 @@ fn handle_card_selected(
     player_hands: Query<(&Hand, &Player), With<TurnPlayer>>,
     selected_card: Query<Entity, (With<Selected>, With<InHand>)>,
 ) {
-    let selected_card = selected_card.single().unwrap();
-
-    let Ok((hand, _)) = player_hands.single() else {
-        warn!("Could not find player hand");
-        next_state.set(TurnState::Idle);
-        return;
-    };
-    let Some(hand_index) = hand.0.iter().position(|r| *r == selected_card) else {
-        warn!("Could not find card in players hand");
-        next_state.set(TurnState::Idle);
-        return;
-    };
-
     if let Some(&BoardClicked { position, .. }) = board_clicks.read().next() {
-        let hand_position = hand_index;
+        let selected_card = selected_card.single().unwrap();
 
-        // Get card from hand
+        let Ok((hand, _)) = player_hands.single() else {
+            warn!("Could not find player hand");
+            next_state.set(TurnState::Idle);
+            return;
+        };
+        let Some(hand_index) = hand.iter().position(|r| r == selected_card) else {
+            warn!("Could not find card in players hand");
+            next_state.set(TurnState::Idle);
+            return;
+        };
+        let hand_position = hand_index;
 
         let Some(card_entity) = hand.get_card(hand_position) else {
             warn!("Invalid card index: {}", hand_position);
@@ -217,19 +219,19 @@ fn handle_figure_selected(
     mut board_clicks: MessageReader<BoardClicked>,
     mut play_commands: MessageWriter<MoveRequest>,
     mut next_state: ResMut<NextState<TurnState>>,
-    selected_cards: Query<(&Tile, &Position, &Occupant), With<Selected>>,
+    selected_cards: Query<(&Position, &Occupant), (With<Selected>, With<Tile>)>,
 ) {
     if let Some(&BoardClicked {
         position: next_position,
         ..
     }) = board_clicks.read().next()
     {
-        let (_, &Position(from), &Occupant(entity)) = selected_cards.single().unwrap();
+        let (&Position(from), creature_on) = selected_cards.single().unwrap();
 
         info!("Sending move command from {} to {}", from, next_position);
 
         play_commands.write(MoveRequest {
-            entity,
+            entity: creature_on.get(),
             from,
             to: next_position,
         });
@@ -246,7 +248,6 @@ fn handle_awaiting_inputs(
         Query<(Entity, &TargetingType), With<NeedsTargeting>>,
         Query<&Occupant>,
     ),
-    board: Res<BoardRes>,
     mut commands: Commands,
 ) {
     let (action_entity, targeting) = actions.single().unwrap();
@@ -259,8 +260,7 @@ fn handle_awaiting_inputs(
     }
 
     for &BoardClicked { entity, .. } in board_clicks.read() {
-        let card = tiles.get(entity).unwrap().0;
-        commands.entity(card).insert(Selected);
+        commands.entity(entity).insert(Selected);
     }
 }
 
@@ -290,11 +290,9 @@ pub fn handle_action(
 // CLEANUP SYSTEMS
 // ============================================================================
 
-fn cleanup_card_selection(
-    selected_cards: Query<Entity, (With<Selected>, With<InHand>)>,
-    mut commands: Commands,
-) {
+fn cleanup_card_selection(selected_cards: Query<Entity, (With<Selected>)>, mut commands: Commands) {
     for card in &selected_cards {
+        info!("Cleaning up selectted card {}", card);
         commands.entity(card).remove::<Selected>();
     }
 }

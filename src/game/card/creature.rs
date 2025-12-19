@@ -1,8 +1,18 @@
-use bevy::math::I16Vec2;
+use std::slice::Iter;
+
+use bevy::{
+    ecs::{bundle::Bundle, component::Component, name::Name},
+    log::warn,
+    math::{I16Vec2, U16Vec2},
+};
+use derive_more::From;
 
 use crate::game::{
     actions::action_prototype::GameAction,
-    card::{abilities::Abilities, CardBehavior},
+    card::{
+        abilities::Abilities, card_id::CardID, card_registry::CardRegistry, Card, CardBehavior,
+        Cost, CreatureCard, FromRegistry,
+    },
 };
 
 #[derive(Debug)]
@@ -92,5 +102,88 @@ impl Creature {
 
     pub fn on_play_action(&self) -> Option<&GameAction> {
         self.on_play_action.as_ref()
+    }
+}
+
+#[derive(Component, From, Clone, Copy)]
+pub struct BaseAttack(pub u16);
+
+#[derive(Component, From, Clone, Copy)]
+pub struct BaseDefense(pub u16);
+
+#[derive(Component, From, Clone, Copy)]
+pub struct BaseMovementPoints(pub u16);
+
+#[derive(Component, From, Clone)]
+pub struct AttackPattern(pub Vec<I16Vec2>);
+
+impl AttackPattern {
+    pub(crate) fn into_tiles(&self, pos: &crate::game::board::tile::Position) -> Vec<U16Vec2> {
+        let mut tiles = Vec::new();
+        for rel_pos in &self.0 {
+            if let Some(tile) = pos.0.checked_add_signed(*rel_pos) {
+                tiles.push(tile);
+            };
+        }
+
+        tiles
+    }
+}
+
+#[derive(Component)]
+pub struct Attacks(pub Vec<U16Vec2>);
+
+impl<'a> IntoIterator for &'a AttackPattern {
+    type Item = &'a I16Vec2;
+    type IntoIter = Iter<'a, I16Vec2>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+#[derive(Component, From, Clone)]
+pub struct MovementPattern(pub Vec<I16Vec2>);
+
+impl<'a> IntoIterator for &'a MovementPattern {
+    type Item = &'a I16Vec2;
+    type IntoIter = Iter<'a, I16Vec2>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+#[derive(Bundle, Clone)]
+pub struct CreatureBundle {
+    pub card_id: CardID,
+    pub name: Name,
+    pub cost: Cost,
+    pub base_attack: BaseAttack,
+    pub base_defense: BaseDefense,
+    pub base_movement_points: BaseMovementPoints,
+    pub attack_pattern: AttackPattern,
+    pub movement_pattern: MovementPattern,
+    pub type_identifier: CreatureCard,
+}
+
+impl FromRegistry for CreatureBundle {
+    fn from_registry(card_registry: &CardRegistry, card_id: CardID) -> Option<Self> {
+        let Some(Card::Creature(card)) = card_registry.get(&card_id) else {
+            warn!("Card Id {} not found", card_id);
+            return None;
+        };
+
+        Some(Self {
+            card_id,
+            name: card.name().into(),
+            cost: card.cost().into(),
+            base_attack: card.attack_strength.into(),
+            base_defense: card.defense.into(),
+            base_movement_points: card.movement_points.into(),
+            attack_pattern: card.attack.clone().into(),
+            movement_pattern: card.movement.clone().into(),
+            type_identifier: CreatureCard,
+        })
     }
 }

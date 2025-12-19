@@ -1,7 +1,9 @@
+use std::fmt::Display;
+
 use bevy::ecs::component::Component;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[derive(Component)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Component)]
+
 pub struct CardID(u32);
 impl CardID {
     // Existing methods
@@ -22,5 +24,11 @@ impl Into<CardID> for u16 {
 impl Into<CardID> for u32 {
     fn into(self) -> CardID {
         CardID::new(self)
+    }
+}
+
+impl Display for CardID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "CardID {}", self.0)
     }
 }

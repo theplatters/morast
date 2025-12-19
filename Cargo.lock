@@ -9,6 +9,7 @@ dependencies = [
  "bevy",
  "bindgen",
  "cc",
+ "derive_more",
  "log",
  "rand",
  "tokio",

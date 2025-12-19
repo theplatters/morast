@@ -1,4 +1,12 @@
-use crate::game::{actions::action_prototype::GameAction, card::CardBehavior};
+use bevy::{
+    ecs::{bundle::Bundle, name::Name},
+    log::warn,
+};
+
+use crate::game::{
+    actions::action_prototype::GameAction,
+    card::{card_id::CardID, card_registry::CardRegistry, Card, CardBehavior, Cost, FromRegistry},
+};
 
 #[derive(Debug)]
 pub struct Spell {
@@ -49,5 +57,27 @@ impl Spell {
 
     pub fn on_play_action(&self) -> &GameAction {
         &self.on_play_action
+    }
+}
+
+#[derive(Bundle, Clone)]
+pub struct SpellBundle {
+    pub card_id: CardID,
+    pub name: Name,
+    pub cost: Cost,
+}
+
+impl FromRegistry for SpellBundle {
+    fn from_registry(card_registry: &CardRegistry, card_id: CardID) -> Option<Self> {
+        let Some(Card::Spell(card)): Option<&super::Card> = card_registry.get(&card_id) else {
+            warn!("Card Id {} not found", card_id);
+            return None;
+        };
+
+        Some(Self {
+            card_id,
+            name: card.name().into(),
+            cost: card.cost().into(),
+        })
     }
 }

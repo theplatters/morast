@@ -26,6 +26,7 @@ use super::{
 #[derive(Debug, Resource)]
 pub struct CardRegistry {
     cards: HashMap<CardID, Card>,
+    types: HashMap<CardID, CardTypes>,
     id_counter: CardID,
     names: HashMap<String, CardID>,
 }
@@ -36,6 +37,7 @@ impl CardRegistry {
             cards: HashMap::new(),
             id_counter: CardID::new(0),
             names: HashMap::new(),
+            types: HashMap::new(),
         }
     }
 
@@ -57,6 +59,7 @@ impl CardRegistry {
             CardTypes::Trap => read_trap(env, name)?,
         };
         self.names.insert(card.name().to_owned(), self.id_counter);
+        self.types.insert(self.id_counter, card_type);
         self.cards.insert(self.id_counter, card);
         let current_id = self.id_counter;
         self.id_counter = self.id_counter.next();
@@ -65,6 +68,10 @@ impl CardRegistry {
 
     pub fn get(&self, card_id: &CardID) -> Option<&Card> {
         self.cards.get(card_id)
+    }
+
+    pub fn get_type(&self, card_id: &CardID) -> Option<CardTypes> {
+        self.types.get(card_id).cloned()
     }
 
     pub fn get_creature(&self, card_id: &CardID) -> Option<&Creature> {

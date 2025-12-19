@@ -1,17 +1,20 @@
+use bevy::ecs::bundle::Bundle;
 use bevy::ecs::component::Component;
 use bevy::ecs::entity::Entity;
-use bevy::ecs::hierarchy::ChildOf;
+use bevy::ecs::query::With;
 use bevy::ecs::system::{Commands, Query, Res};
 use bevy::math::{I16Vec2, U16Vec2};
 use std::slice::Iter;
 
+use crate::game::board::tile::Occupant;
+use crate::game::card::card_id::CardID;
 use crate::game::card::card_registry::CardRegistry;
-use crate::game::card::creature::Creature;
+use crate::game::card::creature::{Creature, CreatureBundle};
 use crate::game::card::deck_builder::DeckBuilder;
-use crate::game::card::spell_card::Spell;
-use crate::game::card::trap_card::Trap;
+use crate::game::card::spell_card::{Spell, SpellBundle};
+use crate::game::card::trap_card::{Trap, TrapBundle};
 use crate::game::components::Owner;
-use crate::game::player::{Deck, Player};
+use crate::game::player::{Deck, Graveyard, Hand, Player};
 
 pub mod abilities;
 pub mod card_builder;
@@ -32,13 +35,13 @@ pub enum Card {
     Trap(Trap),
 }
 
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub struct CreatureCard;
 
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub struct SpellCard;
 
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub struct TrapCard;
 
 // ============================================
@@ -46,60 +49,35 @@ pub struct TrapCard;
 // ============================================
 
 #[derive(Component)]
-pub struct InDeck;
-
-#[derive(Component)]
-pub struct InHand;
-
-#[derive(Component, Debug)]
-pub struct OnBoard {
-    pub position: U16Vec2,
+#[relationship(relationship_target = Deck)]
+pub struct InDeck {
+    #[relationship]
+    pub parent: Entity,
 }
 
 #[derive(Component)]
+#[relationship(relationship_target = Hand)]
+pub struct InHand {
+    #[relationship]
+    pub parent: Entity,
+}
+
+#[derive(Component, Debug)]
+#[relationship(relationship_target = Occupant)]
+pub struct OnBoard {
+    #[relationship]
+    pub position: Entity,
+}
+
+#[derive(Component)]
+#[relationship(relationship_target = Graveyard)]
 pub struct InGraveyard {
+    #[relationship]
     pub owner: Entity,
-    pub order: usize,
 }
 
 #[derive(Component, Default)]
 pub struct Selected;
-
-// ============================================
-// IMMUTABLE INSTANCE STATE (what changes during play)
-// ============================================
-#[derive(Component)]
-pub struct BaseAttack(pub u16);
-
-#[derive(Component)]
-pub struct BaseDefense(pub u16);
-
-#[derive(Component)]
-pub struct BaseMovement(pub u16);
-
-#[derive(Component)]
-pub struct AttackPattern(pub Vec<I16Vec2>);
-
-impl<'a> IntoIterator for &'a AttackPattern {
-    type Item = &'a I16Vec2;
-    type IntoIter = Iter<'a, I16Vec2>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.iter()
-    }
-}
-
-#[derive(Component)]
-pub struct MovementPattern(pub Vec<I16Vec2>);
-
-impl<'a> IntoIterator for &'a MovementPattern {
-    type Item = &'a I16Vec2;
-    type IntoIter = Iter<'a, I16Vec2>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.iter()
-    }
-}
 
 // ============================================
 // MUTABLE INSTANCE STATE (what changes during play)
@@ -110,22 +88,25 @@ pub struct CurrentAttack {
     pub value: u16,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub struct CurrentDefense {
     pub value: u16,
 }
 /// Current movement state
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct CurrentMovementPoints {
     pub remaining_points: u16,
 }
 
-pub struct Health {
+#[derive(Component, Clone)]
+pub struct Cost {
     pub value: u16,
 }
 
-pub struct Cost {
-    pub value: u16,
+impl From<u16> for Cost {
+    fn from(value: u16) -> Self {
+        Self { value }
+    }
 }
 
 pub trait CardBehavior {
@@ -134,6 +115,34 @@ pub trait CardBehavior {
     fn name(&self) -> &str;
     fn display_image_asset_string(&self) -> &str;
     // Add other common methods here
+}
+
+#[derive(Clone)]
+pub enum CardBundle {
+    Creature { bundle: CreatureBundle },
+    Spell { bundle: SpellBundle },
+    Trap { bundle: TrapBundle },
+}
+
+pub trait FromRegistry: Sized {
+    fn from_registry(card_registry: &CardRegistry, card_id: CardID) -> Option<Self>;
+}
+
+impl FromRegistry for CardBundle {
+    fn from_registry(card_registry: &CardRegistry, card_id: CardID) -> Option<Self> {
+        let bundle = match card_registry.get_type(&card_id)? {
+            card_type::CardTypes::Creature => CardBundle::Creature {
+                bundle: CreatureBundle::from_registry(card_registry, card_id)?,
+            },
+            card_type::CardTypes::Spell => CardBundle::Spell {
+                bundle: SpellBundle::from_registry(card_registry, card_id)?,
+            },
+            card_type::CardTypes::Trap => CardBundle::Trap {
+                bundle: TrapBundle::from_registry(card_registry, card_id)?,
+            },
+        };
+        Some(bundle)
+    }
 }
 
 impl Card {
@@ -177,18 +186,22 @@ impl CardBehavior for Card {
 
 pub fn add_cards(
     card_registry: Res<CardRegistry>,
-    players: Query<(&mut Deck, Entity)>,
+    players: Query<Entity, With<Player>>,
     mut commands: Commands,
 ) {
-    for (mut deck, player) in players {
-        let cards: Vec<_> = DeckBuilder::standard_deck(&card_registry)
-            .iter()
-            .map(move |id| (*id, Owner(player), InDeck))
-            .collect();
-
-        for card in cards {
-            let id = commands.spawn(card).id();
-            deck.0.push(id);
+    for player in players {
+        for bundle in DeckBuilder::standard_deck(&card_registry) {
+            match bundle {
+                CardBundle::Creature { bundle } => {
+                    commands.spawn((bundle, Owner(player), InDeck { parent: player }));
+                }
+                CardBundle::Spell { bundle } => {
+                    commands.spawn((bundle, Owner(player), InDeck { parent: player }));
+                }
+                CardBundle::Trap { bundle } => {
+                    commands.spawn((bundle, Owner(player), InDeck { parent: player }));
+                }
+            }
         }
     }
 }

@@ -26,7 +26,7 @@ impl Default for RenderConfig {
             card_padding: 10.0,
             tile_size: 50.0,
             board_width: 1200.0,
-            board_height: 600.0,
+            board_height: 350.0,
             select_offset: Vec2::new(0.0, -10.0),
             sprite_color: Color::WHITE,
         }

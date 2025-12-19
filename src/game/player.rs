@@ -1,20 +1,24 @@
+use std::iter;
+
 use bevy::{
     asset::AssetServer,
     ecs::{
         bundle::Bundle,
         component::Component,
-        entity::Entity,
+        entity::{self, Entity},
         hierarchy::ChildOf,
         query::With,
+        relationship::{OrderedRelationshipSourceCollection, RelationshipTarget},
         system::{Commands, Query, Res},
     },
+    log::info,
     sprite::Sprite,
     state::commands,
     transform::components::Transform,
 };
 
 use crate::game::{
-    card::{Card, InDeck, InHand},
+    card::{Card, InDeck, InGraveyard, InHand},
     events::CardsDrawn,
 };
 
@@ -49,7 +53,8 @@ impl Default for PlayerResources {
 pub struct TurnPlayer;
 
 #[derive(Component)]
-pub struct Deck(pub Vec<Entity>);
+#[relationship_target(relationship = InDeck)]
+pub struct Deck(Vec<Entity>);
 
 impl Deck {
     fn empty() -> Deck {
@@ -58,7 +63,8 @@ impl Deck {
 }
 
 #[derive(Component)]
-pub struct Hand(pub Vec<Entity>);
+#[relationship_target(relationship = InHand)]
+pub struct Hand(Vec<Entity>);
 
 impl Hand {
     fn empty() -> Hand {
@@ -69,71 +75,34 @@ impl Hand {
         self.0.get(card_index).cloned()
     }
 }
+
 #[derive(Component)]
-pub struct Graveyard(pub Vec<Entity>);
+#[relationship_target(relationship = InGraveyard)]
+pub struct Graveyard(Vec<Entity>);
+
 impl Graveyard {
     fn empty() -> Graveyard {
         Self(Vec::new())
     }
 }
 
-#[derive(Bundle)]
+#[derive(Bundle, Default)]
 pub struct PlayerBundle {
     resources: PlayerResources,
-    hand: Hand,
-    deck: Deck,
-    graveyard: Graveyard,
-}
-
-impl Default for PlayerBundle {
-    fn default() -> Self {
-        Self {
-            resources: Default::default(),
-            hand: Hand::empty(),
-            deck: Deck::empty(),
-            graveyard: Graveyard::empty(),
-        }
-    }
 }
 
 pub fn add_player(mut commands: Commands) {
-    let player1 = commands
-        .spawn((Player { number: 0 }, PlayerBundle::default(), TurnPlayer))
-        .id();
-    let player2 = commands
-        .spawn((Player { number: 1 }, PlayerBundle::default()))
-        .id();
+    commands.spawn((Player { number: 0 }, PlayerBundle::default(), TurnPlayer));
+    commands.spawn((Player { number: 1 }, PlayerBundle::default()));
 }
 
-pub fn draw_card(
-    deck: &mut Deck,
-    hand: &mut Hand,
-    commands: &mut Commands,
-    asset_server: &AssetServer,
-) {
-    let Some(card) = deck.0.pop() else {
-        return;
-    };
-
-    hand.0.push(card);
-
-    commands
-        .entity(card)
-        .remove::<InDeck>()
-        .insert(InHand)
-        .insert((
-            Sprite::from_image(asset_server.load("card_frame.png")),
-            Transform::from_xyz(200., 200., 200.),
-        ));
-    commands.write_message(CardsDrawn { card });
-}
-
-pub fn draw_starting_cards(
-    mut players: Query<(&mut Deck, &mut Hand)>,
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
-    for (mut deck, mut hand) in &mut players {
-        draw_card(deck.as_mut(), hand.as_mut(), &mut commands, &asset_server);
+pub fn draw_starting_cards(mut players: Query<(&mut Deck, Entity)>, mut commands: Commands) {
+    for (deck, player) in &mut players {
+        for card in deck.iter().take(5) {
+            commands
+                .entity(card)
+                .remove::<InDeck>()
+                .insert(InHand { parent: player });
+        }
     }
 }

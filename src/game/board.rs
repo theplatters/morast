@@ -13,16 +13,16 @@ use crate::{
     game::{
         board::{
             effect::{EffectDuration, EffectType},
-            tile::{AttackOnTile, Occupant, Position, Tile, TileBundel},
+            tile::{Occupant, Position, Tile, TileBundel},
         },
         card::{
-            AttackPattern, BaseMovement, CreatureCard, CurrentAttack, CurrentMovementPoints,
-            MovementPattern, OnBoard, Selected,
+            creature::{AttackPattern, Attacks, BaseMovementPoints, MovementPattern},
+            CreatureCard, CurrentAttack, CurrentMovementPoints, InHand, OnBoard,
         },
         components::{Health, Owner},
         events::{CardMoved, EffectAdded, EffectRemoved},
         player::{Player, TurnPlayer},
-        turn_controller::{BoardClicked, TurnPhase},
+        turn_controller::{BoardClicked, CardPlayRequested, TurnPhase},
     },
 };
 
@@ -87,27 +87,12 @@ impl BoardRes {
             for y in 0..y_size {
                 let position = U16Vec2::new(x, y);
                 let tile_id = commands
-                    .spawn((
-                        TileBundel::default(),
-                        Sprite {
-                            image: asset_server.load("tile.png"),
-                            custom_size: Some(render_config.tile_size * Vec2::ONE),
-                            ..Default::default()
-                        },
-                        Anchor::TOP_LEFT,
-                        Transform::from_translation(
-                            render_config
-                                .to_absolute_position(U16Vec2::new(x, y))
-                                .with_z(1.0),
-                        ),
-                        ChildOf(board_id),
-                        Pickable::default(),
-                        Position(position),
-                    ))
+                    .spawn((TileBundel::default(), ChildOf(board_id), Position(position)))
                     .observe(
                         |click: On<Pointer<Click>>,
                          mut board_clicked: MessageWriter<BoardClicked>,
                          tiles: Query<&Position, With<Tile>>| {
+                            info!("Tile clicked");
                             let &Position(position) = tiles
                                 .get(click.entity)
                                 .expect("Clicked thing is somehow not a tile");
@@ -135,20 +120,17 @@ impl BoardRes {
         players: Query<Entity, With<Player>>,
     ) {
         for (player_entity, pos) in players.iter().zip(board.player_base_positions.into_iter()) {
-            let base_entity = commands
-                .spawn((PlayerBaseBundle::new(), Owner(player_entity)))
-                .id();
             let tile = board
                 .get_tile(&pos)
                 .ok_or(BoardError::TileNotFound)
                 .expect("This is a setup error and should never happen");
-            commands.entity(tile).insert(Occupant(base_entity));
-        }
-    }
-
-    fn zero_out_attack(tiles: &mut Query<&mut AttackOnTile>) {
-        for mut tile in tiles.iter_mut() {
-            tile.zero_out();
+            let base_entity = commands
+                .spawn((
+                    PlayerBaseBundle::new(),
+                    Owner(player_entity),
+                    OnBoard { position: tile },
+                ))
+                .id();
         }
     }
 
@@ -183,7 +165,7 @@ impl BoardRes {
 }
 
 pub(crate) fn refresh_movement_points(
-    creatures: Query<(&mut CurrentMovementPoints, &Owner, &BaseMovement), With<CreatureCard>>,
+    creatures: Query<(&mut CurrentMovementPoints, &Owner, &BaseMovementPoints), With<CreatureCard>>,
     player: Query<Entity, With<TurnPlayer>>,
 ) {
     for (mut movement, owner, base_movement) in creatures.into_iter() {
@@ -193,50 +175,27 @@ pub(crate) fn refresh_movement_points(
     }
 }
 
-pub fn update_attack_values_on_add(
-    _event: On<Replace, OnBoard>,
-    tiles: Query<&mut AttackOnTile>,
-    creatures: Query<(&CurrentAttack, &AttackPattern, &OnBoard, &Owner), With<CreatureCard>>,
-    players: Query<&Player>,
-    board: Res<BoardRes>,
-) -> Result {
-    update_attack_values(tiles, creatures, players, board)
-}
-
-pub fn update_attack_values_on_move(
-    _event: On<Add, OnBoard>,
-    tiles: Query<&mut AttackOnTile>,
-    creatures: Query<(&CurrentAttack, &AttackPattern, &OnBoard, &Owner), With<CreatureCard>>,
-    players: Query<&Player>,
-    board: Res<BoardRes>,
-) -> Result {
-    update_attack_values(tiles, creatures, players, board)
-}
-
 pub fn update_attack_values(
-    mut tiles: Query<&mut AttackOnTile>,
-    creatures: Query<(&CurrentAttack, &AttackPattern, &OnBoard, &Owner), With<CreatureCard>>,
+    mut tiles: Query<&Position>,
+    creatures: Query<
+        (
+            Entity,
+            &CurrentAttack,
+            &AttackPattern,
+            &mut Attacks,
+            &OnBoard,
+        ),
+        Changed<OnBoard>,
+    >,
     players: Query<&Player>,
     board: Res<BoardRes>,
+    mut commands: Commands,
 ) -> Result {
-    BoardRes::zero_out_attack(&mut tiles);
-    for (attack, pattern, on_board, owner) in &creatures {
-        for relative_tile in pattern {
-            if let Some(tile_index) = board.add_relative_tile(on_board.position, *relative_tile) {
-                let tile = board
-                    .get_tile(&tile_index)
-                    .ok_or(BoardError::TileNotFound)?;
-
-                let player = players.get(owner.0).unwrap();
-                let mut tile = tiles.get_mut(tile).unwrap();
-                let attack_delta = match player.number {
-                    1 => U16Vec2::new(0, attack.value),
-                    2 => U16Vec2::new(attack.value, 0),
-                    _ => panic!("Invalid player number: {}", player.number),
-                };
-                **tile += attack_delta;
-            }
-        }
+    for (card_entity, attack_value, pattern, attack_pattern, on_board) in &creatures {
+        let pos = tiles.get(on_board.position).unwrap();
+        commands
+            .entity(card_entity)
+            .insert(Attacks(pattern.into_tiles(pos)));
     }
     Ok(())
 }
@@ -326,7 +285,7 @@ pub fn handle_movement(
     mut move_requests: MessageReader<MoveRequest>,
     mut move_completed: MessageWriter<CardMoved>,
     mut creatures: Query<
-        (&mut OnBoard, &mut CurrentMovementPoints, &MovementPattern),
+        (&OnBoard, &mut CurrentMovementPoints, &MovementPattern),
         With<CreatureCard>,
     >,
     board: Res<BoardRes>,
@@ -359,11 +318,10 @@ pub fn handle_movement(
         )
         .map_err(BoardError::InvalidMove)?;
 
-        creature.position = event.to;
+        commands
+            .entity(event.entity)
+            .insert(OnBoard { position: new_tile });
         movement.remaining_points -= cost;
-
-        commands.entity(old_tile).remove::<Occupant>();
-        commands.entity(new_tile).insert(Occupant(event.entity));
 
         move_completed.write(CardMoved {
             card: event.entity,
@@ -376,10 +334,12 @@ pub fn handle_movement(
 
 pub fn update_position_on_move(
     mut cards: Query<(&OnBoard, &mut Transform), Changed<OnBoard>>,
+    mut tiles: Query<&Position, With<Tile>>,
     render_config: Res<RenderConfig>,
 ) {
     for (pos, mut trans) in cards.iter_mut() {
-        trans.translation = render_config.to_absolute_position(pos.position)
+        let &Position(pos) = tiles.get(pos.position).unwrap();
+        trans.translation = render_config.to_absolute_position(pos);
     }
 }
 
@@ -396,6 +356,23 @@ pub fn decrease_effect_duration(
                 effect: *effect_type,
                 tile: tile.0,
             });
+        }
+    }
+}
+
+pub fn place_card(
+    mut card_place_requests: MessageReader<CardPlayRequested>,
+    free_tiles: Query<&Tile, Without<Occupant>>,
+    board: Res<BoardRes>,
+    mut commands: Commands,
+) {
+    for card_place_request in card_place_requests.read() {
+        let tile = board.get_tile(&card_place_request.position).unwrap();
+        if free_tiles.contains(tile) {
+            commands
+                .entity(card_place_request.card)
+                .remove::<InHand>()
+                .insert(OnBoard { position: tile });
         }
     }
 }
@@ -426,11 +403,10 @@ impl Plugin for BoardPlugin {
                     // Effect handling
                     add_effect_to_tile,
                     decrease_effect_duration,
+                    place_card,
+                    update_attack_values,
                 ),
             )
-            // Observer systems for attack value updates
-            .add_observer(update_attack_values_on_add)
-            .add_observer(update_attack_values_on_move)
             // System that runs at the start of each turn
             .add_systems(OnEnter(TurnPhase::Start), refresh_movement_points);
     }
