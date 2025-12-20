@@ -1,4 +1,4 @@
-use bevy::{ecs::entity, math::U16Vec2, prelude::*};
+use bevy::{math::U16Vec2, prelude::*};
 
 use crate::game::{
     actions::{
@@ -7,7 +7,7 @@ use crate::game::{
     },
     board::{
         tile::{Occupant, Position, Tile},
-        BoardRes, MoveRequest,
+        MoveRequest,
     },
     card::{InHand, OnBoard, Selected},
     player::{Hand, Player, TurnPlayer},
@@ -37,6 +37,33 @@ pub enum TurnState {
 }
 
 // ============================================================================
+// Routed Messages (state-scoped intents)
+// ============================================================================
+
+#[derive(Message, Clone, Copy, Debug)]
+pub enum IdleIntent {
+    IdleCardClick { card_index: usize },
+    IdleBoardClick { entity: Entity, position: U16Vec2 },
+}
+
+#[derive(Message, Clone, Copy, Debug)]
+pub enum CardSelectedIntent {
+    CardSelectedBoardClick { entity: Entity, position: U16Vec2 },
+}
+
+#[derive(Message, Clone, Copy, Debug)]
+pub struct FigureSelectedBoardClick {
+    pub entity: Entity,
+    pub position: U16Vec2,
+}
+
+#[derive(Message, Clone, Copy, Debug)]
+pub struct AwaitingInputsBoardClick {
+    pub entity: Entity,
+    pub position: U16Vec2,
+}
+
+// ============================================================================
 // PLAY COMMANDS
 // ============================================================================
 
@@ -54,7 +81,7 @@ pub struct TargetingComplete;
 pub struct EndTurn;
 
 // ============================================================================
-// EVENTS / MESSAGES
+// Raw input messages
 // ============================================================================
 
 #[derive(Message)]
@@ -84,33 +111,38 @@ impl Plugin for TurnControllerPlugin {
             // States
             .init_state::<TurnPhase>()
             .init_state::<TurnState>()
-            // Events
+            // Raw input messages
             .add_message::<BoardClicked>()
             .add_message::<CardClicked>()
             .add_message::<EndTurnPressed>()
             .add_message::<CancelPressed>()
+            // Routed intent messages
+            .add_message::<IdleIntent>()
+            .add_message::<CardSelectedIntent>()
+            .add_message::<FigureSelectedBoardClick>()
+            .add_message::<AwaitingInputsBoardClick>()
+            // Commands
             .add_message::<CardPlayRequested>()
+            .add_message::<TargetingComplete>()
             // Systems
-            .add_systems(Update, handle_end_turn_input)
-            .add_systems(Update, handle_cancel_input)
-            .add_systems(Update, log_state)
-            .add_systems(Update, handle_idle_state.run_if(in_state(TurnState::Idle)))
-            .add_systems(Update, handle_action.run_if(in_state(TurnState::Idle)))
             .add_systems(
                 Update,
-                handle_card_selected.run_if(in_state(TurnState::CardSelected)),
-            )
-            .add_systems(
-                Update,
-                handle_awaiting_inputs.run_if(in_state(TurnState::AwaitingInputs)),
-            )
-            .add_systems(
-                Update,
-                handle_figure_selected.run_if(in_state(TurnState::FigureSelected)),
+                (
+                    handle_end_turn_input,
+                    handle_cancel_input,
+                    // Routers MUST run before state handlers
+                    (card_click_system, board_click_system),
+                    handle_action.run_if(in_state(TurnState::Idle)),
+                    handle_idle_state.run_if(in_state(TurnState::Idle)),
+                    handle_card_selected.run_if(in_state(TurnState::CardSelected)),
+                    handle_awaiting_inputs.run_if(in_state(TurnState::AwaitingInputs)),
+                    handle_figure_selected.run_if(in_state(TurnState::FigureSelected)),
+                ),
             )
             // Cleanup on state exit
-            .add_systems(OnExit(TurnState::CardSelected), cleanup_card_selection)
-            .add_systems(OnExit(TurnState::FigureSelected), cleanup_figure_selection)
+            .add_systems(OnExit(TurnState::CardSelected), cleanup_selection)
+            .add_systems(OnExit(TurnState::FigureSelected), cleanup_selection)
+            .add_systems(OnExit(TurnState::AwaitingInputs), cleanup_selection)
             .add_systems(OnEnter(TurnState::EndTurn), on_turn_end);
     }
 }
@@ -129,18 +161,16 @@ fn handle_cancel_input(
     keyboard: Res<ButtonInput<KeyCode>>,
     current_state: Res<State<TurnState>>,
     mut next_state: ResMut<NextState<TurnState>>,
-    selected: Query<(&Selected, Entity)>,
+    selected: Query<Entity, Or<(With<Selected>, With<Origin>)>>,
     mut commands: Commands,
 ) {
     if keyboard.just_pressed(KeyCode::Escape) {
-        for (_, entity) in &selected {
+        for entity in &selected {
             commands.entity(entity).remove::<Selected>();
+            commands.entity(entity).remove::<Origin>();
         }
         match current_state.get() {
-            TurnState::AwaitingInputs => {
-                next_state.set(TurnState::Idle);
-            }
-            TurnState::CardSelected | TurnState::FigureSelected => {
+            TurnState::AwaitingInputs | TurnState::CardSelected | TurnState::FigureSelected => {
                 next_state.set(TurnState::Idle);
             }
             _ => {}
@@ -149,119 +179,212 @@ fn handle_cancel_input(
 }
 
 // ============================================================================
-// STATE HANDLERS
+// Router systems (only these read BoardClicked/CardClicked)
+// ============================================================================
+
+#[derive(Component)]
+struct Origin;
+
+pub fn board_click_system(
+    mut board_clicks: MessageReader<BoardClicked>,
+    state: Res<State<TurnState>>,
+    mut idle_intents: MessageWriter<IdleIntent>,
+    mut card_selected_intents: MessageWriter<CardSelectedIntent>,
+    mut figure_selected_clicks: MessageWriter<FigureSelectedBoardClick>,
+    mut awaiting_inputs_clicks: MessageWriter<AwaitingInputsBoardClick>,
+) {
+    for click in board_clicks.read() {
+        match state.get() {
+            TurnState::Idle => {
+                idle_intents.write(IdleIntent::IdleBoardClick {
+                    entity: click.entity,
+                    position: click.position,
+                });
+            }
+            TurnState::CardSelected => {
+                card_selected_intents.write(CardSelectedIntent::CardSelectedBoardClick {
+                    entity: click.entity,
+                    position: click.position,
+                });
+            }
+            TurnState::FigureSelected => {
+                figure_selected_clicks.write(FigureSelectedBoardClick {
+                    entity: click.entity,
+                    position: click.position,
+                });
+            }
+            TurnState::AwaitingInputs => {
+                awaiting_inputs_clicks.write(AwaitingInputsBoardClick {
+                    entity: click.entity,
+                    position: click.position,
+                });
+            }
+            TurnState::EndTurn => {}
+        }
+    }
+}
+
+pub fn card_click_system(
+    mut card_clicks: MessageReader<CardClicked>,
+    state: Res<State<TurnState>>,
+    mut idle_intents: MessageWriter<IdleIntent>,
+) {
+    for CardClicked(card_index) in card_clicks.read() {
+        match state.get() {
+            TurnState::Idle => {
+                idle_intents.write(IdleIntent::IdleCardClick {
+                    card_index: *card_index,
+                });
+            }
+            // define behavior later if you want (switch selection, etc.)
+            TurnState::CardSelected
+            | TurnState::AwaitingInputs
+            | TurnState::FigureSelected
+            | TurnState::EndTurn => {}
+        }
+    }
+}
+
+// ============================================================================
+// STATE HANDLERS (now consume routed messages)
 // ============================================================================
 
 fn handle_idle_state(
-    mut board_clicks: MessageReader<BoardClicked>,
-    mut card_clicks: MessageReader<CardClicked>,
+    mut intents: MessageReader<IdleIntent>,
     mut next_state: ResMut<NextState<TurnState>>,
     mut commands: Commands,
     occupants: Query<(&Occupant, Entity)>,
     hand: Query<&Hand, With<TurnPlayer>>,
 ) {
-    // Check for card selection first
-    if let Some(CardClicked(card_index)) = card_clicks.read().next() {
-        let hand = hand.single().unwrap();
-        let card_entity = hand.get_card(*card_index).unwrap();
-        commands.entity(card_entity).insert(Selected);
-        next_state.set(TurnState::CardSelected);
-        return;
-    }
-
-    // Check for figure selection
-    if let Some(&BoardClicked { entity, .. }) = board_clicks.read().next() {
-        if let Ok((_, ent)) = occupants.get(entity) {
-            commands.entity(ent).insert(Selected);
-            next_state.set(TurnState::FigureSelected);
+    // Preserve your original priority: card click beats board click.
+    // If multiple intents arrive, process in order but return after card selection.
+    for intent in intents.read().copied() {
+        match intent {
+            IdleIntent::IdleCardClick { card_index } => {
+                let hand = hand.single().unwrap();
+                let Some(card_entity) = hand.get_card(card_index) else {
+                    warn!("Invalid card index: {}", card_index);
+                    continue;
+                };
+                commands.entity(card_entity).insert(Selected);
+                next_state.set(TurnState::CardSelected);
+                return;
+            }
+            IdleIntent::IdleBoardClick { entity, .. } => {
+                if let Ok((occupant, _)) = occupants.get(entity) {
+                    info!("Selected {} transferring to FigureSelected state", entity);
+                    commands.entity(occupant.get()).insert(Origin);
+                    next_state.set(TurnState::FigureSelected);
+                    // don’t return; if you want “first click wins”, you can return here
+                }
+            }
         }
     }
 }
 
 fn handle_card_selected(
-    mut board_clicks: MessageReader<BoardClicked>,
+    mut intents: MessageReader<CardSelectedIntent>,
     mut play_commands: MessageWriter<CardPlayRequested>,
     mut next_state: ResMut<NextState<TurnState>>,
     player_hands: Query<(&Hand, &Player), With<TurnPlayer>>,
     selected_card: Query<Entity, (With<Selected>, With<InHand>)>,
 ) {
-    if let Some(&BoardClicked { position, .. }) = board_clicks.read().next() {
-        let selected_card = selected_card.single().unwrap();
+    let Some(CardSelectedIntent::CardSelectedBoardClick { position, .. }) =
+        intents.read().next().copied()
+    else {
+        return;
+    };
 
-        let Ok((hand, _)) = player_hands.single() else {
-            warn!("Could not find player hand");
+    let selected_card = match selected_card.single() {
+        Ok(e) => e,
+        Err(_) => {
+            warn!("CardSelected state but no selected in-hand card");
             next_state.set(TurnState::Idle);
             return;
-        };
-        let Some(hand_index) = hand.iter().position(|r| r == selected_card) else {
-            warn!("Could not find card in players hand");
-            next_state.set(TurnState::Idle);
-            return;
-        };
-        let hand_position = hand_index;
+        }
+    };
 
-        let Some(card_entity) = hand.get_card(hand_position) else {
-            warn!("Invalid card index: {}", hand_position);
-            next_state.set(TurnState::Idle);
-            return;
-        };
-
-        play_commands.write(CardPlayRequested {
-            card: card_entity,
-            hand_position,
-            position,
-        });
-
+    let Ok((hand, _)) = player_hands.single() else {
+        warn!("Could not find player hand");
         next_state.set(TurnState::Idle);
-    }
+        return;
+    };
+
+    let Some(hand_position) = hand.iter().position(|r| r == selected_card) else {
+        warn!("Could not find card in players hand");
+        next_state.set(TurnState::Idle);
+        return;
+    };
+
+    play_commands.write(CardPlayRequested {
+        card: selected_card,
+        hand_position,
+        position,
+    });
+
+    next_state.set(TurnState::Idle);
 }
 
 fn handle_figure_selected(
-    mut board_clicks: MessageReader<BoardClicked>,
+    mut board_clicks: MessageReader<FigureSelectedBoardClick>,
     mut play_commands: MessageWriter<MoveRequest>,
     mut next_state: ResMut<NextState<TurnState>>,
-    selected_cards: Query<(&Position, &Occupant), (With<Selected>, With<Tile>)>,
+    selected_figure: Query<(Entity, &OnBoard), (With<Origin>, With<OnBoard>)>,
+    tiles: Query<&Position>,
 ) {
-    if let Some(&BoardClicked {
+    let Some(FigureSelectedBoardClick {
         position: next_position,
         ..
-    }) = board_clicks.read().next()
-    {
-        let (&Position(from), creature_on) = selected_cards.single().unwrap();
+    }) = board_clicks.read().next().copied()
+    else {
+        return;
+    };
 
-        info!("Sending move command from {} to {}", from, next_position);
-
-        play_commands.write(MoveRequest {
-            entity: creature_on.get(),
-            from,
-            to: next_position,
-        });
+    let Ok((entity, &OnBoard { position: tile })) = selected_figure.single() else {
+        warn!("FigureSelected state but no Origin entity found");
         next_state.set(TurnState::Idle);
-    }
+        return;
+    };
+
+    let Ok(&Position(from)) = tiles.get(tile) else {
+        warn!("Could not resolve 'from' position");
+        next_state.set(TurnState::Idle);
+        return;
+    };
+
+    info!("Sending move command from {} to {}", from, next_position);
+
+    play_commands.write(MoveRequest {
+        entity,
+        from,
+        to: next_position,
+    });
+    next_state.set(TurnState::Idle);
 }
 
 fn handle_awaiting_inputs(
-    mut board_clicks: MessageReader<BoardClicked>,
+    mut board_clicks: MessageReader<AwaitingInputsBoardClick>,
     mut play_commands: MessageWriter<TargetingComplete>,
     mut next_state: ResMut<NextState<TurnState>>,
-    (selected_cards, actions, tiles): (
-        Query<&mut Selected, With<OnBoard>>,
-        Query<(Entity, &TargetingType), With<NeedsTargeting>>,
-        Query<&Occupant>,
-    ),
+    selected_cards: Query<&Selected, With<OnBoard>>,
+    actions: Query<(Entity, &TargetingType), With<NeedsTargeting>>,
     mut commands: Commands,
 ) {
-    let (action_entity, targeting) = actions.single().unwrap();
-    if selected_cards.iter().len() as u8 == targeting.required_targets() {
+    if let Some(AwaitingInputsBoardClick { entity, .. }) = board_clicks.read().next().copied() {
+        commands.entity(entity).insert(Selected);
+    }
+
+    let Ok((action_entity, targeting)) = actions.single() else {
+        // no action needs targeting anymore; bail to idle or just return
+        return;
+    };
+
+    if selected_cards.iter().len() as u8 >= targeting.required_targets() {
         play_commands.write(TargetingComplete);
         info!("Sending Play Command");
         commands.entity(action_entity).remove::<NeedsTargeting>();
         commands.entity(action_entity).insert(ReadyToExecute);
         next_state.set(TurnState::Idle);
-    }
-
-    for &BoardClicked { entity, .. } in board_clicks.read() {
-        commands.entity(entity).insert(Selected);
     }
 }
 
@@ -288,36 +411,25 @@ pub fn handle_action(
 }
 
 // ============================================================================
-// CLEANUP SYSTEMS
+// CLEANUP
 // ============================================================================
 
-fn cleanup_card_selection(selected_cards: Query<Entity, (With<Selected>)>, mut commands: Commands) {
-    for card in &selected_cards {
-        info!("Cleaning up selectted card {}", card);
-        commands.entity(card).remove::<Selected>();
-    }
-}
-
-fn cleanup_figure_selection(
-    selected_cards: Query<Entity, (With<Selected>, With<OnBoard>)>,
+fn cleanup_selection(
+    selected: Query<Entity, Or<(With<Selected>, With<Origin>)>>,
     mut commands: Commands,
 ) {
-    for card in &selected_cards {
-        commands.entity(card).remove::<Selected>();
+    for e in &selected {
+        commands.entity(e).remove::<Selected>();
+        commands.entity(e).remove::<Origin>();
     }
 }
 
 fn on_turn_end(mut next_state: ResMut<NextState<TurnState>>) {
-    // Handle turn end logic here
-    // Then reset to idle for next turn
     info!("Turn ended");
+    next_state.set(TurnState::Idle);
 }
 
 /// Call this when starting a new turn
 pub fn reset_turn(mut next_state: ResMut<NextState<TurnState>>) {
     next_state.set(TurnState::Idle);
-}
-
-pub fn log_state(current_state: Res<State<TurnState>>) {
-    info!("{:?}", current_state);
 }

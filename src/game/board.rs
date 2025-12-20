@@ -170,7 +170,7 @@ pub(crate) fn refresh_movement_points(
 ) {
     for (mut movement, owner, base_movement) in creatures.into_iter() {
         if owner.0 == player.single().expect("No turn player found") {
-            movement.remaining_points = base_movement.0
+            movement.0 = base_movement.0
         }
     }
 }
@@ -245,7 +245,20 @@ pub enum MoveValidationError {
 
 impl Display for MoveValidationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
+        match self {
+            MoveValidationError::InsufficientMovementPoints {
+                required,
+                available,
+            } => write!(
+                f,
+                "InsufficientMovementPoints required: {}, available {}",
+                required, available
+            ),
+            MoveValidationError::InvalidMovePattern { from, to } => {
+                write!(f, "InvalidMovePattern from {}, to {}", from, to)
+            }
+            MoveValidationError::Occupied => write!(f, "Tile is occupied"),
+        }
     }
 }
 
@@ -309,19 +322,14 @@ pub fn handle_movement(
             .iter()
             .any(|(ef, co)| co.0 == old_tile && *ef == EffectType::Slow);
 
-        let cost = check_valid_move_and_get_cost(
-            old_pos,
-            event.to,
-            movement.remaining_points,
-            pattern,
-            tile_has_slow,
-        )
-        .map_err(BoardError::InvalidMove)?;
+        let cost =
+            check_valid_move_and_get_cost(old_pos, event.to, movement.0, pattern, tile_has_slow)
+                .map_err(BoardError::InvalidMove)?;
 
         commands
             .entity(event.entity)
             .insert(OnBoard { position: new_tile });
-        movement.remaining_points -= cost;
+        movement.0 -= cost;
 
         move_completed.write(CardMoved {
             card: event.entity,

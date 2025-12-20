@@ -4,6 +4,7 @@ use bevy::ecs::entity::Entity;
 use bevy::ecs::query::With;
 use bevy::ecs::system::{Commands, Query, Res};
 use bevy::math::{I16Vec2, U16Vec2};
+use derive_more::From;
 use std::slice::Iter;
 
 use crate::game::board::tile::Occupant;
@@ -83,20 +84,14 @@ pub struct Selected;
 // MUTABLE INSTANCE STATE (what changes during play)
 // ============================================
 
-#[derive(Component)]
-pub struct CurrentAttack {
-    pub value: u16,
-}
+#[derive(Component, Clone, Copy, From)]
+pub struct CurrentAttack(pub u16);
 
-#[derive(Component, Clone, Copy)]
-pub struct CurrentDefense {
-    pub value: u16,
-}
+#[derive(Component, Clone, Copy, From)]
+pub struct CurrentDefense(pub u16);
 /// Current movement state
-#[derive(Component, Clone)]
-pub struct CurrentMovementPoints {
-    pub remaining_points: u16,
-}
+#[derive(Component, Clone, From)]
+pub struct CurrentMovementPoints(pub u16);
 
 #[derive(Component, Clone)]
 pub struct Cost {

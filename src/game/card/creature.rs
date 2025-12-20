@@ -13,7 +13,7 @@ use crate::game::{
     actions::action_prototype::GameAction,
     card::{
         abilities::Abilities, card_id::CardID, card_registry::CardRegistry, Card, CardBehavior,
-        Cost, CreatureCard, FromRegistry,
+        Cost, CreatureCard, CurrentAttack, CurrentDefense, CurrentMovementPoints, FromRegistry,
     },
 };
 
@@ -163,7 +163,10 @@ pub struct CreatureBundle {
     pub cost: Cost,
     pub base_attack: BaseAttack,
     pub base_defense: BaseDefense,
+    pub current_attack: CurrentAttack,
+    pub current_defense: CurrentDefense,
     pub base_movement_points: BaseMovementPoints,
+    pub current_movement_points: CurrentMovementPoints,
     pub attack_pattern: AttackPattern,
     pub movement_pattern: MovementPattern,
     pub type_identifier: CreatureCard,
@@ -182,7 +185,10 @@ impl FromRegistry for CreatureBundle {
             cost: card.cost().into(),
             base_attack: card.attack_strength.into(),
             base_defense: card.defense.into(),
+            current_attack: card.attack_strength.into(),
+            current_defense: card.defense.into(),
             base_movement_points: card.movement_points.into(),
+            current_movement_points: card.movement_points.into(),
             attack_pattern: card.attack.clone().into(),
             movement_pattern: card.movement.clone().into(),
             type_identifier: CreatureCard,
