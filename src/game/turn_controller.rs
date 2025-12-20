@@ -93,6 +93,7 @@ impl Plugin for TurnControllerPlugin {
             // Systems
             .add_systems(Update, handle_end_turn_input)
             .add_systems(Update, handle_cancel_input)
+            .add_systems(Update, log_state)
             .add_systems(Update, handle_idle_state.run_if(in_state(TurnState::Idle)))
             .add_systems(Update, handle_action.run_if(in_state(TurnState::Idle)))
             .add_systems(
@@ -315,4 +316,8 @@ fn on_turn_end(mut next_state: ResMut<NextState<TurnState>>) {
 /// Call this when starting a new turn
 pub fn reset_turn(mut next_state: ResMut<NextState<TurnState>>) {
     next_state.set(TurnState::Idle);
+}
+
+pub fn log_state(current_state: Res<State<TurnState>>) {
+    info!("{:?}", current_state);
 }

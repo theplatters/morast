@@ -89,7 +89,7 @@ impl BoardRes {
                 let tile_id = commands
                     .spawn((TileBundel::default(), ChildOf(board_id), Position(position)))
                     .observe(
-                        |click: On<Pointer<Click>>,
+                        |click: On<Pointer<Release>>,
                          mut board_clicked: MessageWriter<BoardClicked>,
                          tiles: Query<&Position, With<Tile>>| {
                             info!("Tile clicked");

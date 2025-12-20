@@ -8,18 +8,19 @@ use bevy::{
         entity::Entity,
         error::Result,
         hierarchy::Children,
-        lifecycle::{Insert, Remove, RemovedComponents, Replace},
+        lifecycle::{Insert, Remove},
         message::MessageWriter,
         name::Name,
         observer::On,
         query::{Added, Changed, With},
         relationship::RelationshipTarget,
+        schedule::IntoScheduleConfigs,
         system::{Commands, Query, Res},
     },
     log::{info, warn},
     math::{U16Vec2, Vec2},
     picking::{
-        events::{Click, Pointer},
+        events::{Pointer, Release},
         Pickable,
     },
     sprite::{Anchor, Sprite, Text2d},
@@ -30,11 +31,8 @@ use bevy::{
 use crate::{
     engine::renderer::render_config::RenderConfig,
     game::{
-        board::{
-            tile::{Position, Tile},
-            Board, BoardRes,
-        },
-        card::{creature::Attacks, Cost, InHand, OnBoard},
+        board::tile::{Position, Tile},
+        card::{add_cards, card_id::CardID, Cost, InHand, OnBoard},
         player::{Hand, TurnPlayer},
         turn_controller::CardClicked,
     },
@@ -47,23 +45,35 @@ pub struct RendererPlugin;
 impl Plugin for RendererPlugin {
     fn build(&self, app: &mut bevy::app::App) {
         app.init_resource::<RenderConfig>()
-            .add_systems(Startup, setup_renderer)
+            .add_systems(Startup, setup_renderer.after(add_cards))
             .add_systems(Update, (render_card_in_hand, render_tiles));
     }
 }
 
-pub fn setup_renderer(mut commands: Commands) {
+pub fn setup_renderer(mut commands: Commands, creatures: Query<Entity, With<CardID>>) {
     commands.spawn(Camera2d);
+    for creature in creatures {
+        commands.entity(creature).observe(render_creature);
+    }
 }
 
 pub fn render_creature(
     event: On<Insert, OnBoard>,
-    tiles: Query<(&Position, Entity)>,
-    creatures: Query<(&OnBoard)>,
-    board: Res<BoardRes>,
+    creatures: Query<&OnBoard>,
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
 ) -> Result {
-    let on_board = creatures.get(event.entity)?;
+    info!("Attaching board rendering Sprite");
+    let on_board = creatures.get(event.entity).unwrap();
+
+    commands.entity(on_board.position).with_child((
+        Sprite {
+            image: asset_server.load("knight.png"),
+            custom_size: Some(Vec2::new(50., 50.)),
+            ..Default::default()
+        },
+        Transform::from_xyz(25.0, -25.0, 4.0),
+    ));
 
     Ok(())
 }
@@ -162,7 +172,7 @@ pub fn render_card_in_hand(
                     ));
                 })
                 .observe(
-                    |click: On<Pointer<Click>>,
+                    |click: On<Pointer<Release>>,
                      mut event_writer: MessageWriter<CardClicked>,
                      hands: Query<&Hand, With<TurnPlayer>>| {
                         if let Some(pos) = hands
