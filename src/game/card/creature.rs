@@ -14,6 +14,7 @@ use crate::game::{
     card::{
         abilities::Abilities, card_id::CardID, card_registry::CardRegistry, Card, CardBehavior,
         Cost, CreatureCard, CurrentAttack, CurrentDefense, CurrentMovementPoints, FromRegistry,
+        Playable,
     },
 };
 
@@ -101,8 +102,10 @@ impl Creature {
     pub fn is_powerful(&self) -> bool {
         self.attack_strength > 5 || self.defense > 5
     }
+}
 
-    pub fn on_play_action(&self) -> Option<&GameAction> {
+impl Playable for Creature {
+    fn on_play_action(&self) -> Option<&GameAction> {
         self.on_play_action.as_ref()
     }
 }

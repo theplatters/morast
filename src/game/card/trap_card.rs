@@ -5,7 +5,10 @@ use bevy::{
 
 use crate::game::{
     actions::action_prototype::GameAction,
-    card::{card_id::CardID, card_registry::CardRegistry, Card, CardBehavior, Cost, FromRegistry},
+    card::{
+        card_id::CardID, card_registry::CardRegistry, Card, CardBehavior, Cost, FromRegistry,
+        Playable,
+    },
 };
 
 #[derive(Debug)]
@@ -54,10 +57,6 @@ impl Trap {
             display_image_asset_string,
         }
     }
-
-    pub fn on_play_action(&self) -> Option<&GameAction> {
-        self.on_play_action.as_ref()
-    }
 }
 
 #[derive(Bundle, Clone)]
@@ -79,5 +78,11 @@ impl FromRegistry for TrapBundle {
             name: card.name().into(),
             cost: card.cost().into(),
         })
+    }
+}
+
+impl Playable for Trap {
+    fn on_play_action(&self) -> Option<&GameAction> {
+        self.on_play_action.as_ref()
     }
 }

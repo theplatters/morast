@@ -3,10 +3,9 @@ use bevy::ecs::component::Component;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::query::With;
 use bevy::ecs::system::{Commands, Query, Res};
-use bevy::math::{I16Vec2, U16Vec2};
 use derive_more::From;
-use std::slice::Iter;
 
+use crate::game::actions::action_prototype::GameAction;
 use crate::game::board::tile::Occupant;
 use crate::game::card::card_id::CardID;
 use crate::game::card::card_registry::CardRegistry;
@@ -104,40 +103,30 @@ impl From<u16> for Cost {
     }
 }
 
+// ============================================
+// Card Traits
+// ============================================
+
+pub trait Playable {
+    fn on_play_action(&self) -> Option<&GameAction>;
+}
+
+impl Playable for Card {
+    fn on_play_action(&self) -> Option<&GameAction> {
+        match self {
+            Card::Creature(card) => card.on_play_action(),
+            Card::Spell(card) => card.on_play_action(),
+            Card::Trap(card) => card.on_play_action(),
+        }
+    }
+}
+
 pub trait CardBehavior {
     fn cost(&self) -> u16;
     fn description(&self) -> &str;
     fn name(&self) -> &str;
     fn display_image_asset_string(&self) -> &str;
     // Add other common methods here
-}
-
-#[derive(Clone)]
-pub enum CardBundle {
-    Creature { bundle: CreatureBundle },
-    Spell { bundle: SpellBundle },
-    Trap { bundle: TrapBundle },
-}
-
-pub trait FromRegistry: Sized {
-    fn from_registry(card_registry: &CardRegistry, card_id: CardID) -> Option<Self>;
-}
-
-impl FromRegistry for CardBundle {
-    fn from_registry(card_registry: &CardRegistry, card_id: CardID) -> Option<Self> {
-        let bundle = match card_registry.get_type(&card_id)? {
-            card_type::CardTypes::Creature => CardBundle::Creature {
-                bundle: CreatureBundle::from_registry(card_registry, card_id)?,
-            },
-            card_type::CardTypes::Spell => CardBundle::Spell {
-                bundle: SpellBundle::from_registry(card_registry, card_id)?,
-            },
-            card_type::CardTypes::Trap => CardBundle::Trap {
-                bundle: TrapBundle::from_registry(card_registry, card_id)?,
-            },
-        };
-        Some(bundle)
-    }
 }
 
 impl Card {
@@ -176,6 +165,38 @@ impl CardBehavior for Card {
             Card::Spell(c) => c.display_image_asset_string(),
             Card::Trap(c) => c.display_image_asset_string(),
         }
+    }
+}
+
+// ============================================
+// Bundles
+// ============================================
+
+#[derive(Clone)]
+pub enum CardBundle {
+    Creature { bundle: CreatureBundle },
+    Spell { bundle: SpellBundle },
+    Trap { bundle: TrapBundle },
+}
+
+pub trait FromRegistry: Sized {
+    fn from_registry(card_registry: &CardRegistry, card_id: CardID) -> Option<Self>;
+}
+
+impl FromRegistry for CardBundle {
+    fn from_registry(card_registry: &CardRegistry, card_id: CardID) -> Option<Self> {
+        let bundle = match card_registry.get_type(&card_id)? {
+            card_type::CardTypes::Creature => CardBundle::Creature {
+                bundle: CreatureBundle::from_registry(card_registry, card_id)?,
+            },
+            card_type::CardTypes::Spell => CardBundle::Spell {
+                bundle: SpellBundle::from_registry(card_registry, card_id)?,
+            },
+            card_type::CardTypes::Trap => CardBundle::Trap {
+                bundle: TrapBundle::from_registry(card_registry, card_id)?,
+            },
+        };
+        Some(bundle)
     }
 }
 

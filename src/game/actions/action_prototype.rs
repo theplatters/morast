@@ -165,7 +165,7 @@ impl ActionEffectPrototype {
             ActionEffectPrototype::Sequence(actions) => actions
                 .iter()
                 .next()
-                .and_then(|a| Some(a.targeting_type()))
+                .map(|a| a.targeting_type())
                 .unwrap_or(TargetingType::None),
 
             // These cases should never be reached due to has_targeting_type() check

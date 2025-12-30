@@ -6,8 +6,8 @@ use crate::game::{
         targeting::TargetingType,
     },
     board::{
-        tile::{Occupant, Position, Tile},
-        MoveRequest,
+        movement::MoveRequest,
+        tile::{Occupant, Position},
     },
     card::{InHand, OnBoard, Selected},
     player::{Hand, Player, TurnPlayer},
@@ -254,14 +254,13 @@ fn handle_idle_state(
     mut next_state: ResMut<NextState<TurnState>>,
     mut commands: Commands,
     occupants: Query<(&Occupant, Entity)>,
-    hand: Query<&Hand, With<TurnPlayer>>,
+    hand: Single<&Hand, With<TurnPlayer>>,
 ) {
     // Preserve your original priority: card click beats board click.
     // If multiple intents arrive, process in order but return after card selection.
     for intent in intents.read().copied() {
         match intent {
             IdleIntent::IdleCardClick { card_index } => {
-                let hand = hand.single().unwrap();
                 let Some(card_entity) = hand.get_card(card_index) else {
                     warn!("Invalid card index: {}", card_index);
                     continue;
@@ -287,21 +286,11 @@ fn handle_card_selected(
     mut play_commands: MessageWriter<CardPlayRequested>,
     mut next_state: ResMut<NextState<TurnState>>,
     player_hands: Query<(&Hand, &Player), With<TurnPlayer>>,
-    selected_card: Query<Entity, (With<Selected>, With<InHand>)>,
+    selected_card: Single<Entity, (With<Selected>, With<InHand>)>,
 ) {
-    let Some(CardSelectedIntent::CardSelectedBoardClick { position, .. }) =
-        intents.read().next().copied()
+    let Some(&CardSelectedIntent::CardSelectedBoardClick { position, .. }) = intents.read().next()
     else {
         return;
-    };
-
-    let selected_card = match selected_card.single() {
-        Ok(e) => e,
-        Err(_) => {
-            warn!("CardSelected state but no selected in-hand card");
-            next_state.set(TurnState::Idle);
-            return;
-        }
     };
 
     let Ok((hand, _)) = player_hands.single() else {
@@ -310,14 +299,15 @@ fn handle_card_selected(
         return;
     };
 
-    let Some(hand_position) = hand.iter().position(|r| r == selected_card) else {
+    let Some(hand_position) = hand.iter().position(|r| r == *selected_card) else {
         warn!("Could not find card in players hand");
         next_state.set(TurnState::Idle);
         return;
     };
 
+    info!("Sending Play command");
     play_commands.write(CardPlayRequested {
-        card: selected_card,
+        card: *selected_card,
         hand_position,
         position,
     });
@@ -370,7 +360,7 @@ fn handle_awaiting_inputs(
     actions: Query<(Entity, &TargetingType), With<NeedsTargeting>>,
     mut commands: Commands,
 ) {
-    if let Some(AwaitingInputsBoardClick { entity, .. }) = board_clicks.read().next().copied() {
+    if let Some(&AwaitingInputsBoardClick { entity, .. }) = board_clicks.read().next() {
         commands.entity(entity).insert(Selected);
     }
 

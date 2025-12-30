@@ -4,6 +4,8 @@ use bevy::{
     math::{U16Vec2, Vec2, Vec3},
 };
 
+use crate::game::board::BoardRes;
+
 #[derive(Resource, Debug)]
 pub struct RenderConfig {
     pub card_width: f32,
@@ -15,18 +17,21 @@ pub struct RenderConfig {
     pub board_height: f32,
     pub select_offset: Vec2,
     pub sprite_color: Color,
+    pub hand_from_board_margin: f32,
 }
 
 impl Default for RenderConfig {
     fn default() -> Self {
+        let tile_size: f32 = 55.0;
         Self {
             card_width: 200.0,
             card_height: 220.0,
             hand_y: 700.0,
-            card_padding: 10.0,
-            tile_size: 50.0,
-            board_width: 1200.0,
-            board_height: 350.0,
+            card_padding: 50.0,
+            tile_size,
+            hand_from_board_margin: 5.0,
+            board_width: BoardRes::XSIZE as f32 * tile_size,
+            board_height: BoardRes::YSIZE as f32 * tile_size,
             select_offset: Vec2::new(0.0, -10.0),
             sprite_color: Color::WHITE,
         }
@@ -36,6 +41,13 @@ impl Default for RenderConfig {
 impl RenderConfig {
     #[inline]
     pub fn to_absolute_position(&self, pos: U16Vec2) -> Vec3 {
-        (Vec2::new(1.0, -1.0) * pos.as_vec2() * self.tile_size).extend(0.0)
+        let base_x = pos.x as f32 * self.tile_size;
+        let base_y = -(pos.y as f32 * self.tile_size); // Y increases downwards
+
+        // Offset from the top-left corner to the center of the tile
+        let center_x = base_x;
+        let center_y = base_y;
+
+        Vec3::new(center_x, center_y, 0.0)
     }
 }

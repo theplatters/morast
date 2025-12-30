@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use bevy::math::I16Vec2;
 
-use crate::game::board::MoveValidationError;
+use crate::game::board::movement::MoveValidationError;
 
 #[derive(Debug)]
 pub enum BoardError {

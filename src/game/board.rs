@@ -1,33 +1,33 @@
-use std::{collections::HashMap, fmt::Display};
+use std::collections::HashMap;
 
 use bevy::{
     math::{I16Vec2, U16Vec2},
     prelude::*,
-    sprite::Anchor,
 };
 use effect::Effect;
 use place_error::BoardError;
 
-use crate::{
-    engine::renderer::render_config::RenderConfig,
-    game::{
-        board::{
-            effect::{EffectDuration, EffectType},
-            tile::{Occupant, Position, Tile, TileBundel},
-        },
-        card::{
-            creature::{AttackPattern, Attacks, BaseMovementPoints, MovementPattern},
-            CreatureCard, CurrentAttack, CurrentMovementPoints, InHand, OnBoard,
-        },
-        components::{Health, Owner},
-        events::{CardMoved, EffectAdded, EffectRemoved},
-        player::{Player, TurnPlayer},
-        turn_controller::{BoardClicked, CardPlayRequested, TurnPhase},
+use crate::game::{
+    board::{
+        effect::*,
+        movement::*,
+        placement::{place_card, CardPlayed},
+        tile::*,
     },
+    card::{
+        creature::{AttackPattern, Attacks},
+        OnBoard,
+    },
+    components::{Health, Owner},
+    events::{EffectAdded, EffectRemoved},
+    player::Player,
+    turn_controller::{BoardClicked, TurnPhase},
 };
 
 pub mod effect;
+pub mod movement;
 pub mod place_error;
+pub mod placement;
 pub mod tile;
 
 #[derive(Bundle)]
@@ -59,32 +59,18 @@ pub struct BoardRes {
 }
 
 impl BoardRes {
-    pub fn setup_board(
-        mut commands: Commands,
-        render_config: Res<RenderConfig>,
-        asset_server: Res<AssetServer>,
-        window: Query<&Window>,
-    ) {
-        let window = window.single().expect("Could not find window");
-        let x_size: u16 = 24;
-        let y_size: u16 = 12;
-
+    pub const XSIZE: u16 = 24;
+    pub const YSIZE: u16 = 12;
+    pub fn setup_board(mut commands: Commands) {
         let mut tiles = HashMap::new();
         let player_base_positions = [
-            U16Vec2::new(2, y_size / 2),
-            U16Vec2::new(x_size - 3, y_size / 2),
+            U16Vec2::new(2, Self::YSIZE / 2),
+            U16Vec2::new(Self::XSIZE - 3, Self::YSIZE / 2),
         ];
-        let board_id = commands
-            .spawn((
-                Board,
-                Transform::from_xyz(window.width() / -2., window.height() / 2., 0.),
-                Visibility::default(),
-                Anchor::TOP_LEFT,
-            ))
-            .id();
+        let board_id = commands.spawn((Board,)).id();
 
-        for x in 0..x_size {
-            for y in 0..y_size {
+        for x in 0..Self::XSIZE {
+            for y in 0..Self::YSIZE {
                 let position = U16Vec2::new(x, y);
                 let tile_id = commands
                     .spawn((TileBundel::default(), ChildOf(board_id), Position(position)))
@@ -109,7 +95,7 @@ impl BoardRes {
 
         commands.insert_resource(BoardRes {
             tiles,
-            size: U16Vec2::new(x_size, y_size),
+            size: U16Vec2::new(Self::XSIZE, Self::YSIZE),
             player_base_positions,
         });
     }
@@ -164,34 +150,12 @@ impl BoardRes {
     }
 }
 
-pub(crate) fn refresh_movement_points(
-    creatures: Query<(&mut CurrentMovementPoints, &Owner, &BaseMovementPoints), With<CreatureCard>>,
-    player: Query<Entity, With<TurnPlayer>>,
-) {
-    for (mut movement, owner, base_movement) in creatures.into_iter() {
-        if owner.0 == player.single().expect("No turn player found") {
-            movement.0 = base_movement.0
-        }
-    }
-}
-
 pub fn update_attack_values(
-    mut tiles: Query<&Position>,
-    creatures: Query<
-        (
-            Entity,
-            &CurrentAttack,
-            &AttackPattern,
-            &mut Attacks,
-            &OnBoard,
-        ),
-        Changed<OnBoard>,
-    >,
-    players: Query<&Player>,
-    board: Res<BoardRes>,
+    tiles: Query<&Position>,
+    creatures: Query<(Entity, &AttackPattern, &OnBoard), Changed<OnBoard>>,
     mut commands: Commands,
 ) -> Result {
-    for (card_entity, attack_value, pattern, attack_pattern, on_board) in &creatures {
+    for (card_entity, pattern, on_board) in &creatures {
         let pos = tiles.get(on_board.position).unwrap();
         commands
             .entity(card_entity)
@@ -225,132 +189,6 @@ fn add_effect_to_tile(
     Ok(())
 }
 
-#[derive(Message)]
-pub struct MoveRequest {
-    pub entity: Entity,
-    pub from: U16Vec2,
-    pub to: U16Vec2,
-}
-
-pub fn is_validate_move() -> bool {
-    true
-}
-
-#[derive(Debug)]
-pub enum MoveValidationError {
-    InsufficientMovementPoints { required: u16, available: u16 },
-    InvalidMovePattern { from: U16Vec2, to: U16Vec2 },
-    Occupied,
-}
-
-impl Display for MoveValidationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            MoveValidationError::InsufficientMovementPoints {
-                required,
-                available,
-            } => write!(
-                f,
-                "InsufficientMovementPoints required: {}, available {}",
-                required, available
-            ),
-            MoveValidationError::InvalidMovePattern { from, to } => {
-                write!(f, "InvalidMovePattern from {}, to {}", from, to)
-            }
-            MoveValidationError::Occupied => write!(f, "Tile is occupied"),
-        }
-    }
-}
-
-impl std::error::Error for MoveValidationError {}
-
-fn check_valid_move_and_get_cost(
-    from: U16Vec2,
-    to: U16Vec2,
-    movement_points: u16,
-    movement_pattern: &MovementPattern,
-    tile_has_slow: bool,
-) -> Result<u16, MoveValidationError> {
-    // Check movement points requirement
-    let required_points = if tile_has_slow { 2 } else { 1 };
-
-    if movement_points < required_points {
-        return Err(MoveValidationError::InsufficientMovementPoints {
-            required: required_points,
-            available: movement_points,
-        });
-    }
-
-    let from_signed = from.as_i16vec2();
-    let to_signed = to.as_i16vec2();
-    let delta = to_signed - from_signed;
-
-    let pattern_valid = movement_pattern.0.contains(&delta);
-
-    if !pattern_valid {
-        return Err(MoveValidationError::InvalidMovePattern { from, to });
-    }
-    Ok(required_points)
-}
-
-pub fn handle_movement(
-    mut commands: Commands,
-    mut move_requests: MessageReader<MoveRequest>,
-    mut move_completed: MessageWriter<CardMoved>,
-    mut creatures: Query<
-        (&OnBoard, &mut CurrentMovementPoints, &MovementPattern),
-        With<CreatureCard>,
-    >,
-    board: Res<BoardRes>,
-    occupied: Query<&Occupant>,
-    effects: Query<(&EffectType, &ChildOf)>,
-) -> Result {
-    for event in move_requests.read() {
-        let (mut creature, mut movement, pattern) = creatures
-            .get_mut(event.entity)
-            .map_err(|_| BoardError::CardNotFound)?;
-        let old_pos = event.from;
-
-        let old_tile = board.get_tile(&old_pos).ok_or(BoardError::TileNotFound)?;
-        let new_tile = board.get_tile(&event.to).ok_or(BoardError::TileNotFound)?;
-
-        if occupied.contains(new_tile) {
-            return Err(BoardError::InvalidMove(MoveValidationError::Occupied).into());
-        }
-
-        let tile_has_slow = effects
-            .iter()
-            .any(|(ef, co)| co.0 == old_tile && *ef == EffectType::Slow);
-
-        let cost =
-            check_valid_move_and_get_cost(old_pos, event.to, movement.0, pattern, tile_has_slow)
-                .map_err(BoardError::InvalidMove)?;
-
-        commands
-            .entity(event.entity)
-            .insert(OnBoard { position: new_tile });
-        movement.0 -= cost;
-
-        move_completed.write(CardMoved {
-            card: event.entity,
-            from: old_pos,
-            to: event.to,
-        });
-    }
-    Ok(())
-}
-
-pub fn update_position_on_move(
-    mut cards: Query<(&OnBoard, &mut Transform), Changed<OnBoard>>,
-    mut tiles: Query<&Position, With<Tile>>,
-    render_config: Res<RenderConfig>,
-) {
-    for (pos, mut trans) in cards.iter_mut() {
-        let &Position(pos) = tiles.get(pos.position).unwrap();
-        trans.translation = render_config.to_absolute_position(pos);
-    }
-}
-
 pub fn decrease_effect_duration(
     mut commands: Commands,
     mut effects: Query<(&mut EffectDuration, &EffectType, Entity, &ChildOf), With<EffectType>>,
@@ -368,23 +206,6 @@ pub fn decrease_effect_duration(
     }
 }
 
-pub fn place_card(
-    mut card_place_requests: MessageReader<CardPlayRequested>,
-    free_tiles: Query<&Tile, Without<Occupant>>,
-    board: Res<BoardRes>,
-    mut commands: Commands,
-) {
-    for card_place_request in card_place_requests.read() {
-        let tile = board.get_tile(&card_place_request.position).unwrap();
-        if free_tiles.contains(tile) {
-            commands
-                .entity(card_place_request.card)
-                .remove::<InHand>()
-                .insert(OnBoard { position: tile });
-        }
-    }
-}
-
 pub struct BoardPlugin;
 
 impl Plugin for BoardPlugin {
@@ -393,6 +214,7 @@ impl Plugin for BoardPlugin {
             // Register the Messages (events)
             .add_message::<EffectRequested>()
             .add_message::<MoveRequest>()
+            .add_message::<CardPlayed>()
             // Setup systems (run once at startup)
             .add_systems(
                 Startup,
@@ -401,14 +223,10 @@ impl Plugin for BoardPlugin {
                     BoardRes::setup_player_bases.after(BoardRes::setup_board),
                 ),
             )
-            // Update systems that run every frame
             .add_systems(
                 Update,
                 (
                     handle_movement,
-                    // Movement handling
-                    update_position_on_move.after(handle_movement),
-                    // Effect handling
                     add_effect_to_tile,
                     decrease_effect_duration,
                     place_card,

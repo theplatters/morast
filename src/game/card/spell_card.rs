@@ -5,7 +5,10 @@ use bevy::{
 
 use crate::game::{
     actions::action_prototype::GameAction,
-    card::{card_id::CardID, card_registry::CardRegistry, Card, CardBehavior, Cost, FromRegistry},
+    card::{
+        card_id::CardID, card_registry::CardRegistry, Card, CardBehavior, Cost, FromRegistry,
+        Playable,
+    },
 };
 
 #[derive(Debug)]
@@ -54,9 +57,11 @@ impl Spell {
             display_image_asset_string,
         }
     }
+}
 
-    pub fn on_play_action(&self) -> &GameAction {
-        &self.on_play_action
+impl Playable for Spell {
+    fn on_play_action(&self) -> Option<&GameAction> {
+        Some(&self.on_play_action)
     }
 }
 
