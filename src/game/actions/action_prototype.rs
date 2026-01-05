@@ -10,7 +10,7 @@ use crate::{
     engine::janet_handler::types::{janetenum::JanetEnum, table::Table},
     game::{
         actions::{
-            action_builder::ActionPrototypeBuilder, spell_speed::SpellSpeed,
+            action_builder::ActionPrototypeBuilder, conditions::Condition, spell_speed::SpellSpeed,
             targeting::TargetSelector, timing::ActionTiming,
         },
         board::effect::EffectType,
@@ -104,6 +104,7 @@ pub enum UnitAction {
         options: Vec<UnitAction>,
         chooser: ChoiceSource,
     },
+
     Repeat {
         action: Box<UnitAction>,
         count: ValueSource,

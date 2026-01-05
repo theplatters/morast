@@ -1,4 +1,4 @@
-use bevy::ecs::component::Component;
+use bevy::ecs::{component::Component, query::QueryFilter};
 
 // The main selector - now with phantom types to track state
 #[derive(Component, Debug, Clone, PartialEq, Eq)]
@@ -160,21 +160,6 @@ impl CreatureTargetBuilder {
         self
     }
 
-    pub fn has_status(mut self, status: StatusType) -> Self {
-        self.filters.has_status.push(status);
-        self
-    }
-
-    pub fn lacks_status(mut self, status: StatusType) -> Self {
-        self.filters.lacks_status.push(status);
-        self
-    }
-
-    pub fn of_type(mut self, creature_type: CreatureType) -> Self {
-        self.filters.creature_types.push(creature_type);
-        self
-    }
-
     pub fn min_attack(mut self, attack: u32) -> Self {
         self.filters.min_attack = Some(attack);
         self
@@ -214,11 +199,6 @@ impl ManualCreatureTargetBuilder {
         self
     }
 
-    pub fn has_status(mut self, status: StatusType) -> Self {
-        self.filters.has_status.push(status);
-        self
-    }
-
     // ... other creature filters
 
     pub fn build(self) -> TargetSelector {
@@ -226,7 +206,6 @@ impl ManualCreatureTargetBuilder {
             selection: SelectionMethod::Manual(ManualSelector::ChooseCreatures {
                 min: self.min,
                 max: self.max,
-                pool: self.pool,
             }),
             validation: ValidationRules {
                 creature: Some(self.filters),
@@ -297,9 +276,6 @@ pub struct CreatureFilters {
     pub max_health: Option<u32>,
     pub health_percent: Option<(u8, u8)>,
     pub damaged_only: bool,
-    pub has_status: Vec<StatusType>,
-    pub lacks_status: Vec<StatusType>,
-    pub creature_types: Vec<CreatureType>,
     pub min_attack: Option<u32>,
     pub can_attack: Option<bool>,
 }

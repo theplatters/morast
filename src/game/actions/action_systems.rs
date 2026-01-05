@@ -2,7 +2,8 @@ use crate::{
     game::{
         actions::{
             action_prototype::{NeedsTargeting, Pending, ReadyToExecute},
-            targeting::TargetetSelector,
+            targeting::{SelectionMethod, TargetSelector},
+            targeting_system::RequestManualTargets,
         },
         card::Playable,
         error::GameError,
@@ -13,15 +14,16 @@ use crate::{
 use bevy::{
     app::{Plugin, Update},
     ecs::{
+        component::Component,
         entity::Entity,
         hierarchy::ChildOf,
         message::MessageReader,
         query::With,
         schedule::IntoScheduleConfigs,
-        system::{Commands, Query, Res, ResMut},
+        system::{Commands, Query, Res},
     },
     log::info,
-    state::{condition::in_state, state::NextState},
+    state::condition::in_state,
 };
 
 use crate::game::{
@@ -62,28 +64,27 @@ pub fn ready_on_play_action(
     Ok(())
 }
 
+#[derive(Component)]
+pub struct ManualTargeting {
+    pub chosen: Vec<Entity>, // selected target entities (creatures, tiles, etc)
+}
+
+#[derive(Component)]
+pub struct AutoTargeting {
+    pub chosen: Vec<Entity>, // selected target entities (creatures, tiles, etc)
+}
+
 pub fn handle_pending_actions(
     mut commands: Commands,
-    actions: Query<(Entity, &TargetetSelector), With<Pending>>,
-    mut next_state: ResMut<NextState<TurnState>>,
+    actions: Query<(Entity, &TargetSelector), With<Pending>>,
 ) {
-    let Some((entity, targeting_type)) = actions.iter().next() else {
-        return;
-    };
-
-    let needs_targeting = targeting_type.requires_selection();
-
-    commands
-        .entity(entity)
-        .remove::<Pending>()
-        .insert_if(NeedsTargeting, || needs_targeting)
-        .insert_if(ReadyToExecute, || !needs_targeting);
-
-    if needs_targeting {
-        next_state.set(TurnState::AwaitingInputs);
-        info!("Action needs targeting")
-    } else {
-        info!("Action is ready to execute")
+    for (action_entity, targeting_type) in actions {
+        let needs_targeting = matches!(targeting_type.selection, SelectionMethod::Manual(_));
+        commands
+            .entity(action_entity)
+            .remove::<Pending>()
+            .insert_if(ManualTargeting { chosen: vec![] }, || needs_targeting)
+            .insert_if(AutoTargeting { chosen: vec![] }, || needs_targeting);
     }
 }
 
