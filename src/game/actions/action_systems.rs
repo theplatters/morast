@@ -1,13 +1,27 @@
 use crate::{
-    game::{card::Playable, error::GameError},
+    game::{
+        actions::{
+            action_prototype::{NeedsTargeting, Pending, ReadyToExecute},
+            targeting::TargetetSelector,
+        },
+        card::Playable,
+        error::GameError,
+        turn_controller::TurnState,
+    },
     Result,
 };
 use bevy::{
-    app::Plugin,
+    app::{Plugin, Update},
     ecs::{
+        entity::Entity,
+        hierarchy::ChildOf,
         message::MessageReader,
-        system::{Commands, Query, Res},
+        query::With,
+        schedule::IntoScheduleConfigs,
+        system::{Commands, Query, Res, ResMut},
     },
+    log::info,
+    state::{condition::in_state, state::NextState},
 };
 
 use crate::game::{
@@ -19,7 +33,13 @@ pub struct ActionPlugin;
 
 impl Plugin for ActionPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-        todo!()
+        app.add_systems(
+            Update,
+            (
+                ready_on_play_action,
+                handle_pending_actions.run_if(in_state(TurnState::Idle)),
+            ),
+        );
     }
 }
 
@@ -36,8 +56,35 @@ pub fn ready_on_play_action(
             continue;
         };
 
-        commands.spawn(on_play_action.clone());
+        info!("Spawning action {:?}", on_play_action);
+        commands.spawn((on_play_action.clone(), Pending, ChildOf(card_played.card)));
     }
     Ok(())
 }
 
+pub fn handle_pending_actions(
+    mut commands: Commands,
+    actions: Query<(Entity, &TargetetSelector), With<Pending>>,
+    mut next_state: ResMut<NextState<TurnState>>,
+) {
+    let Some((entity, targeting_type)) = actions.iter().next() else {
+        return;
+    };
+
+    let needs_targeting = targeting_type.requires_selection();
+
+    commands
+        .entity(entity)
+        .remove::<Pending>()
+        .insert_if(NeedsTargeting, || needs_targeting)
+        .insert_if(ReadyToExecute, || !needs_targeting);
+
+    if needs_targeting {
+        next_state.set(TurnState::AwaitingInputs);
+        info!("Action needs targeting")
+    } else {
+        info!("Action is ready to execute")
+    }
+}
+
+pub fn execute_actions(actions: Query<(Entity), With<ReadyToExecute>>) {}

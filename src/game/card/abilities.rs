@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use crate::game::error::GameError;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Abilities {
     Flying,
     Jumping,

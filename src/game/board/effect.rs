@@ -1,10 +1,10 @@
 use std::str::FromStr;
 
-use bevy::ecs::{bundle::Bundle, component::Component};
+use bevy::ecs::{bundle::Bundle, component::Component, entity::Entity};
 
 use crate::{
     engine::janet_handler::types::janetenum::JanetEnum,
-    game::{error::GameError, player::Player},
+    game::{board::tile::EffectsOnTile, error::GameError, player::Player},
 };
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
@@ -30,6 +30,13 @@ pub struct Effect {
     pub effect_type: EffectType,
     duration: EffectDuration,
     pub owner: Player,
+}
+
+#[derive(Component, Debug)]
+#[relationship(relationship_target = EffectsOnTile)]
+pub struct EffectTile {
+    #[relationship]
+    pub position: Entity,
 }
 
 impl Effect {

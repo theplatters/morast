@@ -1,6 +1,6 @@
 use bevy::{
     app::{Plugin, Startup, Update},
-    asset::AssetServer,
+    asset::{AssetServer, Assets},
     camera::Camera2d,
     color::{Color, Srgba},
     ecs::{
@@ -14,15 +14,18 @@ use bevy::{
         query::{Added, Changed, With},
         relationship::{RelatedSpawnerCommands, RelationshipTarget},
         schedule::IntoScheduleConfigs,
-        system::{Commands, Query, Res, Single},
+        system::{Commands, Query, Res, ResMut, Single},
     },
     log::{info, warn},
     math::{U16Vec2, Vec2},
+    mesh::Mesh,
     picking::{
         events::{Pointer, Release},
         Pickable,
     },
     sprite::{Anchor, Sprite, Text2d},
+    sprite_render::ColorMaterial,
+    state::commands,
     text::{TextColor, TextFont},
     transform::components::{GlobalTransform, Transform},
     window::Window,
@@ -32,7 +35,7 @@ use crate::{
     engine::renderer::render_config::RenderConfig,
     game::{
         board::{
-            tile::{Position, Tile},
+            tile::{EffectsOnTile, Position, Tile},
             Board, BoardRes,
         },
         card::{add_cards, card_id::CardID, Cost, InHand, OnBoard},
@@ -54,9 +57,10 @@ impl Plugin for RendererPlugin {
                     setup_camera,
                     setup_creature_on_board_renderer.after(add_cards),
                     render_board.after(BoardRes::setup_board),
+                    render_tiles.after(BoardRes::setup_board),
                 ),
             )
-            .add_systems(Update, (render_card_in_hand, render_tiles));
+            .add_systems(Update, (render_card_in_hand, render_effects_on_tile));
     }
 }
 
@@ -128,6 +132,26 @@ pub fn render_tiles(
             Anchor::TOP_LEFT,
             Pickable::default(),
         ));
+    }
+}
+
+pub fn render_effects_on_tile(
+    tiles_with_effect: Query<&EffectsOnTile, With<Tile>>,
+    mut commands: Commands,
+    render_config: Res<RenderConfig>,
+    asset_server: Res<AssetServer>,
+) {
+    for tile_effects in tiles_with_effect {
+        for effect in tile_effects.iter() {
+            commands.entity(effect).insert((
+                Sprite {
+                    image: asset_server.load("effect.png"),
+                    custom_size: Some(render_config.tile_size * Vec2::ONE),
+                    ..Default::default()
+                },
+                Transform::from_xyz(0.0, 0.0, 1.0),
+            ));
+        }
     }
 }
 

@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use crate::{
     engine::{janet_handler::controller::Environment, renderer::RendererPlugin},
     game::{
+        actions::action_systems::ActionPlugin,
         board::BoardPlugin,
         card::{
             add_cards,
@@ -21,7 +22,6 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(CardRegistry::new())
         .insert_non_send_resource(Environment::new("scripts/loader.janet"))
-        .add_plugins(GameMessagesPlugin)
         .add_systems(
             Startup,
             (
@@ -32,8 +32,12 @@ fn main() {
             )
                 .chain(),
         )
-        .add_plugins(BoardPlugin)
-        .add_plugins(TurnControllerPlugin)
-        .add_plugins(RendererPlugin)
+        .add_plugins((
+            GameMessagesPlugin,
+            BoardPlugin,
+            TurnControllerPlugin,
+            RendererPlugin,
+            ActionPlugin,
+        ))
         .run();
 }

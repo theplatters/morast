@@ -2,9 +2,9 @@ use bevy::math::I16Vec2;
 
 use crate::game::{
     actions::{
-        action_prototype::{ActionEffectPrototype, GameAction},
+        action_prototype::{GameAction, Pending, UnitAction},
         spell_speed::SpellSpeed,
-        targeting::TargetingType,
+        targeting::TargetSelector,
         timing::ActionTiming,
     },
     board::effect::Effect,
@@ -25,7 +25,7 @@ macro_rules! verify_targets {
 
 #[derive(Debug, Clone)]
 pub struct ActionPrototypeBuilder {
-    action: Option<ActionEffectPrototype>,
+    action: Option<UnitAction>,
     timing: ActionTiming,
     speed: SpellSpeed,
     can_be_countered: bool,
@@ -43,46 +43,46 @@ impl ActionPrototypeBuilder {
         }
     }
 
-    pub fn with_action(mut self, action: ActionEffectPrototype) -> Self {
+    pub fn with_action(mut self, action: UnitAction) -> Self {
         self.action = Some(action);
         self
     }
     // Core action setters
     pub fn place_creature(mut self) -> Self {
-        self.action = Some(ActionEffectPrototype::PlaceCreature);
+        self.action = Some(UnitAction::PlaceCreature);
         self
     }
 
     pub fn place_trap(mut self) -> Self {
-        self.action = Some(ActionEffectPrototype::PlaceTrap);
+        self.action = Some(UnitAction::PlaceTrap);
         self
     }
 
     pub fn end_turn(mut self) -> Self {
-        self.action = Some(ActionEffectPrototype::EndTurn);
+        self.action = Some(UnitAction::EndTurn);
         self
     }
 
     pub fn cast_spell(mut self) -> Self {
-        self.action = Some(ActionEffectPrototype::CastSpell);
+        self.action = Some(UnitAction::CastSpell);
         self
     }
 
     pub fn move_creature(mut self, direction: I16Vec2) -> Self {
-        self.action = Some(ActionEffectPrototype::MoveCreature { direction });
+        self.action = Some(UnitAction::MoveCreature { direction });
         self
     }
 
-    pub fn deal_damage(mut self, targeting_type: TargetingType, amount: u16) -> Self {
-        self.action = Some(ActionEffectPrototype::DealDamage {
+    pub fn deal_damage(mut self, targeting_type: TargetSelector, amount: u16) -> Self {
+        self.action = Some(UnitAction::DealDamage {
             amount,
             targeting_type,
         });
         self
     }
 
-    pub fn heal_creature(mut self, targeting_type: TargetingType, amount: u16) -> Self {
-        self.action = Some(ActionEffectPrototype::HealCreature {
+    pub fn heal_creature(mut self, targeting_type: TargetSelector, amount: u16) -> Self {
+        self.action = Some(UnitAction::HealCreature {
             targeting_type,
             amount,
         });
@@ -90,12 +90,12 @@ impl ActionPrototypeBuilder {
     }
 
     pub fn draw_cards(mut self, count: u16) -> Self {
-        self.action = Some(ActionEffectPrototype::DrawCards { count });
+        self.action = Some(UnitAction::DrawCards { count });
         self
     }
 
     pub fn add_gold(mut self, amount: u16) -> Self {
-        self.action = Some(ActionEffectPrototype::AddGold { amount });
+        self.action = Some(UnitAction::AddGold { amount });
         self
     }
 
@@ -107,10 +107,10 @@ impl ActionPrototypeBuilder {
     pub fn apply_effect(
         mut self,
         effect: Effect,
-        targeting_type: TargetingType,
+        targeting_type: TargetSelector,
         duration: u32,
     ) -> Self {
-        self.action = Some(ActionEffectPrototype::ApplyEffect {
+        self.action = Some(UnitAction::ApplyEffect {
             effect: effect.effect_type,
             duration: effect.duration(),
             targeting_type,
@@ -119,18 +119,18 @@ impl ActionPrototypeBuilder {
     }
 
     pub fn summon_creature(mut self, creature_id: CardID) -> Self {
-        self.action = Some(ActionEffectPrototype::SummonCreature { creature_id });
+        self.action = Some(UnitAction::SummonCreature { creature_id });
         self
     }
 
-    pub fn destroy_creature(mut self, targeting_type: TargetingType) -> Self {
-        self.action = Some(ActionEffectPrototype::DestroyCreature { targeting_type });
+    pub fn destroy_creature(mut self, targeting_type: TargetSelector) -> Self {
+        self.action = Some(UnitAction::DestroyCreature { targeting_type });
         self
     }
 
     // Composite actions
-    pub fn sequence(mut self, actions: Vec<ActionEffectPrototype>) -> Self {
-        self.action = Some(ActionEffectPrototype::Sequence(actions));
+    pub fn sequence(mut self, actions: Vec<UnitAction>) -> Self {
+        self.action = Some(UnitAction::Sequence(actions));
         self
     }
 
@@ -231,14 +231,14 @@ impl std::fmt::Display for ActionBuilderError {
 impl std::error::Error for ActionBuilderError {}
 
 // Convenience trait for converting ActionEffect to Action
-impl From<ActionEffectPrototype> for ActionPrototypeBuilder {
-    fn from(effect: ActionEffectPrototype) -> Self {
+impl From<UnitAction> for ActionPrototypeBuilder {
+    fn from(effect: UnitAction) -> Self {
         Self::new().with_action_effect(effect)
     }
 }
 
 impl ActionPrototypeBuilder {
-    fn with_action_effect(mut self, action: ActionEffectPrototype) -> Self {
+    fn with_action_effect(mut self, action: UnitAction) -> Self {
         self.action = Some(action);
         self
     }

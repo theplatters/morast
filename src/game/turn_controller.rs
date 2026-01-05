@@ -3,7 +3,7 @@ use bevy::{math::U16Vec2, prelude::*};
 use crate::game::{
     actions::{
         action_prototype::{NeedsTargeting, Pending, ReadyToExecute},
-        targeting::TargetingType,
+        targeting::TargetSelector,
     },
     board::{
         movement::MoveRequest,
@@ -132,7 +132,6 @@ impl Plugin for TurnControllerPlugin {
                     handle_cancel_input,
                     // Routers MUST run before state handlers
                     (card_click_system, board_click_system),
-                    handle_action.run_if(in_state(TurnState::Idle)),
                     handle_idle_state.run_if(in_state(TurnState::Idle)),
                     handle_card_selected.run_if(in_state(TurnState::CardSelected)),
                     handle_awaiting_inputs.run_if(in_state(TurnState::AwaitingInputs)),
@@ -357,7 +356,7 @@ fn handle_awaiting_inputs(
     mut play_commands: MessageWriter<TargetingComplete>,
     mut next_state: ResMut<NextState<TurnState>>,
     selected_cards: Query<&Selected, With<OnBoard>>,
-    actions: Query<(Entity, &TargetingType), With<NeedsTargeting>>,
+    actions: Query<(Entity, &TargetSelector), With<NeedsTargeting>>,
     mut commands: Commands,
 ) {
     if let Some(&AwaitingInputsBoardClick { entity, .. }) = board_clicks.read().next() {
@@ -375,28 +374,6 @@ fn handle_awaiting_inputs(
         commands.entity(action_entity).remove::<NeedsTargeting>();
         commands.entity(action_entity).insert(ReadyToExecute);
         next_state.set(TurnState::Idle);
-    }
-}
-
-pub fn handle_action(
-    mut commands: Commands,
-    actions: Query<(Entity, &TargetingType), With<Pending>>,
-    mut next_state: ResMut<NextState<TurnState>>,
-) {
-    let Some((entity, targeting_type)) = actions.iter().next() else {
-        return;
-    };
-
-    let needs_targeting = targeting_type.requires_selection();
-
-    commands
-        .entity(entity)
-        .remove::<Pending>()
-        .insert_if(NeedsTargeting, || needs_targeting)
-        .insert_if(ReadyToExecute, || !needs_targeting);
-
-    if needs_targeting {
-        next_state.set(TurnState::AwaitingInputs);
     }
 }
 

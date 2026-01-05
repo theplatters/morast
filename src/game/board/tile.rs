@@ -3,7 +3,7 @@ use bevy::{
     math::U16Vec2,
 };
 
-use crate::game::card::OnBoard;
+use crate::game::{board::effect::EffectTile, card::OnBoard};
 
 #[derive(Bundle, Default)]
 pub struct TileBundel {
@@ -19,6 +19,10 @@ pub struct Position(pub U16Vec2);
 #[derive(Component)]
 #[relationship_target(relationship = OnBoard)]
 pub struct Occupant(Entity);
+
+#[derive(Component, Debug)]
+#[relationship_target(relationship = EffectTile)]
+pub struct EffectsOnTile(Vec<Entity>);
 
 impl Occupant {
     pub fn get(&self) -> Entity {
