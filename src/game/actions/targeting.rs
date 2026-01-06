@@ -2,9 +2,50 @@ use bevy::ecs::{component::Component, query::QueryFilter};
 
 // The main selector - now with phantom types to track state
 #[derive(Component, Debug, Clone, PartialEq, Eq)]
-pub struct TargetSelector {
+
+pub struct SingleTarget;
+pub struct MultiTarget;
+
+#[derive(Clone, Debug)]
+pub struct CreatureTarget;
+#[derive(Clone, Debug)]
+pub struct TileTarget;
+#[derive(Clone, Debug)]
+pub struct PlayerTarget;
+
+pub trait RulesFor<K>: Clone + std::fmt::Debug + Send + Sync + 'static {}
+
+pub trait TargetKind: 'static {
+    type FilterBase: Clone + std::fmt::Debug + Send + Sync + 'static;
+    type FilterExtra: Clone + std::fmt::Debug + Send + Sync + 'static;
+
+    type Filter: Clone + std::fmt::Debug + Send + Sync + 'static;
+}
+
+// generic composition type
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RulesWithExtras<Base, Extra> {
+    pub base: Base,
+    pub extras: Vec<Extra>,
+}
+
+impl<Base: Default, Extra> Default for RulesWithExtras<Base, Extra> {
+    fn default() -> Self {
+        Self {
+            base: Base::default(),
+            extras: Vec::new(),
+        }
+    }
+}
+
+#[derive(Component, Clone, Debug)]
+pub struct TargetSelector<K, C>
+where
+    K: TargetKind,
+{
     pub(crate) selection: SelectionMethod,
-    pub(crate) validation: ValidationRules,
+    pub(crate) validation: K::Filter,
+    _kind: std::marker::PhantomData<(K, C)>,
 }
 
 // Internal enums stay the same but are now private construction
@@ -31,14 +72,6 @@ pub enum ManualSelector {
     ChooseLine { length: u8 },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct ValidationRules {
-    pub creature: Option<CreatureFilters>,
-    pub tile: Option<TileFilters>,
-    pub player: Option<PlayerFilters>,
-}
-
-// Type-safe builders using phantom types
 pub struct CreatureTargetBuilder {
     selection: AutoSelector,
     filters: CreatureFilters,
@@ -50,9 +83,10 @@ pub struct ManualCreatureTargetBuilder {
     filters: CreatureFilters,
 }
 
-pub struct TileTargetBuilder {
+pub struct TileTargetBuilder<C> {
     selector: ManualSelector,
     filters: TileFilters,
+    _card: std::marker::PhantomData<C>,
 }
 
 pub struct PlayerTargetBuilder {
@@ -60,9 +94,11 @@ pub struct PlayerTargetBuilder {
     filters: PlayerFilters,
 }
 
-// Entry points - the only way to construct selectors
-impl TargetSelector {
-    // === Auto Creature Selection ===
+impl<K> TargetSelector<K, ()>
+where
+    K: TargetKind,
+{
+    // creature auto
     pub fn all_enemy_creatures() -> CreatureTargetBuilder {
         CreatureTargetBuilder {
             selection: AutoSelector::AllEnemyCreatures,
@@ -70,21 +106,7 @@ impl TargetSelector {
         }
     }
 
-    pub fn all_friendly_creatures() -> CreatureTargetBuilder {
-        CreatureTargetBuilder {
-            selection: AutoSelector::AllFriendlyCreatures,
-            filters: CreatureFilters::default(),
-        }
-    }
-
-    pub fn random_creatures(count: u8) -> CreatureTargetBuilder {
-        CreatureTargetBuilder {
-            selection: AutoSelector::RandomCreatures { count },
-            filters: CreatureFilters::default(),
-        }
-    }
-
-    // === Manual Creature Selection ===
+    // creature manual
     pub fn choose_creatures(min: u8, max: u8) -> ManualCreatureTargetBuilder {
         ManualCreatureTargetBuilder {
             min,
@@ -93,84 +115,56 @@ impl TargetSelector {
         }
     }
 
-    // === Tile Selection ===
-    pub fn choose_tiles(amount: u8) -> TileTargetBuilder {
+    // tiles
+    pub fn choose_tile() -> TileTargetBuilder<SingleTarget> {
+        TileTargetBuilder {
+            selector: ManualSelector::ChooseTiles { amount: 1 },
+            filters: TileFilters::default(),
+            _card: std::marker::PhantomData,
+        }
+    }
+
+    pub fn choose_tiles(amount: u8) -> TileTargetBuilder<MultiTarget> {
         TileTargetBuilder {
             selector: ManualSelector::ChooseTiles { amount },
             filters: TileFilters::default(),
+            _card: std::marker::PhantomData,
         }
     }
 
-    pub fn choose_area(radius: u8) -> TileTargetBuilder {
+    pub fn choose_area(radius: u8) -> TileTargetBuilder<MultiTarget> {
         TileTargetBuilder {
             selector: ManualSelector::ChooseArea { radius },
             filters: TileFilters::default(),
+            _card: std::marker::PhantomData,
         }
     }
 
-    pub fn choose_line(length: u8) -> TileTargetBuilder {
+    pub fn choose_line(length: u8) -> TileTargetBuilder<MultiTarget> {
         TileTargetBuilder {
             selector: ManualSelector::ChooseLine { length },
             filters: TileFilters::default(),
+            _card: std::marker::PhantomData,
         }
     }
 
-    // === Player Selection ===
+    // players
     pub fn turn_player() -> PlayerTargetBuilder {
         PlayerTargetBuilder {
             selector: AutoSelector::TurnPlayer,
             filters: PlayerFilters::default(),
         }
     }
-
-    pub fn caster() -> PlayerTargetBuilder {
-        PlayerTargetBuilder {
-            selector: AutoSelector::Caster,
-            filters: PlayerFilters::default(),
-        }
-    }
-
-    pub fn none() -> Self {
-        TargetSelector {
-            selection: SelectionMethod::Auto(AutoSelector::AllEnemyCreatures), // dummy
-            validation: ValidationRules::default(),
-        }
-    }
 }
 
-// === Creature Builder Methods ===
+// --- build() produces *typed* TargetSelector<Kind, Cardinality> ---
+
 impl CreatureTargetBuilder {
-    pub fn min_health(mut self, health: u32) -> Self {
-        self.filters.min_health = Some(health);
-        self
-    }
-
-    pub fn max_health(mut self, health: u32) -> Self {
-        self.filters.max_health = Some(health);
-        self
-    }
-
-    pub fn health_percent(mut self, min: u8, max: u8) -> Self {
-        self.filters.health_percent = Some((min, max));
-        self
-    }
-
     pub fn damaged_only(mut self) -> Self {
         self.filters.damaged_only = true;
         self
     }
-
-    pub fn min_attack(mut self, attack: u32) -> Self {
-        self.filters.min_attack = Some(attack);
-        self
-    }
-
-    pub fn can_attack(mut self) -> Self {
-        self.filters.can_attack = Some(true);
-        self
-    }
-
-    pub fn build(self) -> TargetSelector {
+    pub fn build(self) -> TargetSelector<CreatureTarget, MultiTarget, CreatureFilters> {
         TargetSelector {
             selection: SelectionMethod::Auto(self.selection),
             validation: ValidationRules {
@@ -178,30 +172,13 @@ impl CreatureTargetBuilder {
                 tile: None,
                 player: None,
             },
+            _kind: std::marker::PhantomData,
         }
     }
 }
 
-// === Manual Creature Builder Methods ===
 impl ManualCreatureTargetBuilder {
-    pub fn min_health(mut self, health: u32) -> Self {
-        self.filters.min_health = Some(health);
-        self
-    }
-
-    pub fn max_health(mut self, health: u32) -> Self {
-        self.filters.max_health = Some(health);
-        self
-    }
-
-    pub fn damaged_only(mut self) -> Self {
-        self.filters.damaged_only = true;
-        self
-    }
-
-    // ... other creature filters
-
-    pub fn build(self) -> TargetSelector {
+    pub fn build(self) -> TargetSelector<CreatureTarget, MultiTarget, CreatureFilters> {
         TargetSelector {
             selection: SelectionMethod::Manual(ManualSelector::ChooseCreatures {
                 min: self.min,
@@ -212,28 +189,22 @@ impl ManualCreatureTargetBuilder {
                 tile: None,
                 player: None,
             },
+            _kind: std::marker::PhantomData,
         }
     }
 }
 
-// === Tile Builder Methods ===
-impl TileTargetBuilder {
+impl<C> TileTargetBuilder<C> {
     pub fn empty_only(mut self) -> Self {
         self.filters.empty_only = true;
         self
     }
-
-    pub fn occupied_only(mut self) -> Self {
-        self.filters.occupied_only = true;
-        self
-    }
-
     pub fn in_range_of_caster(mut self, range: u8) -> Self {
         self.filters.in_range_of_caster = Some(range);
         self
     }
 
-    pub fn build(self) -> TargetSelector {
+    pub fn build(self) -> TargetSelector<TileTarget, C> {
         TargetSelector {
             selection: SelectionMethod::Manual(self.selector),
             validation: ValidationRules {
@@ -241,23 +212,13 @@ impl TileTargetBuilder {
                 tile: Some(self.filters),
                 player: None,
             },
+            _kind: std::marker::PhantomData,
         }
     }
 }
 
-// === Player Builder Methods ===
 impl PlayerTargetBuilder {
-    pub fn min_mana(mut self, mana: u32) -> Self {
-        self.filters.min_mana = Some(mana);
-        self
-    }
-
-    pub fn has_cards_in_hand(mut self, count: u8) -> Self {
-        self.filters.has_cards_in_hand = Some(count);
-        self
-    }
-
-    pub fn build(self) -> TargetSelector {
+    pub fn build(self) -> TargetSelector<PlayerTarget, SingleTarget> {
         TargetSelector {
             selection: SelectionMethod::Auto(self.selector),
             validation: ValidationRules {
@@ -265,6 +226,7 @@ impl PlayerTargetBuilder {
                 tile: None,
                 player: Some(self.filters),
             },
+            _kind: std::marker::PhantomData,
         }
     }
 }
@@ -280,6 +242,9 @@ pub struct CreatureFilters {
     pub can_attack: Option<bool>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CreatureExtraRules {}
+
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct TileFilters {
     pub empty_only: bool,
@@ -291,4 +256,23 @@ pub struct TileFilters {
 pub struct PlayerFilters {
     pub min_mana: Option<u32>,
     pub has_cards_in_hand: Option<u8>,
+}
+
+impl TargetKind for CreatureTarget {
+    type FilterBase = CreatureFilters;
+    type FilterExtra = CreatureExtraRules;
+
+    type Filter = RulesWithExtras<Self::FilterBase, Self::FilterExtra>;
+}
+impl TargetKind for TileTarget {
+    type FilterBase = TileFilters;
+    type FilterExtra = TileExtraRules;
+
+    type Filter = RulesWithExtras<Self::FilterBase, Self::FilterExtra>;
+}
+impl TargetKind for PlayerTarget {
+    type FilterBase = PlayerTarget;
+    type FilterExtra = PlayerExtraRules;
+
+    type Filter = RulesWithExtras<Self::FilterBase, Self::FilterExtra>;
 }

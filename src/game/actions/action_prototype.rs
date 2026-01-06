@@ -77,7 +77,7 @@ pub enum UnitAction {
     },
     SummonCreature {
         creature_id: CardID,
-        position: Option<I16Vec2>,
+        position: TileSelector,
     },
     DestroyCreature {
         targeting_type: TargetSelector,
@@ -352,75 +352,7 @@ impl GameAction {
 // Builder helpers for common patterns
 // ============================================================================
 
-impl UnitAction {
-    /// Deal damage to a target
-    pub fn deal_damage(amount: u16, targeting: TargetSelector) -> Self {
-        Self::DealDamage {
-            targeting_type: targeting,
-            amount: ValueSource::Constant(amount),
-        }
-    }
-
-    /// Deal damage equal to a creature's attack
-    pub fn deal_damage_equal_to_attack(targeting: TargetSelector, source: TargetSelector) -> Self {
-        Self::DealDamage {
-            targeting_type: targeting,
-            amount: ValueSource::CreatureStat {
-                selector: source,
-                stat: StatType::Attack,
-            },
-        }
-    }
-
-    /// Conditional effect: "If you have 3+ creatures, draw a card"
-    pub fn if_has_creatures_draw(count: u16, cards_to_draw: u16) -> Self {
-        Self::Conditional {
-            condition: Condition::Compare {
-                left: ValueSource::Count(TargetSelector::FriendlyCreatures),
-                op: CompareOp::GreaterOrEqual,
-                right: ValueSource::Constant(count),
-            },
-            on_true: Box::new(Self::DrawCards {
-                count: ValueSource::Constant(cards_to_draw),
-            }),
-            on_false: None,
-        }
-    }
-
-    /// "Deal 1 damage to all enemy creatures"
-    pub fn damage_all_enemies(amount: u16) -> Self {
-        Self::ForEach {
-            selector: TargetSelector::EnemyCreatures,
-            action: Box::new(Self::DealDamage {
-                targeting_type: TargetSelector::None,
-                amount: ValueSource::Constant(amount),
-            }),
-        }
-    }
-
-    /// "Choose one: Draw 2 cards OR Gain 3 gold"
-    pub fn choose_draw_or_gold() -> Self {
-        Self::Choice {
-            options: vec![
-                Self::DrawCards {
-                    count: ValueSource::Constant(2),
-                },
-                Self::AddGold {
-                    amount: ValueSource::Constant(3),
-                },
-            ],
-            chooser: ChoiceSource::ActivePlayer,
-        }
-    }
-
-    /// "Deal damage equal to the number of friendly creatures"
-    pub fn damage_equal_to_creature_count(targeting: TargetSelector) -> Self {
-        Self::DealDamage {
-            targeting_type: targeting,
-            amount: ValueSource::Count(TargetSelector::FriendlyCreatures),
-        }
-    }
-}
+impl UnitAction {}
 
 // ============================================================================
 // Conversion from Janet

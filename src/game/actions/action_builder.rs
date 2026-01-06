@@ -1,8 +1,8 @@
-use bevy::math::I16Vec2;
+use bevy::{math::I16Vec2, ui::Val};
 
 use crate::game::{
     actions::{
-        action_prototype::{GameAction, Pending, UnitAction},
+        action_prototype::{GameAction, Pending, UnitAction, ValueSource},
         spell_speed::SpellSpeed,
         targeting::TargetSelector,
         timing::ActionTiming,
@@ -89,12 +89,12 @@ impl ActionPrototypeBuilder {
         self
     }
 
-    pub fn draw_cards(mut self, count: u16) -> Self {
+    pub fn draw_cards(mut self, count: ValueSource) -> Self {
         self.action = Some(UnitAction::DrawCards { count });
         self
     }
 
-    pub fn add_gold(mut self, amount: u16) -> Self {
+    pub fn add_gold(mut self, amount: ValueSource) -> Self {
         self.action = Some(UnitAction::AddGold { amount });
         self
     }

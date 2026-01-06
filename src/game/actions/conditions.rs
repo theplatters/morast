@@ -1,5 +1,8 @@
 use crate::game::{
-    actions::{action_prototype::ValueSource, targeting::TargetSelector},
+    actions::{
+        action_prototype::ValueSource,
+        targeting::{SingleTarget, TargetSelector, TileFilters, TileTarget},
+    },
     board::effect::EffectType,
     janet_action::JanetAction,
 };
@@ -19,12 +22,9 @@ pub enum Condition {
         right: ValueSource,
     },
 
-    /// Check if targets exist
-    HasTargets(TargetSelector),
-
-    /// Check if a creature has an effect
+    /// Check if a tile has an effect
     HasEffect {
-        selector: TargetSelector,
+        selector: TargetSelector<TileTarget, SingleTarget, TileFilters>,
         effect: EffectType,
     },
 
