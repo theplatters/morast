@@ -1,13 +1,8 @@
 use crate::{
     game::{
-        actions::{
-            action_prototype::{NeedsTargeting, Pending, ReadyToExecute},
-            targeting::{SelectionMethod, TargetSelector},
-            targeting_system::RequestManualTargets,
-        },
+        actions::action_prototype::{Pending, ReadyToExecute},
         card::Playable,
         error::GameError,
-        turn_controller::TurnState,
     },
     Result,
 };
@@ -19,11 +14,9 @@ use bevy::{
         hierarchy::ChildOf,
         message::MessageReader,
         query::With,
-        schedule::IntoScheduleConfigs,
         system::{Commands, Query, Res},
     },
     log::info,
-    state::condition::in_state,
 };
 
 use crate::game::{
@@ -35,13 +28,7 @@ pub struct ActionPlugin;
 
 impl Plugin for ActionPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-        app.add_systems(
-            Update,
-            (
-                ready_on_play_action,
-                handle_pending_actions.run_if(in_state(TurnState::Idle)),
-            ),
-        );
+        app.add_systems(Update, (ready_on_play_action,));
     }
 }
 
@@ -72,20 +59,6 @@ pub struct ManualTargeting {
 #[derive(Component)]
 pub struct AutoTargeting {
     pub chosen: Vec<Entity>, // selected target entities (creatures, tiles, etc)
-}
-
-pub fn handle_pending_actions(
-    mut commands: Commands,
-    actions: Query<(Entity, &TargetSelector), With<Pending>>,
-) {
-    for (action_entity, targeting_type) in actions {
-        let needs_targeting = matches!(targeting_type.selection, SelectionMethod::Manual(_));
-        commands
-            .entity(action_entity)
-            .remove::<Pending>()
-            .insert_if(ManualTargeting { chosen: vec![] }, || needs_targeting)
-            .insert_if(AutoTargeting { chosen: vec![] }, || needs_targeting);
-    }
 }
 
 pub fn execute_actions(actions: Query<(Entity), With<ReadyToExecute>>) {}

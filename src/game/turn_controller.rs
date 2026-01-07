@@ -134,7 +134,6 @@ impl Plugin for TurnControllerPlugin {
                     (card_click_system, board_click_system),
                     handle_idle_state.run_if(in_state(TurnState::Idle)),
                     handle_card_selected.run_if(in_state(TurnState::CardSelected)),
-                    handle_awaiting_inputs.run_if(in_state(TurnState::AwaitingInputs)),
                     handle_figure_selected.run_if(in_state(TurnState::FigureSelected)),
                 ),
             )
@@ -349,32 +348,6 @@ fn handle_figure_selected(
         to: next_position,
     });
     next_state.set(TurnState::Idle);
-}
-
-fn handle_awaiting_inputs(
-    mut board_clicks: MessageReader<AwaitingInputsBoardClick>,
-    mut play_commands: MessageWriter<TargetingComplete>,
-    mut next_state: ResMut<NextState<TurnState>>,
-    selected_cards: Query<&Selected, With<OnBoard>>,
-    actions: Query<(Entity, &TargetSelector), With<NeedsTargeting>>,
-    mut commands: Commands,
-) {
-    if let Some(&AwaitingInputsBoardClick { entity, .. }) = board_clicks.read().next() {
-        commands.entity(entity).insert(Selected);
-    }
-
-    let Ok((action_entity, targeting)) = actions.single() else {
-        // no action needs targeting anymore; bail to idle or just return
-        return;
-    };
-
-    if selected_cards.iter().len() as u8 >= targeting.required_targets() {
-        play_commands.write(TargetingComplete);
-        info!("Sending Play Command");
-        commands.entity(action_entity).remove::<NeedsTargeting>();
-        commands.entity(action_entity).insert(ReadyToExecute);
-        next_state.set(TurnState::Idle);
-    }
 }
 
 // ============================================================================

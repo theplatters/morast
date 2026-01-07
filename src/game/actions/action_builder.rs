@@ -1,13 +1,13 @@
-use bevy::{math::I16Vec2, ui::Val};
+use bevy::math::I16Vec2;
 
 use crate::game::{
     actions::{
-        action_prototype::{GameAction, Pending, UnitAction, ValueSource},
+        action_prototype::{GameAction, UnitAction, ValueSource},
         spell_speed::SpellSpeed,
-        targeting::TargetSelector,
+        targeting::{CreatureSel, MultiTarget, PlayerSel, SingleTarget, TileSel},
         timing::ActionTiming,
     },
-    board::effect::Effect,
+    board::effect::EffectType,
     card::card_id::CardID,
     phases::Phase,
 };
@@ -73,29 +73,47 @@ impl ActionPrototypeBuilder {
         self
     }
 
-    pub fn deal_damage(mut self, targeting_type: TargetSelector, amount: u16) -> Self {
+    pub fn deal_damage<S>(mut self, targeting_type: S, amount: ValueSource) -> Self
+    where
+        S: Into<CreatureSel<super::targeting::Or<SingleTarget, MultiTarget>>>,
+    {
         self.action = Some(UnitAction::DealDamage {
             amount,
-            targeting_type,
+            targeting_type: targeting_type.into(),
         });
         self
     }
 
-    pub fn heal_creature(mut self, targeting_type: TargetSelector, amount: u16) -> Self {
+    pub fn heal_creature<S>(mut self, targeting_type: S, amount: ValueSource) -> Self
+    where
+        S: Into<CreatureSel<super::targeting::Or<SingleTarget, MultiTarget>>>,
+    {
         self.action = Some(UnitAction::HealCreature {
-            targeting_type,
             amount,
+            targeting_type: targeting_type.into(),
         });
         self
     }
 
-    pub fn draw_cards(mut self, count: ValueSource) -> Self {
-        self.action = Some(UnitAction::DrawCards { count });
+    pub fn draw_cards<S>(mut self, count: ValueSource, players_selector: S) -> Self
+    where
+        S: Into<PlayerSel<super::targeting::Or<SingleTarget, MultiTarget>>>,
+    {
+        self.action = Some(UnitAction::DrawCards {
+            count,
+            player_selector: players_selector.into(),
+        });
         self
     }
 
-    pub fn add_gold(mut self, amount: ValueSource) -> Self {
-        self.action = Some(UnitAction::AddGold { amount });
+    pub fn add_gold<S>(mut self, amount: ValueSource, players_selector: S) -> Self
+    where
+        S: Into<PlayerSel<super::targeting::Or<SingleTarget, MultiTarget>>>,
+    {
+        self.action = Some(UnitAction::AddGold {
+            amount,
+            player_selector: players_selector.into(),
+        });
         self
     }
 
@@ -104,27 +122,38 @@ impl ActionPrototypeBuilder {
         self
     }
 
-    pub fn apply_effect(
+    pub fn apply_effect<S>(
         mut self,
-        effect: Effect,
-        targeting_type: TargetSelector,
-        duration: u32,
-    ) -> Self {
+        effect: EffectType,
+        duration: ValueSource,
+        targeting_type: S,
+    ) -> Self
+    where
+        S: Into<TileSel<super::targeting::Or<SingleTarget, MultiTarget>>>,
+    {
         self.action = Some(UnitAction::ApplyEffect {
-            effect: effect.effect_type,
-            duration: effect.duration(),
-            targeting_type,
+            effect,
+            duration,
+            targeting_type: targeting_type.into(),
         });
         self
     }
 
-    pub fn summon_creature(mut self, creature_id: CardID) -> Self {
-        self.action = Some(UnitAction::SummonCreature { creature_id });
+    pub fn summon_creature(mut self, creature_id: CardID, position: TileSel<SingleTarget>) -> Self {
+        self.action = Some(UnitAction::SummonCreature {
+            creature_id,
+            position,
+        });
         self
     }
 
-    pub fn destroy_creature(mut self, targeting_type: TargetSelector) -> Self {
-        self.action = Some(UnitAction::DestroyCreature { targeting_type });
+    pub fn destroy_creature<S>(mut self, targeting_type: S) -> Self
+    where
+        S: Into<CreatureSel<super::targeting::Or<SingleTarget, MultiTarget>>>,
+    {
+        self.action = Some(UnitAction::DestroyCreature {
+            targeting_type: targeting_type.into(),
+        });
         self
     }
 

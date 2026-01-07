@@ -1,25 +1,43 @@
-use bevy::ecs::{component::Component, query::QueryFilter};
-
-// The main selector - now with phantom types to track state
-#[derive(Component, Debug, Clone, PartialEq, Eq)]
-
+pub trait Cardinality: 'static {}
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SingleTarget;
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MultiTarget;
+impl Cardinality for SingleTarget {}
+impl Cardinality for MultiTarget {}
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CreatureTarget;
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TileTarget;
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PlayerTarget;
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HandTarget;
 
-pub trait RulesFor<K>: Clone + std::fmt::Debug + Send + Sync + 'static {}
+#[derive(Clone, Debug)]
+pub struct Or<A, B>(std::marker::PhantomData<(A, B)>);
 
-pub trait TargetKind: 'static {
+pub trait Constraint: 'static + Send + Sync + Clone + std::fmt::Debug {}
+impl<
+        A: std::fmt::Debug + Send + Sync + 'static + Clone,
+        B: std::fmt::Debug + Send + Sync + 'static + Clone,
+    > Constraint for Or<A, B>
+{
+}
+impl Constraint for SingleTarget {}
+impl Constraint for MultiTarget {}
+
+pub trait TargetFilter {
     type FilterBase: Clone + std::fmt::Debug + Send + Sync + 'static;
     type FilterExtra: Clone + std::fmt::Debug + Send + Sync + 'static;
-
     type Filter: Clone + std::fmt::Debug + Send + Sync + 'static;
+}
+pub trait TargetKind<C: Constraint>:
+    'static + Send + Sync + Clone + std::fmt::Debug + TargetFilter
+{
+    type Auto: Clone + std::fmt::Debug + Send + Sync + 'static;
+    type Manual: Clone + std::fmt::Debug + Send + Sync + 'static;
 }
 
 // generic composition type
@@ -27,6 +45,15 @@ pub trait TargetKind: 'static {
 pub struct RulesWithExtras<Base, Extra> {
     pub base: Base,
     pub extras: Vec<Extra>,
+}
+
+impl<Base, Extra> RulesWithExtras<Base, Extra> {
+    pub fn from_base(base: Base) -> Self {
+        Self {
+            base,
+            extras: Vec::new(),
+        }
+    }
 }
 
 impl<Base: Default, Extra> Default for RulesWithExtras<Base, Extra> {
@@ -38,197 +65,107 @@ impl<Base: Default, Extra> Default for RulesWithExtras<Base, Extra> {
     }
 }
 
-#[derive(Component, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct TargetSelector<K, C>
 where
-    K: TargetKind,
+    K: TargetKind<C>,
+    C: Constraint,
 {
-    pub(crate) selection: SelectionMethod,
+    pub(crate) selection: SelectionMethod<K, C>,
     pub(crate) validation: K::Filter,
     _kind: std::marker::PhantomData<(K, C)>,
 }
 
+impl<K, C> TargetSelector<K, C>
+where
+    K: TargetKind<C>,
+    C: Constraint,
+{
+    pub fn new(selection: SelectionMethod<K, C>, validation: K::Filter) -> Self {
+        Self {
+            selection,
+            validation,
+            _kind: std::marker::PhantomData,
+        }
+    }
+}
+
 // Internal enums stay the same but are now private construction
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SelectionMethod {
-    Auto(AutoSelector),
-    Manual(ManualSelector),
+#[derive(Debug, Clone)]
+pub enum SelectionMethod<K: TargetKind<C>, C: Constraint> {
+    Auto(AutoSelector<K, C>),
+    Manual(ManualSelector<K, C>),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum AutoSelector {
-    AllEnemyCreatures,
-    AllFriendlyCreatures,
-    RandomCreatures { count: u8 },
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AutoSelector<K: TargetKind<C>, C: Constraint> {
+    pub mode: K::Auto,
+    _k: std::marker::PhantomData<(K, C)>,
+}
+
+impl<K: TargetKind<C>, C: Constraint> AutoSelector<K, C> {
+    pub fn new(mode: K::Auto) -> Self {
+        Self {
+            mode,
+            _k: std::marker::PhantomData,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ManualSelector<K: TargetKind<C>, C: Constraint> {
+    pub mode: K::Manual,
+    _k: std::marker::PhantomData<(K, C)>,
+}
+
+impl<K: TargetKind<C>, C: Constraint> ManualSelector<K, C> {
+    pub fn new(mode: K::Manual) -> Self {
+        Self {
+            mode,
+            _k: std::marker::PhantomData,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum AutoCreature {
+    AllEnemy,
+    AllFriendly,
+    Random { count: u8 },
     Caster,
-    TurnPlayer,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ManualSelector {
-    ChooseCreatures { min: u8, max: u8 },
+#[derive(Clone, Debug)]
+pub enum ManualCreature {
+    Choose { min: u8, max: u8 },
+}
+
+#[derive(Clone, Debug)]
+pub enum ManualTile {
     ChooseTiles { amount: u8 },
     ChooseArea { radius: u8 },
-    ChooseLine { length: u8 },
 }
 
-pub struct CreatureTargetBuilder {
-    selection: AutoSelector,
-    filters: CreatureFilters,
+#[derive(Clone, Debug)]
+pub enum AutoPlayer {
+    TurnPlayer,
+    NonTurnPlayer,
 }
 
-pub struct ManualCreatureTargetBuilder {
-    min: u8,
-    max: u8,
-    filters: CreatureFilters,
+#[derive(Clone, Debug)]
+pub struct ManualPlayer;
+
+#[derive(Clone, Debug)]
+pub enum AutoHand {
+    AllCards,
+    AllCreatures,
+    AllSpells,
+    AllTraps,
 }
 
-pub struct TileTargetBuilder<C> {
-    selector: ManualSelector,
-    filters: TileFilters,
-    _card: std::marker::PhantomData<C>,
-}
-
-pub struct PlayerTargetBuilder {
-    selector: AutoSelector,
-    filters: PlayerFilters,
-}
-
-impl<K> TargetSelector<K, ()>
-where
-    K: TargetKind,
-{
-    // creature auto
-    pub fn all_enemy_creatures() -> CreatureTargetBuilder {
-        CreatureTargetBuilder {
-            selection: AutoSelector::AllEnemyCreatures,
-            filters: CreatureFilters::default(),
-        }
-    }
-
-    // creature manual
-    pub fn choose_creatures(min: u8, max: u8) -> ManualCreatureTargetBuilder {
-        ManualCreatureTargetBuilder {
-            min,
-            max,
-            filters: CreatureFilters::default(),
-        }
-    }
-
-    // tiles
-    pub fn choose_tile() -> TileTargetBuilder<SingleTarget> {
-        TileTargetBuilder {
-            selector: ManualSelector::ChooseTiles { amount: 1 },
-            filters: TileFilters::default(),
-            _card: std::marker::PhantomData,
-        }
-    }
-
-    pub fn choose_tiles(amount: u8) -> TileTargetBuilder<MultiTarget> {
-        TileTargetBuilder {
-            selector: ManualSelector::ChooseTiles { amount },
-            filters: TileFilters::default(),
-            _card: std::marker::PhantomData,
-        }
-    }
-
-    pub fn choose_area(radius: u8) -> TileTargetBuilder<MultiTarget> {
-        TileTargetBuilder {
-            selector: ManualSelector::ChooseArea { radius },
-            filters: TileFilters::default(),
-            _card: std::marker::PhantomData,
-        }
-    }
-
-    pub fn choose_line(length: u8) -> TileTargetBuilder<MultiTarget> {
-        TileTargetBuilder {
-            selector: ManualSelector::ChooseLine { length },
-            filters: TileFilters::default(),
-            _card: std::marker::PhantomData,
-        }
-    }
-
-    // players
-    pub fn turn_player() -> PlayerTargetBuilder {
-        PlayerTargetBuilder {
-            selector: AutoSelector::TurnPlayer,
-            filters: PlayerFilters::default(),
-        }
-    }
-}
-
-// --- build() produces *typed* TargetSelector<Kind, Cardinality> ---
-
-impl CreatureTargetBuilder {
-    pub fn damaged_only(mut self) -> Self {
-        self.filters.damaged_only = true;
-        self
-    }
-    pub fn build(self) -> TargetSelector<CreatureTarget, MultiTarget, CreatureFilters> {
-        TargetSelector {
-            selection: SelectionMethod::Auto(self.selection),
-            validation: ValidationRules {
-                creature: Some(self.filters),
-                tile: None,
-                player: None,
-            },
-            _kind: std::marker::PhantomData,
-        }
-    }
-}
-
-impl ManualCreatureTargetBuilder {
-    pub fn build(self) -> TargetSelector<CreatureTarget, MultiTarget, CreatureFilters> {
-        TargetSelector {
-            selection: SelectionMethod::Manual(ManualSelector::ChooseCreatures {
-                min: self.min,
-                max: self.max,
-            }),
-            validation: ValidationRules {
-                creature: Some(self.filters),
-                tile: None,
-                player: None,
-            },
-            _kind: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<C> TileTargetBuilder<C> {
-    pub fn empty_only(mut self) -> Self {
-        self.filters.empty_only = true;
-        self
-    }
-    pub fn in_range_of_caster(mut self, range: u8) -> Self {
-        self.filters.in_range_of_caster = Some(range);
-        self
-    }
-
-    pub fn build(self) -> TargetSelector<TileTarget, C> {
-        TargetSelector {
-            selection: SelectionMethod::Manual(self.selector),
-            validation: ValidationRules {
-                creature: None,
-                tile: Some(self.filters),
-                player: None,
-            },
-            _kind: std::marker::PhantomData,
-        }
-    }
-}
-
-impl PlayerTargetBuilder {
-    pub fn build(self) -> TargetSelector<PlayerTarget, SingleTarget> {
-        TargetSelector {
-            selection: SelectionMethod::Auto(self.selector),
-            validation: ValidationRules {
-                creature: None,
-                tile: None,
-                player: Some(self.filters),
-            },
-            _kind: std::marker::PhantomData,
-        }
-    }
+#[derive(Clone, Debug)]
+pub struct ManualHand {
+    count: u16,
 }
 
 // Filter structs with defaults
@@ -252,27 +189,168 @@ pub struct TileFilters {
     pub in_range_of_caster: Option<u8>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TileExtraRules {}
+
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PlayerFilters {
     pub min_mana: Option<u32>,
     pub has_cards_in_hand: Option<u8>,
 }
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PlayerExtraRules {}
 
-impl TargetKind for CreatureTarget {
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HandFilters {}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum HandExtraRules {}
+
+impl TargetFilter for CreatureTarget {
     type FilterBase = CreatureFilters;
     type FilterExtra = CreatureExtraRules;
-
     type Filter = RulesWithExtras<Self::FilterBase, Self::FilterExtra>;
 }
-impl TargetKind for TileTarget {
+impl TargetKind<SingleTarget> for CreatureTarget {
+    type Auto = AutoCreature;
+    type Manual = ManualCreature;
+}
+
+impl TargetKind<MultiTarget> for CreatureTarget {
+    type Auto = AutoCreature;
+    type Manual = ManualCreature;
+}
+
+impl TargetFilter for TileTarget {
     type FilterBase = TileFilters;
     type FilterExtra = TileExtraRules;
-
     type Filter = RulesWithExtras<Self::FilterBase, Self::FilterExtra>;
 }
-impl TargetKind for PlayerTarget {
-    type FilterBase = PlayerTarget;
-    type FilterExtra = PlayerExtraRules;
 
+impl TargetKind<SingleTarget> for TileTarget {
+    type Auto = ();
+    type Manual = ManualTile;
+}
+
+impl TargetKind<MultiTarget> for TileTarget {
+    type Auto = ();
+    type Manual = ManualTile;
+}
+
+impl TargetFilter for PlayerTarget {
+    type FilterBase = PlayerFilters;
+    type FilterExtra = PlayerExtraRules;
     type Filter = RulesWithExtras<Self::FilterBase, Self::FilterExtra>;
+}
+
+impl TargetKind<SingleTarget> for PlayerTarget {
+    type Auto = AutoPlayer;
+    type Manual = ManualPlayer;
+}
+
+impl TargetKind<MultiTarget> for PlayerTarget {
+    type Auto = AutoPlayer;
+    type Manual = ManualPlayer;
+}
+
+impl TargetFilter for HandTarget {
+    type FilterBase = HandFilters;
+    type FilterExtra = HandExtraRules;
+    type Filter = RulesWithExtras<Self::FilterBase, Self::FilterExtra>;
+}
+
+impl TargetKind<SingleTarget> for HandTarget {
+    type Auto = AutoHand;
+
+    type Manual = ManualHand;
+}
+
+impl TargetKind<MultiTarget> for HandTarget {
+    type Auto = AutoHand;
+
+    type Manual = ManualHand;
+}
+
+impl<K, A, B> TargetKind<Or<A, B>> for K
+where
+    A: Constraint,
+    B: Constraint,
+    K: TargetKind<A> + TargetKind<B>,
+{
+    // For Or, the mode types must be able to represent both.
+    // Easiest is to wrap them in enums:
+    type Auto = Either<<K as TargetKind<A>>::Auto, <K as TargetKind<B>>::Auto>;
+    type Manual = Either<<K as TargetKind<A>>::Manual, <K as TargetKind<B>>::Manual>;
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Either<L, R> {
+    Left(L),
+    Right(R),
+}
+
+pub type CreatureSel<C> = TargetSelector<CreatureTarget, C>;
+
+pub type TileSel<C: Constraint> = TargetSelector<TileTarget, C>;
+pub type PlayerSel<C: Constraint> = TargetSelector<PlayerTarget, C>;
+pub type HandSel<C: Constraint> = TargetSelector<HandTarget, C>;
+
+#[derive(Debug, Clone)]
+pub enum AnyTargetSelector<C>
+where
+    C: Constraint,
+    CreatureTarget: TargetKind<C>,
+    TileTarget: TargetKind<C>,
+    PlayerTarget: TargetKind<C>,
+    HandTarget: TargetKind<C>,
+{
+    Creature(CreatureSel<C>),
+    Tile(TileSel<C>),
+    Player(PlayerSel<C>),
+    Hand(HandSel<C>),
+}
+
+impl<K> From<TargetSelector<K, SingleTarget>> for TargetSelector<K, Or<SingleTarget, MultiTarget>>
+where
+    K: TargetKind<SingleTarget> + TargetKind<MultiTarget>,
+{
+    fn from(value: TargetSelector<K, SingleTarget>) -> Self {
+        TargetSelector {
+            selection: match value.selection {
+                SelectionMethod::Auto(a) => SelectionMethod::Auto(AutoSelector {
+                    mode: Either::Left(a.mode),
+                    _k: std::marker::PhantomData,
+                }),
+                SelectionMethod::Manual(m) => SelectionMethod::Manual(ManualSelector {
+                    mode: Either::Left(m.mode),
+                    _k: std::marker::PhantomData,
+                }),
+            },
+            // Filter type is shared via TargetFilter on K, so this is the same
+            validation: value.validation,
+            _kind: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<K> From<TargetSelector<K, MultiTarget>> for TargetSelector<K, Or<SingleTarget, MultiTarget>>
+where
+    K: TargetKind<SingleTarget> + TargetKind<MultiTarget>,
+{
+    fn from(value: TargetSelector<K, MultiTarget>) -> Self {
+        TargetSelector {
+            selection: match value.selection {
+                SelectionMethod::Auto(a) => SelectionMethod::Auto(AutoSelector {
+                    mode: Either::Right(a.mode),
+                    _k: std::marker::PhantomData,
+                }),
+                SelectionMethod::Manual(m) => SelectionMethod::Manual(ManualSelector {
+                    mode: Either::Right(m.mode),
+                    _k: std::marker::PhantomData,
+                }),
+            },
+            validation: value.validation,
+            _kind: std::marker::PhantomData,
+        }
+    }
 }
