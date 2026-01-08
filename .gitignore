@@ -4,3 +4,7 @@
 ./janet_bindings/target
 target
 Cargo.lock
+janet_bindings/target
+janet_bindings/target
+janet_bindings/target
+assets
