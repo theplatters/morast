@@ -127,12 +127,16 @@ impl<K: TargetKind<C>, C: Constraint> ManualSelector<K, C> {
     }
 }
 
+pub enum AutoMultiTile {
+    AllTiles,
+    RadiusAroundCaster { radius: u8 },
+}
+
 #[derive(Clone, Debug)]
-pub enum AutoCreature {
+pub enum AutoMultiCreature {
     AllEnemy,
     AllFriendly,
     Random { count: u8 },
-    Caster,
 }
 
 #[derive(Clone, Debug)]
@@ -141,16 +145,22 @@ pub enum ManualCreature {
 }
 
 #[derive(Clone, Debug)]
+pub enum AutoSingleCreature {}
+
+#[derive(Clone, Debug)]
 pub enum ManualTile {
     ChooseTiles { amount: u8 },
     ChooseArea { radius: u8 },
 }
 
 #[derive(Clone, Debug)]
-pub enum AutoPlayer {
+pub enum AutoPlayerSingle {
     TurnPlayer,
     NonTurnPlayer,
 }
+
+#[derive(Clone, Debug)]
+pub struct AutoPlayerMulti;
 
 #[derive(Clone, Debug)]
 pub struct ManualPlayer;
@@ -194,17 +204,30 @@ pub enum TileExtraRules {}
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PlayerFilters {
-    pub min_mana: Option<u32>,
+    pub min_gold: Option<u32>,
+    pub max_gold: Option<u32>,
     pub has_cards_in_hand: Option<u8>,
+    pub min_health: Option<u16>,
+    pub max_health: Option<u16>,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PlayerExtraRules {}
+pub enum PlayerExtraRules {
+    TookDamageLastRound,
+    PlayedCardThisTurn,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct HandFilters {}
+pub struct HandFilters {
+    pub min_cost: Option<u16>,
+    pub max_cost: Option<u16>,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum HandExtraRules {}
+pub enum HandExtraRules {
+    ExludeCreatures,
+    ExcludeSpells,
+    ExcludeTraps,
+}
 
 impl TargetFilter for CreatureTarget {
     type FilterBase = CreatureFilters;
@@ -212,12 +235,12 @@ impl TargetFilter for CreatureTarget {
     type Filter = RulesWithExtras<Self::FilterBase, Self::FilterExtra>;
 }
 impl TargetKind<SingleTarget> for CreatureTarget {
-    type Auto = AutoCreature;
+    type Auto = AutoSingleCreature;
     type Manual = ManualCreature;
 }
 
 impl TargetKind<MultiTarget> for CreatureTarget {
-    type Auto = AutoCreature;
+    type Auto = AutoMultiCreature;
     type Manual = ManualCreature;
 }
 
@@ -244,12 +267,12 @@ impl TargetFilter for PlayerTarget {
 }
 
 impl TargetKind<SingleTarget> for PlayerTarget {
-    type Auto = AutoPlayer;
+    type Auto = AutoPlayerSingle;
     type Manual = ManualPlayer;
 }
 
 impl TargetKind<MultiTarget> for PlayerTarget {
-    type Auto = AutoPlayer;
+    type Auto = AutoPlayerMulti;
     type Manual = ManualPlayer;
 }
 
@@ -296,18 +319,31 @@ pub type PlayerSel<C: Constraint> = TargetSelector<PlayerTarget, C>;
 pub type HandSel<C: Constraint> = TargetSelector<HandTarget, C>;
 
 #[derive(Debug, Clone)]
-pub enum AnyTargetSelector<C>
-where
-    C: Constraint,
-    CreatureTarget: TargetKind<C>,
-    TileTarget: TargetKind<C>,
-    PlayerTarget: TargetKind<C>,
-    HandTarget: TargetKind<C>,
-{
-    Creature(CreatureSel<C>),
-    Tile(TileSel<C>),
-    Player(PlayerSel<C>),
-    Hand(HandSel<C>),
+pub enum SingleTargetSelector {
+    CreatureSingle(CreatureSel<SingleTarget>),
+    TileSingle(TileSel<SingleTarget>),
+    PlayerSingle(PlayerSel<SingleTarget>),
+    HandSingle(HandSel<SingleTarget>),
+}
+
+#[derive(Debug, Clone)]
+pub enum MultiTargetSelector {
+    CreatureMulti(CreatureSel<MultiTarget>),
+    TileMulti(TileSel<MultiTarget>),
+    PlayerMulti(PlayerSel<MultiTarget>),
+    HandMulti(HandSel<MultiTarget>),
+}
+
+#[derive(Debug, Clone)]
+pub enum AnyTargetSelector {
+    CreatureSingle(CreatureSel<SingleTarget>),
+    CreatureMulti(CreatureSel<MultiTarget>),
+    TileSingle(TileSel<SingleTarget>),
+    TileMulti(TileSel<MultiTarget>),
+    PlayerSingle(PlayerSel<SingleTarget>),
+    PlayerMulti(PlayerSel<MultiTarget>),
+    HandSingle(HandSel<SingleTarget>),
+    HandMulti(HandSel<MultiTarget>),
 }
 
 impl<K> From<TargetSelector<K, SingleTarget>> for TargetSelector<K, Or<SingleTarget, MultiTarget>>
@@ -351,6 +387,27 @@ where
             },
             validation: value.validation,
             _kind: std::marker::PhantomData,
+        }
+    }
+}
+
+mod janet {
+    use crate::{
+        engine::janet_handler::{
+            bindings::{janet_register_abstract_type, JanetAbstractType},
+            controller::Environment,
+        },
+        game::actions::targeting::AnyTargetSelector,
+    };
+
+    static mut ANY_TARGET: JanetAbstractType = JanetAbstractType::new(
+        c"target/any-target",
+        JanetAbstractType::gc::<AnyTargetSelector>,
+    );
+
+    impl Environment {
+        pub unsafe fn register_abstract_targeting_types(&self) {
+            janet_register_abstract_type(&raw mut ANY_TARGET);
         }
     }
 }

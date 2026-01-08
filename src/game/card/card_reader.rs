@@ -50,15 +50,12 @@ impl<'a> FieldExtractor<'a> {
     }
 
     fn get_optional_actions(&self, field: &str) -> Result<Option<GameAction>, GameError> {
-        self.table
-            .get(field)
-            .map(|value| value.try_into())
-            .transpose()
+        Ok(None)
     }
 
     fn get_required_actions(&self, field: &str) -> Result<GameAction, GameError> {
         match self.table.get(field) {
-            Some(value) => value.try_into(),
+            Some(value) => todo!(),
             None => Err(GameError::NotFound(format!("{}: {}", self.context, field))),
         }
     }
@@ -105,9 +102,7 @@ impl CardDataRetriever {
         action_name: &str,
         card_name: &str,
     ) -> Result<Option<GameAction>, GameError> {
-        JanetEnum::get(env, action_name, Some(card_name))
-            .map(|value| value.try_into())
-            .transpose()
+        todo!()
     }
 }
 

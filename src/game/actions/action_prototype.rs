@@ -14,8 +14,8 @@ use crate::{
             conditions::Condition,
             spell_speed::SpellSpeed,
             targeting::{
-                AnyTargetSelector, CreatureTarget, MultiTarget, PlayerSel, SingleTarget,
-                TargetSelector, TileTarget,
+                AnyTargetSelector, CreatureTarget, MultiTarget, MultiTargetSelector, PlayerSel,
+                SingleTarget, TargetSelector, TileTarget,
             },
             timing::ActionTiming,
         },
@@ -147,7 +147,7 @@ pub enum ValueSource {
     Constant(u16),
 
     /// Count of entities matching a selector
-    Count(AnyTargetSelector<MultiTarget>),
+    Count(MultiTargetSelector),
 
     /// Random value in range [min, max]
     Random {
@@ -174,7 +174,7 @@ impl ValueSource {
         Self::Constant(value)
     }
 
-    pub fn count(selector: AnyTargetSelector<MultiTarget>) -> Self {
+    pub fn count(selector: MultiTargetSelector) -> Self {
         Self::Count(selector)
     }
 }
