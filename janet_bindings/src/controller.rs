@@ -3,13 +3,14 @@ use std::{
     str::FromStr,
 };
 
-use crate::engine::{error::EngineError, janet_handler::bindings::janet_def};
+use crate::bindings::janet_def;
 
 use super::{
     bindings::{
-        janet_cfuns_prefix, janet_core_env, janet_deinit, janet_dostring, janet_env_lookup,
-        janet_init, Janet, JanetReg, JanetTable,
+        Janet, JanetReg, JanetTable, janet_cfuns_prefix, janet_core_env, janet_deinit,
+        janet_dostring, janet_env_lookup, janet_init,
     },
+    error::JanetError,
     types::{cfunction::JanetRawCFunction, janetenum::JanetEnum, table::Table},
 };
 
@@ -28,11 +29,6 @@ impl Environment {
                 env_pointer: Table { raw: env_pointer },
                 lookup: Table { raw: lookup },
             };
-            env.register_core_functions();
-            env.register_core_constants();
-            env.register_abstract_target_builder_types();
-            env.register_abstract_targeting_types();
-            env.register_target_builder_functions();
 
             env.read_script(filename);
             env
@@ -123,9 +119,9 @@ impl Environment {
             janet_deinit();
         }
     }
-    pub fn read_script(&self, filename: &str) -> Result<JanetEnum, EngineError> {
+    pub fn read_script(&self, filename: &str) -> Result<JanetEnum, JanetError> {
         let script = std::fs::read_to_string(filename).map_err(|e| {
-            EngineError::File(format!("Couldn't read file {}, Error: {}", filename, e))
+            JanetError::File(format!("Couldn't read file {}, Error: {}", filename, e))
         })?;
         let mut out: Janet = Janet {
             pointer: std::ptr::null_mut(),
@@ -134,10 +130,10 @@ impl Environment {
             janet_dostring(
                 self.env_ptr(),
                 std::ffi::CString::new(script)
-                    .map_err(EngineError::String)?
+                    .map_err(JanetError::String)?
                     .as_ptr(),
                 std::ffi::CString::new(filename)
-                    .map_err(EngineError::String)?
+                    .map_err(JanetError::String)?
                     .as_ptr(),
                 &mut out as *mut Janet,
             );

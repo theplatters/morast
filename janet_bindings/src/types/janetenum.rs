@@ -1,25 +1,21 @@
 use core::fmt;
 use std::{ffi::CStr, hash::Hash};
 
-use bevy::math::I16Vec2;
-
-use crate::engine::{
-    error::EngineError,
-    janet_handler::{
-        bindings::{
-            janet_array, janet_array_push, janet_checktype, janet_getarray, janet_getinteger64,
-            janet_is_int, janet_resolve, janet_type, janet_unwrap_array, janet_unwrap_boolean,
-            janet_unwrap_function, janet_unwrap_integer, janet_unwrap_number, janet_unwrap_string,
-            janet_unwrap_symbol, janet_unwrap_table, janet_unwrap_u64, janet_wrap_array,
-            janet_wrap_boolean, janet_wrap_integer, janet_wrap_nil, janet_wrap_number,
-            janet_wrap_string, janet_wrap_u64, Janet, JanetArray, JANET_TYPE_JANET_ARRAY,
-            JANET_TYPE_JANET_BOOLEAN, JANET_TYPE_JANET_FUNCTION, JANET_TYPE_JANET_NIL,
-            JANET_TYPE_JANET_NUMBER, JANET_TYPE_JANET_STRING, JANET_TYPE_JANET_SYMBOL,
-            JANET_TYPE_JANET_TABLE, JANET_TYPE_JANET_TUPLE,
-        },
-        controller::Environment,
-        types::tuple::Tuple,
+use crate::{
+    bindings::{
+        JANET_TYPE_JANET_ARRAY, JANET_TYPE_JANET_BOOLEAN, JANET_TYPE_JANET_FUNCTION,
+        JANET_TYPE_JANET_NIL, JANET_TYPE_JANET_NUMBER, JANET_TYPE_JANET_STRING,
+        JANET_TYPE_JANET_SYMBOL, JANET_TYPE_JANET_TABLE, JANET_TYPE_JANET_TUPLE, Janet, JanetArray,
+        janet_array, janet_array_push, janet_checktype, janet_csymbol, janet_getarray,
+        janet_getinteger64, janet_is_int, janet_resolve, janet_type, janet_unwrap_array,
+        janet_unwrap_boolean, janet_unwrap_function, janet_unwrap_integer, janet_unwrap_number,
+        janet_unwrap_string, janet_unwrap_symbol, janet_unwrap_table, janet_unwrap_u64,
+        janet_wrap_array, janet_wrap_boolean, janet_wrap_integer, janet_wrap_nil,
+        janet_wrap_number, janet_wrap_string, janet_wrap_u64,
     },
+    controller::Environment,
+    error::JanetError,
+    types::tuple::Tuple,
 };
 
 use super::{function::Function, table::Table};
@@ -73,7 +69,7 @@ impl JanetEnum {
             }
         }
     }
-    pub fn unwrap_array(arr: JanetArray) -> Result<Vec<JanetEnum>, EngineError> {
+    pub fn unwrap_array(arr: JanetArray) -> Result<Vec<JanetEnum>, JanetError> {
         let mut arr_vec: Vec<JanetEnum> = Vec::with_capacity(arr.count as usize);
 
         // Use a more efficient approach - iterate without popping
@@ -101,7 +97,7 @@ impl JanetEnum {
             let mut out: Janet = janet_wrap_nil();
             janet_resolve(
                 env.env_ptr(),
-                crate::engine::janet_handler::bindings::janet_csymbol(c_function_name.as_ptr()),
+                janet_csymbol(c_function_name.as_ptr()),
                 &mut out as *mut Janet,
             );
 
@@ -135,7 +131,7 @@ impl JanetEnum {
         }
     }
 
-    pub fn from(item: Janet) -> Result<JanetEnum, EngineError> {
+    pub fn from(item: Janet) -> Result<JanetEnum, JanetError> {
         unsafe {
             match janet_type(item) {
                 JANET_TYPE_JANET_FUNCTION => Ok(JanetEnum::Function(Function::new(
@@ -153,7 +149,7 @@ impl JanetEnum {
                         .to_str()
                     {
                         Ok(v) => Ok(JanetEnum::String(String::from(v))),
-                        Err(_) => Err(EngineError::Cast("Casting to string failed".into())),
+                        Err(_) => Err(JanetError::Cast("Casting to string failed".into())),
                     }
                 }
                 JANET_TYPE_JANET_NIL => Ok(JanetEnum::Null),
@@ -171,13 +167,13 @@ impl JanetEnum {
                         Ok(v) => Ok(JanetEnum::Array(v)),
                         Err(e) => Err(e),
                     },
-                    None => Err(EngineError::Cast(
+                    None => Err(JanetError::Cast(
                         "Couldn't cast pointer to reference".into(),
                     )),
                 },
                 JANET_TYPE_JANET_TABLE => match janet_unwrap_table(item).as_mut() {
                     Some(it) => Ok(JanetEnum::Table(Table::new(it))),
-                    None => Err(EngineError::Cast(
+                    None => Err(JanetError::Cast(
                         "Couldn't cast pointer to reference".into(),
                     )),
                 },
@@ -185,7 +181,7 @@ impl JanetEnum {
                     CStr::from_ptr(janet_unwrap_symbol(item) as *const std::ffi::c_char)
                         .to_str()
                         .map_err(|e| {
-                            EngineError::Cast(format!(
+                            JanetError::Cast(format!(
                                 "Could not cast symbol at pointer to UTF-8 string: {}",
                                 e
                             ))
@@ -193,76 +189,13 @@ impl JanetEnum {
                         .to_owned(),
                 )),
                 JANET_TYPE_JANET_TUPLE => Ok(JanetEnum::Tuple(Tuple::new(item))),
-                other => Err(EngineError::Type(format!(
+                other => Err(JanetError::Type(format!(
                     "Type '{}' is currently unsupported",
                     other
                 ))),
             }
         }
     }
-}
-
-pub unsafe fn vec_to_janet_array(coords: &[I16Vec2]) -> *mut JanetArray {
-    let arr = janet_array(coords.len() as i32);
-    for coord in coords {
-        let sub = janet_array(2);
-        janet_array_push(sub, janet_wrap_integer(coord.x as i32));
-        janet_array_push(sub, janet_wrap_integer(coord.y as i32));
-        janet_array_push(arr, janet_wrap_array(sub));
-    }
-    arr
-}
-
-pub unsafe fn ptr_to_i16_vec(arr_ptr: *mut JanetArray) -> Option<Vec<I16Vec2>> {
-    if arr_ptr.is_null() {
-        return None;
-    }
-    // Safety: rely on JanetArray layout from bindings; treat data as pointer to Janet elements.
-    let count = (*arr_ptr).count as usize;
-    let mut out = Vec::with_capacity(count);
-    for i in 0..count {
-        // pointer to the i-th Janet value in the outer array
-        let elem_janet_ptr = (*arr_ptr).data.add(i);
-        // obtain inner array pointer from that element (index 0 of a one-element argv)
-        let sub_arr = janet_getarray(elem_janet_ptr, 0);
-        if sub_arr.is_null() {
-            return None;
-        }
-        // read integers from sub array's data (first and second element)
-        let x = janet_getinteger64((*sub_arr).data, 0) as i16;
-        let y = janet_getinteger64((*sub_arr).data, 1) as i16;
-        out.push(I16Vec2::new(x, y));
-    }
-    Some(out)
-}
-
-pub fn to_i16_vec(item: JanetEnum) -> Option<Vec<I16Vec2>> {
-    let JanetEnum::Array(arr) = item else {
-        return None;
-    };
-
-    let mut result = Vec::new();
-    for item in arr {
-        // Ensure the item is am `JanetEnum::_Array`
-        if let JanetEnum::Array(inner_vec) = item {
-            // Ensure the inner array has exactly two elements
-            if inner_vec.len() != 2 {
-                return None;
-            }
-            // Extract the two values
-            let x = match inner_vec[..] {
-                [JanetEnum::Int(value_x), JanetEnum::Int(value_y)] => {
-                    [value_x as i16, value_y as i16]
-                }
-                _ => return None,
-            };
-
-            result.push(I16Vec2::from_array(x));
-        } else {
-            return None;
-        }
-    }
-    Some(result)
 }
 
 impl fmt::Display for JanetEnum {
@@ -284,21 +217,21 @@ impl fmt::Display for JanetEnum {
 }
 
 impl TryFrom<JanetEnum> for String {
-    type Error = EngineError;
+    type Error = JanetError;
 
     fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
         let JanetEnum::String(s) = value else {
-            return Err(EngineError::Cast("Value is not a String".into()));
+            return Err(JanetError::Cast("Value is not a String".into()));
         };
         Ok(s)
     }
 }
 impl TryFrom<&JanetEnum> for String {
-    type Error = EngineError;
+    type Error = JanetError;
 
     fn try_from(value: &JanetEnum) -> Result<Self, Self::Error> {
         let JanetEnum::String(s) = value else {
-            return Err(EngineError::Cast("Value is not a String".into()));
+            return Err(JanetError::Cast("Value is not a String".into()));
         };
         Ok(s.to_owned())
     }
@@ -446,96 +379,93 @@ impl JanetEnum {
         }
     }
 
-    // Extract with error handling - return Result<T, EngineError>
-    pub fn expect_int(self) -> Result<i32, EngineError> {
+    // Extract with error handling - return Result<T, JanetError>
+    pub fn expect_int(self) -> Result<i32, JanetError> {
         match self {
             JanetEnum::Int(i) => Ok(i),
-            _ => Err(EngineError::Cast(format!("Expected Int, got {}", self))),
+            _ => Err(JanetError::Cast(format!("Expected Int, got {}", self))),
         }
     }
 
-    pub fn expect_uint(self) -> Result<u64, EngineError> {
+    pub fn expect_uint(self) -> Result<u64, JanetError> {
         match self {
             JanetEnum::UInt(u) => Ok(u),
-            _ => Err(EngineError::Cast(format!("Expected UInt, got {}", self))),
+            _ => Err(JanetError::Cast(format!("Expected UInt, got {}", self))),
         }
     }
 
-    pub fn expect_float(self) -> Result<f64, EngineError> {
+    pub fn expect_float(self) -> Result<f64, JanetError> {
         match self {
             JanetEnum::Float(f) => Ok(f),
-            _ => Err(EngineError::Cast(format!("Expected Float, got {}", self))),
+            _ => Err(JanetError::Cast(format!("Expected Float, got {}", self))),
         }
     }
 
-    pub fn expect_bool(self) -> Result<bool, EngineError> {
+    pub fn expect_bool(self) -> Result<bool, JanetError> {
         match self {
             JanetEnum::Bool(b) => Ok(b),
-            _ => Err(EngineError::Cast(format!("Expected Bool, got {}", self))),
+            _ => Err(JanetError::Cast(format!("Expected Bool, got {}", self))),
         }
     }
 
-    pub fn expect_string(self) -> Result<String, EngineError> {
+    pub fn expect_string(self) -> Result<String, JanetError> {
         match self {
             JanetEnum::String(s) => Ok(s),
-            _ => Err(EngineError::Cast(format!("Expected String, got {}", self))),
+            _ => Err(JanetError::Cast(format!("Expected String, got {}", self))),
         }
     }
 
-    pub fn expect_function(self) -> Result<Function, EngineError> {
+    pub fn expect_function(self) -> Result<Function, JanetError> {
         match self {
             JanetEnum::Function(f) => Ok(f),
-            _ => Err(EngineError::Cast(format!(
-                "Expected Function, got {}",
-                self
-            ))),
+            _ => Err(JanetError::Cast(format!("Expected Function, got {}", self))),
         }
     }
 
-    pub fn expect_array(self) -> Result<Vec<JanetEnum>, EngineError> {
+    pub fn expect_array(self) -> Result<Vec<JanetEnum>, JanetError> {
         match self {
             JanetEnum::Array(arr) => Ok(arr),
-            _ => Err(EngineError::Cast(format!("Expected Array, got {}", self))),
+            _ => Err(JanetError::Cast(format!("Expected Array, got {}", self))),
         }
     }
 
-    pub fn expect_table(self) -> Result<Table, EngineError> {
+    pub fn expect_table(self) -> Result<Table, JanetError> {
         match self {
             JanetEnum::Table(table) => Ok(table),
-            _ => Err(EngineError::Cast(format!("Expected Table, got {}", self))),
+            _ => Err(JanetError::Cast(format!("Expected Table, got {}", self))),
         }
     }
 
-    pub fn expect_tuple(self) -> Result<Tuple, EngineError> {
+    pub fn expect_tuple(self) -> Result<Tuple, JanetError> {
         match self {
             JanetEnum::Tuple(tuple) => Ok(tuple),
-            _ => Err(EngineError::Cast(format!("Expected Tuple, got {}", self))),
+            _ => Err(JanetError::Cast(format!("Expected Tuple, got {}", self))),
         }
     }
 
     // Numeric coercion with error handling
-    pub fn expect_number(self) -> Result<f64, EngineError> {
+    pub fn expect_number(self) -> Result<f64, JanetError> {
         match self {
             JanetEnum::Int(i) => Ok(i as f64),
             JanetEnum::UInt(u) => Ok(u as f64),
             JanetEnum::Float(f) => Ok(f),
-            _ => Err(EngineError::Cast(format!(
+            _ => Err(JanetError::Cast(format!(
                 "Expected numeric type, got {}",
                 self
             ))),
         }
     }
 
-    pub fn expect_number_as_int(self) -> Result<i32, EngineError> {
+    pub fn expect_number_as_int(self) -> Result<i32, JanetError> {
         self.expect_number().map(|n| n as i32)
     }
 
-    pub fn expect_number_as_uint(self) -> Result<u64, EngineError> {
+    pub fn expect_number_as_uint(self) -> Result<u64, JanetError> {
         let num = self.expect_number()?;
         if num >= 0.0 {
             Ok(num as u64)
         } else {
-            Err(EngineError::Cast(format!(
+            Err(JanetError::Cast(format!(
                 "Cannot convert negative number {} to uint",
                 num
             )))
@@ -582,7 +512,7 @@ impl JanetEnum {
 
 // Add more TryFrom implementations for convenience
 impl TryFrom<JanetEnum> for i32 {
-    type Error = EngineError;
+    type Error = JanetError;
 
     fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
         value.expect_int()
@@ -590,7 +520,7 @@ impl TryFrom<JanetEnum> for i32 {
 }
 
 impl TryFrom<JanetEnum> for u64 {
-    type Error = EngineError;
+    type Error = JanetError;
 
     fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
         value.expect_uint()
@@ -598,7 +528,7 @@ impl TryFrom<JanetEnum> for u64 {
 }
 
 impl TryFrom<JanetEnum> for f64 {
-    type Error = EngineError;
+    type Error = JanetError;
 
     fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
         value.expect_float()
@@ -606,7 +536,7 @@ impl TryFrom<JanetEnum> for f64 {
 }
 
 impl TryFrom<JanetEnum> for bool {
-    type Error = EngineError;
+    type Error = JanetError;
 
     fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
         value.expect_bool()
@@ -614,7 +544,7 @@ impl TryFrom<JanetEnum> for bool {
 }
 
 impl TryFrom<JanetEnum> for Vec<JanetEnum> {
-    type Error = EngineError;
+    type Error = JanetError;
 
     fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
         value.expect_array()
@@ -622,7 +552,7 @@ impl TryFrom<JanetEnum> for Vec<JanetEnum> {
 }
 
 impl TryFrom<JanetEnum> for Table {
-    type Error = EngineError;
+    type Error = JanetError;
 
     fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
         value.expect_table()
@@ -630,7 +560,7 @@ impl TryFrom<JanetEnum> for Table {
 }
 
 impl TryFrom<JanetEnum> for Function {
-    type Error = EngineError;
+    type Error = JanetError;
 
     fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
         value.expect_function()
@@ -638,7 +568,7 @@ impl TryFrom<JanetEnum> for Function {
 }
 
 impl TryFrom<JanetEnum> for Tuple {
-    type Error = EngineError;
+    type Error = JanetError;
 
     fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
         value.expect_tuple()
@@ -647,53 +577,53 @@ impl TryFrom<JanetEnum> for Tuple {
 
 // Reference versions for non-consuming access
 impl TryFrom<&JanetEnum> for i32 {
-    type Error = EngineError;
+    type Error = JanetError;
 
     fn try_from(value: &JanetEnum) -> Result<Self, Self::Error> {
         value
             .as_int()
-            .ok_or_else(|| EngineError::Cast(format!("Expected Int, got {}", value)))
+            .ok_or_else(|| JanetError::Cast(format!("Expected Int, got {}", value)))
     }
 }
 
 impl TryFrom<&JanetEnum> for u64 {
-    type Error = EngineError;
+    type Error = JanetError;
 
     fn try_from(value: &JanetEnum) -> Result<Self, Self::Error> {
         value
             .as_uint()
-            .ok_or_else(|| EngineError::Cast(format!("Expected UInt, got {}", value)))
+            .ok_or_else(|| JanetError::Cast(format!("Expected UInt, got {}", value)))
     }
 }
 
 impl TryFrom<&JanetEnum> for f64 {
-    type Error = EngineError;
+    type Error = JanetError;
 
     fn try_from(value: &JanetEnum) -> Result<Self, Self::Error> {
         value
             .as_float()
-            .ok_or_else(|| EngineError::Cast(format!("Expected Float, got {}", value)))
+            .ok_or_else(|| JanetError::Cast(format!("Expected Float, got {}", value)))
     }
 }
 
 impl TryFrom<&JanetEnum> for bool {
-    type Error = EngineError;
+    type Error = JanetError;
 
     fn try_from(value: &JanetEnum) -> Result<Self, Self::Error> {
         value
             .as_bool()
-            .ok_or_else(|| EngineError::Cast(format!("Expected Bool, got {}", value)))
+            .ok_or_else(|| JanetError::Cast(format!("Expected Bool, got {}", value)))
     }
 }
 
 impl TryFrom<JanetEnum> for u16 {
-    type Error = EngineError;
+    type Error = JanetError;
 
     fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
         match value {
             JanetEnum::Int(i) => Ok(i as u16),
             JanetEnum::UInt(u) => Ok(u as u16),
-            _ => Err(EngineError::Cast(format!(
+            _ => Err(JanetError::Cast(format!(
                 "expected integer type got  {}",
                 value
             ))),
@@ -702,13 +632,13 @@ impl TryFrom<JanetEnum> for u16 {
 }
 
 impl TryFrom<JanetEnum> for i16 {
-    type Error = EngineError;
+    type Error = JanetError;
 
     fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
         match value {
             JanetEnum::Int(i) => Ok(i as i16),
             JanetEnum::UInt(u) => Ok(u as i16),
-            _ => Err(EngineError::Cast(format!(
+            _ => Err(JanetError::Cast(format!(
                 "expected integer type got  {}",
                 value
             ))),
@@ -717,39 +647,14 @@ impl TryFrom<JanetEnum> for i16 {
 }
 
 impl TryFrom<&JanetEnum> for i16 {
-    type Error = EngineError;
+    type Error = JanetError;
 
     fn try_from(value: &JanetEnum) -> Result<Self, Self::Error> {
         match value {
             JanetEnum::Int(i) => Ok(*i as i16),
             JanetEnum::UInt(u) => Ok(*u as i16),
-            _ => Err(EngineError::Cast(format!(
+            _ => Err(JanetError::Cast(format!(
                 "expected integer type got  {}",
-                value
-            ))),
-        }
-    }
-}
-
-impl TryFrom<JanetEnum> for I16Vec2 {
-    type Error = EngineError;
-
-    fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
-        match value {
-            JanetEnum::Array(a) if a.len() == 2 => {
-                let x = a.get(0).expect("Fail");
-                let y = a.get(1).expect("Fail");
-
-                Ok(I16Vec2::new(x.try_into()?, y.try_into()?))
-            }
-            JanetEnum::Tuple(t) => {
-                let x = t.get(0).expect("Fail");
-                let y = t.get(1).expect("Fail");
-
-                Ok(I16Vec2::new(x.try_into()?, y.try_into()?))
-            }
-            _ => Err(EngineError::Cast(format!(
-                "Janet type not supported expected array or tuple, got {}",
                 value
             ))),
         }

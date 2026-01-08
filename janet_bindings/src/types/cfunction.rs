@@ -1,5 +1,4 @@
-use crate::engine::janet_handler::bindings::Janet;
-
+use crate::bindings::Janet;
 
 pub type JanetRawCFunction = unsafe extern "C" fn(i32, *mut Janet) -> Janet;
 

@@ -1,11 +1,7 @@
-use crate::engine::{
-    error::EngineError,
-    janet_handler::{
-        bindings::{
-            janet_tuple_begin, janet_tuple_end, janet_tuple_head, janet_unwrap_tuple, Janet,
-        },
-        types::janetenum::JanetEnum,
-    },
+use crate::{
+    bindings::{Janet, janet_tuple_begin, janet_tuple_end, janet_tuple_head, janet_unwrap_tuple},
+    error::JanetError,
+    types::janetenum::JanetEnum,
 };
 
 #[derive(Debug, Clone)]
@@ -15,9 +11,9 @@ pub struct Tuple {
 }
 
 impl Tuple {
-    pub fn get(&self, pos: usize) -> Result<JanetEnum, EngineError> {
+    pub fn get(&self, pos: usize) -> Result<JanetEnum, JanetError> {
         if pos >= self.length {
-            return Err(EngineError::OutOfBounds);
+            return Err(JanetError::OutOfBounds);
         }
         unsafe { JanetEnum::from(*self.raw.add(pos)) }
     }

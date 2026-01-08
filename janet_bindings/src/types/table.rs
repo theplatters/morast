@@ -1,9 +1,9 @@
 use std::ffi::CString;
 
-use crate::engine::janet_handler::{
-    bindings::{janet_csymbol, janet_table_get, janet_wrap_integer, janet_wrap_symbol, JanetTable},
-    types::tuple::Tuple,
+use crate::bindings::{
+    JanetTable, janet_csymbol, janet_table_get, janet_wrap_integer, janet_wrap_symbol,
 };
+use crate::types::tuple::Tuple;
 
 use super::janetenum::JanetEnum;
 

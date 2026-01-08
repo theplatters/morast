@@ -1266,7 +1266,7 @@ unsafe extern "C" {
 }
 unsafe extern "C" {
     pub fn getloadavg(__loadavg: *mut f64, __nelem: ::std::os::raw::c_int)
-        -> ::std::os::raw::c_int;
+    -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
     pub fn __memcmpeq(
@@ -1902,7 +1902,7 @@ unsafe extern "C" {
 }
 unsafe extern "C" {
     pub fn fdopen(__fd: ::std::os::raw::c_int, __modes: *const ::std::os::raw::c_char)
-        -> *mut FILE;
+    -> *mut FILE;
 }
 unsafe extern "C" {
     pub fn fopencookie(
@@ -2138,7 +2138,7 @@ unsafe extern "C" {
 }
 unsafe extern "C" {
     pub fn fputc_unlocked(__c: ::std::os::raw::c_int, __stream: *mut FILE)
-        -> ::std::os::raw::c_int;
+    -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
     pub fn putc_unlocked(__c: ::std::os::raw::c_int, __stream: *mut FILE) -> ::std::os::raw::c_int;
@@ -4476,7 +4476,7 @@ unsafe extern "C" {
 }
 unsafe extern "C" {
     pub fn janet_channel_take(channel: *mut JanetChannel, out: *mut Janet)
-        -> ::std::os::raw::c_int;
+    -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
     pub fn janet_os_mutex_size() -> usize;
@@ -5007,7 +5007,7 @@ unsafe extern "C" {
 }
 unsafe extern "C" {
     pub fn janet_table_get_ex(t: *mut JanetTable, key: Janet, which: *mut *mut JanetTable)
-        -> Janet;
+    -> Janet;
 }
 unsafe extern "C" {
     pub fn janet_table_rawget(t: *mut JanetTable, key: Janet) -> Janet;
@@ -5627,11 +5627,11 @@ unsafe extern "C" {
 }
 unsafe extern "C" {
     pub fn janet_optstruct(argv: *const Janet, argc: i32, n: i32, dflt: JanetStruct)
-        -> JanetStruct;
+    -> JanetStruct;
 }
 unsafe extern "C" {
     pub fn janet_optstring(argv: *const Janet, argc: i32, n: i32, dflt: JanetString)
-        -> JanetString;
+    -> JanetString;
 }
 unsafe extern "C" {
     pub fn janet_optcstring(
@@ -5651,7 +5651,7 @@ unsafe extern "C" {
 }
 unsafe extern "C" {
     pub fn janet_optsymbol(argv: *const Janet, argc: i32, n: i32, dflt: JanetString)
-        -> JanetSymbol;
+    -> JanetSymbol;
 }
 unsafe extern "C" {
     pub fn janet_optkeyword(

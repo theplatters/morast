@@ -1,11 +1,11 @@
 use std::ffi::CStr;
 use std::ptr;
 use std::{
-    ffi::{c_void, CString},
+    ffi::{CString, c_void},
     str::FromStr,
 };
 
-use crate::engine::janet_handler::bindings::{Janet, JanetAbstractType};
+use crate::bindings::{Janet, JanetAbstractType};
 
 pub mod cfunction;
 pub mod function;
@@ -54,7 +54,7 @@ impl JanetAbstractType {
 
     pub unsafe extern "C" fn gc<T>(data: *mut c_void, _len: usize) -> i32 {
         // data points to the abstract payload (your Builder stored inline there)
-        ptr::drop_in_place(data as *mut T);
+        unsafe { ptr::drop_in_place(data as *mut T) };
         0
     }
 }
