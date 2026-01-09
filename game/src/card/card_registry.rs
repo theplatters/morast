@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use bevy::ecs::{
     resource::Resource,
-    system::{NonSendMut, ResMut},
+    system::{NonSend, NonSendMut, ResMut},
 };
 
 use super::{
@@ -11,7 +11,10 @@ use super::{
     card_type::CardTypes,
     creature::Creature,
 };
-use crate::error::GameError;
+use crate::{
+    error::GameError,
+    janet_api::{core_constants::CORE_CONSTANTS, core_functions::CORE_FUNCTIONS},
+};
 use janet_bindings::controller::Environment;
 
 use super::{

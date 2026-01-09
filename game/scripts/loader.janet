@@ -3,14 +3,14 @@
 
 (def base-dir (os/cwd))
 
-(os/cd "scripts/Cards/Creatures")
+(os/cd "game/scripts/Cards/Creatures")
 (def creature-path (os/cwd))
 (each file (os/dir creature-path) (import* (strip-extension file)) (printf "loaded %s" file))
 
 (os/cd base-dir)
-(os/cd "scripts/Cards/Spells")
+(os/cd "game/scripts/Cards/Spells")
 (def spell-path (os/cwd))
 (each file (os/dir spell-path) (import* (strip-extension file)) (printf "loaded %s" file))
 (os/cd base-dir)
-(import* "/scripts/cards")
+(import* "/game/scripts/cards")
 (print "Loaded")

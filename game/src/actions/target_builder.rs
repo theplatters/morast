@@ -404,60 +404,64 @@ pub mod janet {
 }
 
     unsafe fn any_builder_set_auto(data: *mut c_void, value: Janet) {
-        let any = &mut *(data as *mut AnyTargetBuilder);
+        unsafe {
+            let any = &mut *(data as *mut AnyTargetBuilder);
 
-        any_builder_setters!(any, value,
-            creature, CreatureTarget,
-                single => (SingleCreatureTargetBuilder => SingleCreatureTargetBuilderSetSelection),
-                multi  => (MultiCreatureTargetBuilder  => MultiCreatureTargetBuilderSetSelection);
-            tile, TileTarget,
-                single => (SingleTileTargetBuilder => SingleTileTargetBuilderSetSelection),
-                multi  => (MultiTileTargetBuilder  => MultiTileTargetBuilderSetSelection);
-            player, PlayerTarget,
-                single => (SinglePlayerTargetBuilder => SinglePlayerTargetBuilderSetSelection),
-                multi  => (MultiPlayerTargetBuilder  => MultiPlayerTargetBuilderSetSelection);
-            hand, HandTarget,
-                single => (SingleHandTargetBuilder => SingleHandTargetBuilderSetSelection),
-                multi  => (MultiHandTargetBuilder  => MultiHandTargetBuilderSetSelection);
-        );
+            any_builder_setters!(any, value,
+                creature, CreatureTarget,
+                    single => (SingleCreatureTargetBuilder => SingleCreatureTargetBuilderSetSelection),
+                    multi  => (MultiCreatureTargetBuilder  => MultiCreatureTargetBuilderSetSelection);
+                tile, TileTarget,
+                    single => (SingleTileTargetBuilder => SingleTileTargetBuilderSetSelection),
+                    multi  => (MultiTileTargetBuilder  => MultiTileTargetBuilderSetSelection);
+                player, PlayerTarget,
+                    single => (SinglePlayerTargetBuilder => SinglePlayerTargetBuilderSetSelection),
+                    multi  => (MultiPlayerTargetBuilder  => MultiPlayerTargetBuilderSetSelection);
+                hand, HandTarget,
+                    single => (SingleHandTargetBuilder => SingleHandTargetBuilderSetSelection),
+                    multi  => (MultiHandTargetBuilder  => MultiHandTargetBuilderSetSelection);
+            );
+        }
     }
 
     unsafe fn any_builder_set_manual(data: *mut c_void, value: Janet) {
-        let any = &mut *(data as *mut AnyTargetBuilder);
+        unsafe {
+            let any = &mut *(data as *mut AnyTargetBuilder);
 
-        any_builder_setters_manual!(any, value,
-            creature, CreatureTarget,
-                single => (SingleCreatureTargetBuilder => SingleCreatureTargetBuilderSetSelection),
-                multi  => (MultiCreatureTargetBuilder  => MultiCreatureTargetBuilderSetSelection);
-            tile, TileTarget,
-                single => (SingleTileTargetBuilder => SingleTileTargetBuilderSetSelection),
-                multi  => (MultiTileTargetBuilder  => MultiTileTargetBuilderSetSelection);
-            player, PlayerTarget,
-                single => (SinglePlayerTargetBuilder => SinglePlayerTargetBuilderSetSelection),
-                multi  => (MultiPlayerTargetBuilder  => MultiPlayerTargetBuilderSetSelection);
-            hand, HandTarget,
-                single => (SingleHandTargetBuilder => SingleHandTargetBuilderSetSelection),
-                multi  => (MultiHandTargetBuilder  => MultiHandTargetBuilderSetSelection);
-        );
+            any_builder_setters_manual!(any, value,
+                creature, CreatureTarget,
+                    single => (SingleCreatureTargetBuilder => SingleCreatureTargetBuilderSetSelection),
+                    multi  => (MultiCreatureTargetBuilder  => MultiCreatureTargetBuilderSetSelection);
+                tile, TileTarget,
+                    single => (SingleTileTargetBuilder => SingleTileTargetBuilderSetSelection),
+                    multi  => (MultiTileTargetBuilder  => MultiTileTargetBuilderSetSelection);
+                player, PlayerTarget,
+                    single => (SinglePlayerTargetBuilder => SinglePlayerTargetBuilderSetSelection),
+                    multi  => (MultiPlayerTargetBuilder  => MultiPlayerTargetBuilderSetSelection);
+                hand, HandTarget,
+                    single => (SingleHandTargetBuilder => SingleHandTargetBuilderSetSelection),
+                    multi  => (MultiHandTargetBuilder  => MultiHandTargetBuilderSetSelection);
+            );
+        }
     }
 
     unsafe extern "C" fn any_builder_put(data: *mut c_void, key: Janet, value: Janet) {
         let key_enum = JanetEnum::from(key).unwrap();
         if let Some(key_str) = key_enum.into_string() {
             match key_str.as_str() {
-                "auto" => any_builder_set_auto(data, value),
-                "manual" => any_builder_set_manual(data, value),
-                _ => janet_panic(c"unknown key".as_ptr()),
+                "auto" => unsafe { any_builder_set_auto(data, value) },
+                "manual" => unsafe { any_builder_set_manual(data, value) },
+                _ => unsafe { janet_panic(c"unknown key".as_ptr()) },
             }
         }
     }
 
     unsafe fn make_builder_auto<T: TargetKind<M>, M: Constraint>(data: *mut c_void, value: Janet) {
-        let auto_kind_ptr = janet_unwrap_abstract(value) as *mut T::Auto;
+        let auto_kind_ptr = unsafe { janet_unwrap_abstract(value) } as *mut T::Auto;
         let builder_ptr = data as *mut TargetSelectorBuilder<T, M, SetCardinality, UnsetSelection>;
-        let auto_kind = ptr::read(auto_kind_ptr);
+        let auto_kind = unsafe { ptr::read(auto_kind_ptr) };
 
-        let builder = ptr::read(builder_ptr).auto(auto_kind);
+        let builder = unsafe { ptr::read(builder_ptr).auto(auto_kind) };
     }
 
     unsafe extern "C" fn builder_put<T: TargetKind<M>, M: Constraint>(
@@ -468,7 +472,7 @@ pub mod janet {
         let key_enum = JanetEnum::from(key).unwrap();
         if let Some(key_str) = key_enum.into_string() {
             match key_str.as_str() {
-                "auto" => make_builder_auto::<T, M>(data, value),
+                "auto" => unsafe { make_builder_auto::<T, M>(data, value) },
                 _ => panic!("Not yet implemeted"),
             }
         }
@@ -479,14 +483,6 @@ pub mod janet {
         JanetAbstractType::gc::<AnyTargetBuilder>,
     )
     .with_put_metod(any_builder_put);
-
-    macro_rules! def_builder_cfun {
-        ($fn_name:ident, $builder:ty, $atype:ident, $init:expr) => {
-            pub unsafe extern "C" fn $fn_name(argc: i32, argv: *mut Janet) -> Janet {
-                cfun_make_builder::<$builder>(argc, argv, &raw const $atype, || $init)
-            }
-        };
-    }
 
     macro_rules! core_fns {
     ($( $name:literal => $cfun:path ; $docs:literal ),* $(,)?) => {
@@ -503,13 +499,15 @@ pub mod janet {
         argv: *mut Janet,
         init: impl FnOnce() -> AnyTargetBuilder,
     ) -> Janet {
-        janet_fixarity(argc, 0);
+        unsafe {
+            janet_fixarity(argc, 0);
 
-        let abst: JanetAbstract =
-            janet_abstract(&raw const ANY_TARGET_BUILDER, size_of::<AnyTargetBuilder>());
-        let p = abst as *mut AnyTargetBuilder;
-        ptr::write(p, init());
-        janet_wrap_abstract(abst)
+            let abst: JanetAbstract =
+                janet_abstract(&raw const ANY_TARGET_BUILDER, size_of::<AnyTargetBuilder>());
+            let p = abst as *mut AnyTargetBuilder;
+            ptr::write(p, init());
+            janet_wrap_abstract(abst)
+        }
     }
 
     macro_rules! def_cfun_target_builder {
@@ -521,18 +519,20 @@ pub mod janet {
         $mode_method:ident
     ) => {
             pub unsafe extern "C" fn $fn_name(argc: i32, _argv: *mut Janet) -> Janet {
-                janet_fixarity(argc, 0);
+                unsafe {
+                    janet_fixarity(argc, 0);
 
-                let abst: JanetAbstract = janet_abstract(
-                    &raw const ANY_TARGET_BUILDER,
-                    ::std::mem::size_of::<AnyTargetBuilder>(),
-                );
-                let p = abst as *mut AnyTargetBuilder;
+                    let abst: JanetAbstract = janet_abstract(
+                        &raw const ANY_TARGET_BUILDER,
+                        ::std::mem::size_of::<AnyTargetBuilder>(),
+                    );
+                    let p = abst as *mut AnyTargetBuilder;
 
-                let b = TargetSelector::<$target_ty, $mode_ty>::builder().$mode_method();
-                ::std::ptr::write(p, AnyTargetBuilder::$variant(b));
+                    let b = TargetSelector::<$target_ty, $mode_ty>::builder().$mode_method();
+                    ::std::ptr::write(p, AnyTargetBuilder::$variant(b));
 
-                janet_wrap_abstract(abst)
+                    janet_wrap_abstract(abst)
+                }
             }
         };
     }

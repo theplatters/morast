@@ -21,4 +21,3 @@
   'description "He has seen better days"
   'display-image-asset-string "missing"})
 
-(target/auto (target/tiles))

@@ -38,10 +38,11 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(CardRegistry::new())
-        .insert_non_send_resource(Environment::new("scripts/loader.janet"))
+        .init_non_send_resource::<Environment>()
         .add_systems(
             Startup,
             (
+                read_card_list,
                 init_card_registry,
                 add_player,
                 add_cards,

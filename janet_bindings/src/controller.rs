@@ -32,32 +32,24 @@ pub struct CoreConstant {
 }
 
 impl Environment {
-    pub fn new(filename: &str) -> Environment {
+    pub fn new() -> Environment {
         unsafe {
             janet_init();
             let env_pointer = janet_core_env(std::ptr::null_mut());
             let lookup = janet_env_lookup(env_pointer);
-            let env = Environment {
+            Self {
                 env_pointer: Table { raw: env_pointer },
                 lookup: Table { raw: lookup },
-            };
-
-            env.read_script(filename);
-            env
+            }
         }
     }
 
-    pub fn register_constant(
-        &self,
-        name: &str,
-        value: &JanetEnum,
-        docs: Option<&str>,
-    ) -> Result<(), NulError> {
-        let name_cstr = CString::new(name)?;
-        let doc_cstr = docs.map(CString::new).transpose()?;
+    pub fn register_constant(&self, core_constant: &CoreConstant) -> Result<(), NulError> {
+        let name_cstr = CString::new(core_constant.name)?;
+        let doc_cstr = core_constant.docs.map(CString::new).transpose()?;
 
         unsafe {
-            let janet_value = value.to_janet();
+            let janet_value = core_constant.value.to_janet();
             janet_def(
                 self.env_ptr(),
                 name_cstr.as_ptr(),
@@ -167,5 +159,11 @@ impl Environment {
             );
         }
         JanetEnum::from(out)
+    }
+}
+
+impl Default for Environment {
+    fn default() -> Self {
+        Self::new()
     }
 }
