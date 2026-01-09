@@ -2,19 +2,16 @@ use std::str::FromStr;
 
 use bevy::math::I16Vec2;
 
+use janet_bindings::{
+    controller::Environment,
+    types::{janetenum::JanetEnum, table::Table},
+};
+
 use crate::{
-    engine::janet_handler::{
-        controller::Environment,
-        types::{
-            janetenum::{to_i16_vec, JanetEnum},
-            table::Table,
-        },
-    },
-    game::{
-        actions::action_prototype::GameAction,
-        card::{abilities::Abilities, Card},
-        error::GameError,
-    },
+    actions::action_prototype::GameAction,
+    card::{Card, abilities::Abilities},
+    error::GameError,
+    janet_api::api::to_i16_vec,
 };
 
 pub struct CommonData {

@@ -1,10 +1,7 @@
 use crate::{
-    game::{
-        actions::action_prototype::{Pending, ReadyToExecute},
-        card::Playable,
-        error::GameError,
-    },
     Result,
+    actions::action_prototype::{Pending, ReadyToExecute},
+    error::GameError,
 };
 use bevy::{
     app::{Plugin, Update},
@@ -19,10 +16,8 @@ use bevy::{
     log::info,
 };
 
-use crate::game::{
-    board::placement::CardPlayed,
-    card::{card_id::CardID, card_registry::CardRegistry},
-};
+use crate::board::placement::CardPlayed;
+use crate::card::{Playable, card_id::CardID, card_registry::CardRegistry};
 
 pub struct ActionPlugin;
 

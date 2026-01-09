@@ -3,11 +3,11 @@ use bevy::{
     log::warn,
 };
 
-use crate::game::{
+use crate::{
     actions::action_prototype::GameAction,
     card::{
-        card_id::CardID, card_registry::CardRegistry, Card, CardBehavior, Cost, FromRegistry,
-        Playable,
+        Card, CardBehavior, Cost, FromRegistry, Playable, card_id::CardID,
+        card_registry::CardRegistry,
     },
 };
 

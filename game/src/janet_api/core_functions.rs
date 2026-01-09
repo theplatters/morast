@@ -1,3 +1,6 @@
+use janet_bindings::controller::CoreFunction;
+
+use super::api::*;
 macro_rules! core_fns {
     ($( $name:literal => $cfun:path ; $docs:literal ),* $(,)?) => {
         &[
@@ -22,12 +25,3 @@ pub const CORE_FUNCTIONS: &[CoreFunction] = core_fns![
     "from-current-position" => cfun_from_current_position; "Maps an array relative to a position",
     "is-owners-turn?" => cfun_is_owners_turn; "Returns true if the turn player is the owner of the card",
 ];
-
-impl Environment {
-    pub fn register_core_functions(&self) {
-        for func in CORE_FUNCTIONS {
-            self.register(func.name, func.cfun, func.docs, Some("std"))
-                .unwrap_or_else(|_| panic!("Could not register {} function", func.name));
-        }
-    }
-}

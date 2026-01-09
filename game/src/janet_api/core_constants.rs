@@ -1,10 +1,7 @@
-use crate::engine::janet_handler::{controller::Environment, types::janetenum::JanetEnum};
-
-pub struct CoreConstant {
-    pub name: &'static str,
-    pub value: JanetEnum,
-    pub docs: Option<&'static str>,
-}
+use janet_bindings::{
+    controller::{CoreConstant, Environment},
+    types::janetenum::JanetEnum,
+};
 
 pub const CORE_CONSTANTS: &[CoreConstant] = &[
     // Phase Constants
@@ -48,12 +45,3 @@ pub const CORE_CONSTANTS: &[CoreConstant] = &[
         docs: Some("Represents a spell speed that cannot be countered"),
     },
 ];
-
-impl Environment {
-    pub fn register_core_constants(&self) {
-        for constant in CORE_CONSTANTS {
-            self.register_constant(constant.name, &constant.value, constant.docs)
-                .unwrap_or_else(|_| panic!("Could not register {} function", constant.name));
-        }
-    }
-}

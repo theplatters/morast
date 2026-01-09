@@ -4,7 +4,7 @@ use bevy::{
     math::{U16Vec2, Vec2, Vec3},
 };
 
-use crate::game::board::BoardRes;
+use crate::board::BoardRes;
 
 #[derive(Resource, Debug)]
 pub struct RenderConfig {

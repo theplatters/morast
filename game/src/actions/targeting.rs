@@ -20,9 +20,9 @@ pub struct Or<A, B>(std::marker::PhantomData<(A, B)>);
 
 pub trait Constraint: 'static + Send + Sync + Clone + std::fmt::Debug {}
 impl<
-        A: std::fmt::Debug + Send + Sync + 'static + Clone,
-        B: std::fmt::Debug + Send + Sync + 'static + Clone,
-    > Constraint for Or<A, B>
+    A: std::fmt::Debug + Send + Sync + 'static + Clone,
+    B: std::fmt::Debug + Send + Sync + 'static + Clone,
+> Constraint for Or<A, B>
 {
 }
 impl Constraint for SingleTarget {}
@@ -392,22 +392,12 @@ where
 }
 
 mod janet {
-    use crate::{
-        engine::janet_handler::{
-            bindings::{janet_register_abstract_type, JanetAbstractType},
-            controller::Environment,
-        },
-        game::actions::targeting::AnyTargetSelector,
-    };
+    use janet_bindings::bindings::JanetAbstractType;
+
+    use crate::actions::targeting::AnyTargetSelector;
 
     static mut ANY_TARGET: JanetAbstractType = JanetAbstractType::new(
         c"target/any-target",
         JanetAbstractType::gc::<AnyTargetSelector>,
     );
-
-    impl Environment {
-        pub unsafe fn register_abstract_targeting_types(&self) {
-            janet_register_abstract_type(&raw mut ANY_TARGET);
-        }
-    }
 }

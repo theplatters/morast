@@ -5,18 +5,14 @@ use bevy::ecs::{
     system::{NonSendMut, ResMut},
 };
 
-use crate::{
-    engine::janet_handler::controller::Environment,
-    game::{
-        card::{
-            card_reader::{read_spell, read_trap},
-            card_type::CardTypes,
-            creature::Creature,
-            Card, CardBehavior,
-        },
-        error::GameError,
-    },
+use super::{
+    Card, CardBehavior,
+    card_reader::{read_spell, read_trap},
+    card_type::CardTypes,
+    creature::Creature,
 };
+use crate::error::GameError;
+use janet_bindings::controller::Environment;
 
 use super::{
     card_id::CardID,

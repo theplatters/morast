@@ -2350,6 +2350,8 @@ name = "game"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "derive_more",
+ "janet_bindings",
  "rand",
 ]
 

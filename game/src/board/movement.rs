@@ -1,9 +1,6 @@
 use std::fmt::Display;
 
-use crate::{
-    game::{card::creature::BaseMovementPoints, components::Owner, player::TurnPlayer},
-    Result,
-};
+use crate::{Result, card::creature::BaseMovementPoints, components::Owner, player::TurnPlayer};
 use bevy::{
     ecs::{
         entity::Entity,
@@ -15,9 +12,9 @@ use bevy::{
     math::U16Vec2,
 };
 
-use crate::game::{
-    board::{effect::EffectType, place_error::BoardError, tile::Occupant, BoardRes},
-    card::{creature::MovementPattern, CreatureCard, CurrentMovementPoints, OnBoard},
+use crate::{
+    board::{BoardRes, effect::EffectType, place_error::BoardError, tile::Occupant},
+    card::{CreatureCard, CurrentMovementPoints, OnBoard, creature::MovementPattern},
     events::CardMoved,
 };
 

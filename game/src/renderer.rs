@@ -1,6 +1,6 @@
 use bevy::{
     app::{Plugin, Startup, Update},
-    asset::{AssetServer, Assets},
+    asset::AssetServer,
     camera::Camera2d,
     color::{Color, Srgba},
     ecs::{
@@ -14,34 +14,29 @@ use bevy::{
         query::{Added, Changed, With},
         relationship::{RelatedSpawnerCommands, RelationshipTarget},
         schedule::IntoScheduleConfigs,
-        system::{Commands, Query, Res, ResMut, Single},
+        system::{Commands, Query, Res, Single},
     },
     log::{info, warn},
     math::{U16Vec2, Vec2},
-    mesh::Mesh,
     picking::{
-        events::{Pointer, Release},
         Pickable,
+        events::{Pointer, Release},
     },
     sprite::{Anchor, Sprite, Text2d},
-    sprite_render::ColorMaterial,
-    state::commands,
     text::{TextColor, TextFont},
     transform::components::{GlobalTransform, Transform},
     window::Window,
 };
 
 use crate::{
-    engine::renderer::render_config::RenderConfig,
-    game::{
-        board::{
-            tile::{EffectsOnTile, Position, Tile},
-            Board, BoardRes,
-        },
-        card::{add_cards, card_id::CardID, Cost, InHand, OnBoard},
-        player::{Hand, TurnPlayer},
-        turn_controller::CardClicked,
+    board::{
+        Board, BoardRes,
+        tile::{EffectsOnTile, Position, Tile},
     },
+    card::{Cost, InHand, OnBoard, add_cards, card_id::CardID},
+    player::{Hand, TurnPlayer},
+    renderer::render_config::RenderConfig,
+    turn_controller::CardClicked,
 };
 
 pub mod render_config;

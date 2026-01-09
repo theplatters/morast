@@ -1,9 +1,9 @@
 use crate::types::cfunction::JanetRawCFunction;
 
-mod bindings;
-mod controller;
-mod error;
-mod types;
+pub mod bindings;
+pub mod controller;
+pub mod error;
+pub mod types;
 
 // 1) Tiny macro to keep the list readable/consistent
 macro_rules! core_fns {
@@ -14,10 +14,4 @@ macro_rules! core_fns {
             )*
         ] as &[CoreFunction]
     };
-}
-
-pub struct CoreFunction {
-    pub name: &'static str,
-    pub cfun: JanetRawCFunction,
-    pub docs: &'static str,
 }

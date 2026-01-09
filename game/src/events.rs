@@ -4,7 +4,7 @@ use bevy::{
     math::U16Vec2,
 };
 
-use crate::game::{
+use crate::{
     board::effect::{Effect, EffectType},
     player::Player,
 };

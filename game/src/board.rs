@@ -7,16 +7,16 @@ use bevy::{
 use effect::Effect;
 use place_error::BoardError;
 
-use crate::game::{
+use crate::{
     board::{
         effect::*,
         movement::*,
-        placement::{place_card, CardPlayed},
+        placement::{CardPlayed, place_card},
         tile::*,
     },
     card::{
-        creature::{AttackPattern, Attacks},
         OnBoard,
+        creature::{AttackPattern, Attacks},
     },
     components::{Health, Owner},
     events::{EffectAdded, EffectRemoved},

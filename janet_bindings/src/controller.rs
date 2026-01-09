@@ -3,7 +3,7 @@ use std::{
     str::FromStr,
 };
 
-use crate::bindings::janet_def;
+use crate::bindings::{JanetAbstractType, janet_def, janet_register_abstract_type};
 
 use super::{
     bindings::{
@@ -14,9 +14,21 @@ use super::{
     types::{cfunction::JanetRawCFunction, janetenum::JanetEnum, table::Table},
 };
 
+pub struct CoreFunction {
+    pub name: &'static str,
+    pub cfun: JanetRawCFunction,
+    pub docs: &'static str,
+}
+
 pub struct Environment {
     pub env_pointer: Table,
     pub lookup: Table,
+}
+
+pub struct CoreConstant {
+    pub name: &'static str,
+    pub value: JanetEnum,
+    pub docs: Option<&'static str>,
 }
 
 impl Environment {
@@ -54,6 +66,22 @@ impl Environment {
             );
         }
         Ok(())
+    }
+
+    pub fn register_abstract_type(&self, mut abstract_type: JanetAbstractType) {
+        unsafe {
+            janet_register_abstract_type(&raw mut abstract_type);
+        }
+    }
+
+    pub fn register_function(&self, core_function: &CoreFunction, namespace: Option<&str>) {
+        self.register(
+            core_function.name,
+            core_function.cfun,
+            core_function.docs,
+            namespace,
+        )
+        .unwrap_or_else(|_| panic!("Could not register {} function", core_function.name));
     }
 
     pub fn env_ptr(&self) -> *mut JanetTable {

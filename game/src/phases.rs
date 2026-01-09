@@ -1,4 +1,6 @@
-use crate::{engine::janet_handler::types::janetenum::JanetEnum, game::error::GameError};
+use janet_bindings::types::janetenum::JanetEnum;
+
+use crate::error::GameError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Phase {

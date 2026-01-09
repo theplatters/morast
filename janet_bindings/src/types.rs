@@ -9,6 +9,7 @@ use crate::bindings::{Janet, JanetAbstractType};
 
 pub mod cfunction;
 pub mod function;
+pub mod janetabstract;
 pub mod janetenum;
 pub mod table;
 pub mod tuple;
@@ -53,7 +54,6 @@ impl JanetAbstractType {
     }
 
     pub unsafe extern "C" fn gc<T>(data: *mut c_void, _len: usize) -> i32 {
-        // data points to the abstract payload (your Builder stored inline there)
         unsafe { ptr::drop_in_place(data as *mut T) };
         0
     }

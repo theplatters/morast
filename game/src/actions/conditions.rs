@@ -1,11 +1,9 @@
-use crate::game::{
-    actions::{
-        action_prototype::ValueSource,
-        targeting::{SingleTarget, TargetSelector, TileTarget},
-    },
-    board::effect::EffectType,
-    janet_action::JanetAction,
+use super::{
+    action_prototype::ValueSource,
+    targeting::{SingleTarget, TargetSelector, TileTarget},
 };
+
+use crate::board::effect::EffectType;
 
 #[derive(Debug, Clone)]
 pub enum Condition {
@@ -32,9 +30,6 @@ pub enum Condition {
     And(Box<Condition>, Box<Condition>),
     Or(Box<Condition>, Box<Condition>),
     Not(Box<Condition>),
-
-    /// Custom Janet condition
-    Custom(Box<JanetAction>),
 }
 
 pub enum PlayerCondition {

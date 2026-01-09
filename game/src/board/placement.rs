@@ -1,10 +1,10 @@
 use bevy::ecs::prelude::*;
 
-use crate::game::{
+use crate::{
     board::{
+        BoardRes,
         place_error::BoardError,
         tile::{Occupant, Tile},
-        BoardRes,
     },
     card::{Cost, CreatureCard, InHand, OnBoard},
     components::Owner,

@@ -3,7 +3,7 @@ use bevy::{
     math::U16Vec2,
 };
 
-use crate::game::{board::effect::EffectTile, card::OnBoard};
+use crate::{board::effect::EffectTile, card::OnBoard};
 
 #[derive(Bundle, Default)]
 pub struct TileBundel {

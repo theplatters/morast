@@ -1,6 +1,8 @@
-use std::fmt::{write, Display};
+use std::fmt::{Display, write};
 
-use crate::{engine::error::EngineError, game::actions::action_builder::ActionBuilderError};
+use janet_bindings::error::JanetError;
+
+use crate::actions::action_builder::ActionBuilderError;
 
 use super::board::place_error::BoardError;
 
@@ -14,7 +16,7 @@ pub enum GameError {
     NotFound(String),
     Cast(String),
     InsufficientGold,
-    EngineError(EngineError),
+    EngineError(JanetError),
     InvalidHandPosition(usize),
     Incomplete(&'static str),
     InvalidCardType,

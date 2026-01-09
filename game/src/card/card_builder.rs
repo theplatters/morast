@@ -1,10 +1,10 @@
 use bevy::math::I16Vec2;
 
-use crate::game::{
+use crate::{
     actions::action_prototype::GameAction,
     card::{
-        abilities::Abilities, card_reader::CommonData, creature::Creature, spell_card::Spell,
-        trap_card::Trap, Card,
+        Card, abilities::Abilities, card_reader::CommonData, creature::Creature, spell_card::Spell,
+        trap_card::Trap,
     },
     error::GameError,
 };

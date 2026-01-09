@@ -660,3 +660,28 @@ impl TryFrom<&JanetEnum> for i16 {
         }
     }
 }
+
+impl TryFrom<JanetEnum> for [i16; 2] {
+    type Error = JanetError;
+
+    fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
+        match value {
+            JanetEnum::Array(a) if a.len() == 2 => {
+                let x = a.first().expect("Fail");
+                let y = a.get(1).expect("Fail");
+
+                Ok([x.try_into()?, y.try_into()?])
+            }
+            JanetEnum::Tuple(t) => {
+                let x = t.get(0).expect("Fail");
+                let y = t.get(1).expect("Fail");
+
+                Ok([x.try_into()?, y.try_into()?])
+            }
+            _ => Err(JanetError::Cast(format!(
+                "Janet type not supported expected array or tuple, got {}",
+                value
+            ))),
+        }
+    }
+}

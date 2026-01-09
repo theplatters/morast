@@ -17,7 +17,7 @@ use bevy::{
     transform::components::Transform,
 };
 
-use crate::game::{
+use crate::{
     card::{Card, InDeck, InGraveyard, InHand},
     events::CardsDrawn,
 };

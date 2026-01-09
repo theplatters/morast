@@ -1,3 +1,6 @@
 [workspace]
 members = ["janet_bindings", "janet_bindings_derive", "game"]
 resolver = "3"
+
+[ workspace.dependencies ]
+  janet_bindings = {path = "janet_bindings"}

@@ -6,25 +6,20 @@ use bevy::{
     math::I16Vec2,
 };
 
-use crate::{
-    engine::janet_handler::types::{janetenum::JanetEnum, table::Table},
-    game::{
-        actions::{
-            action_builder::ActionPrototypeBuilder,
-            conditions::Condition,
-            spell_speed::SpellSpeed,
-            targeting::{
-                AnyTargetSelector, CreatureTarget, MultiTarget, MultiTargetSelector, PlayerSel,
-                SingleTarget, TargetSelector, TileTarget,
-            },
-            timing::ActionTiming,
-        },
-        board::{effect::EffectType, tile::Tile},
-        card::card_id::CardID,
-        error::GameError,
-        janet_action::JanetAction,
+use super::{
+    action_builder::ActionPrototypeBuilder,
+    conditions::Condition,
+    spell_speed::SpellSpeed,
+    targeting::{
+        AnyTargetSelector, CreatureTarget, MultiTarget, MultiTargetSelector, PlayerSel,
+        SingleTarget, TargetSelector, TileTarget,
     },
+    timing::ActionTiming,
 };
+
+use crate::board::{effect::EffectType, tile::Tile};
+use crate::card::card_id::CardID;
+use crate::error::GameError;
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct Pending;

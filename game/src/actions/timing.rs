@@ -1,11 +1,9 @@
 use std::{cmp::Ordering, ops::SubAssign};
 
 use bevy::ecs::component::Component;
+use janet_bindings::types::{janetenum::JanetEnum, tuple::Tuple};
 
-use crate::{
-    engine::janet_handler::types::{janetenum::JanetEnum, tuple::Tuple},
-    game::{error::GameError, phases::Phase},
-};
+use crate::{error::GameError, phases::Phase};
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ActionTiming {

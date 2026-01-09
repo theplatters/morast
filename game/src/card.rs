@@ -5,16 +5,16 @@ use bevy::ecs::query::With;
 use bevy::ecs::system::{Commands, Query, Res};
 use derive_more::From;
 
-use crate::game::actions::action_prototype::GameAction;
-use crate::game::board::tile::Occupant;
-use crate::game::card::card_id::CardID;
-use crate::game::card::card_registry::CardRegistry;
-use crate::game::card::creature::{Creature, CreatureBundle};
-use crate::game::card::deck_builder::DeckBuilder;
-use crate::game::card::spell_card::{Spell, SpellBundle};
-use crate::game::card::trap_card::{Trap, TrapBundle};
-use crate::game::components::Owner;
-use crate::game::player::{Deck, Graveyard, Hand, Player};
+use crate::actions::action_prototype::GameAction;
+use crate::board::tile::Occupant;
+use crate::card::card_id::CardID;
+use crate::card::card_registry::CardRegistry;
+use crate::card::creature::{Creature, CreatureBundle};
+use crate::card::deck_builder::DeckBuilder;
+use crate::card::spell_card::{Spell, SpellBundle};
+use crate::card::trap_card::{Trap, TrapBundle};
+use crate::components::Owner;
+use crate::player::{Deck, Graveyard, Hand, Player};
 
 pub mod abilities;
 pub mod card_builder;

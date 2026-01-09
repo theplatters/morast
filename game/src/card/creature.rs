@@ -9,12 +9,13 @@ use bevy::{
 };
 use derive_more::From;
 
-use crate::game::{
+use crate::{
     actions::action_prototype::GameAction,
+    board::tile::Position,
     card::{
-        abilities::Abilities, card_id::CardID, card_registry::CardRegistry, Card, CardBehavior,
-        Cost, CreatureCard, CurrentAttack, CurrentDefense, CurrentMovementPoints, FromRegistry,
-        Playable,
+        Card, CardBehavior, Cost, CreatureCard, CurrentAttack, CurrentDefense,
+        CurrentMovementPoints, FromRegistry, Playable, abilities::Abilities, card_id::CardID,
+        card_registry::CardRegistry,
     },
 };
 
@@ -123,7 +124,7 @@ pub struct BaseMovementPoints(pub u16);
 pub struct AttackPattern(pub Vec<I16Vec2>);
 
 impl AttackPattern {
-    pub(crate) fn into_tiles(&self, pos: &crate::game::board::tile::Position) -> Vec<U16Vec2> {
+    pub(crate) fn into_tiles(&self, pos: &Position) -> Vec<U16Vec2> {
         let mut tiles = Vec::new();
         for rel_pos in &self.0 {
             if let Some(tile) = pos.0.checked_add_signed(*rel_pos) {

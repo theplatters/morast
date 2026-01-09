@@ -1,4 +1,4 @@
-use crate::game::card::{card_registry::CardRegistry, CardBundle, FromRegistry};
+use super::{CardBundle, FromRegistry, card_registry::CardRegistry};
 use rand::seq::SliceRandom;
 
 pub struct DeckBuilder;

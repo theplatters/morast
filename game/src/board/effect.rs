@@ -2,10 +2,8 @@ use std::str::FromStr;
 
 use bevy::ecs::{bundle::Bundle, component::Component, entity::Entity};
 
-use crate::{
-    engine::janet_handler::types::janetenum::JanetEnum,
-    game::{board::tile::EffectsOnTile, error::GameError, player::Player},
-};
+use crate::{board::tile::EffectsOnTile, error::GameError, player::Player};
+use janet_bindings::types::janetenum::JanetEnum;
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
 pub enum EffectType {

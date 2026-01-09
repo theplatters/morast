@@ -1,16 +1,14 @@
 use bevy::math::I16Vec2;
 
-use crate::game::{
-    actions::{
-        action_prototype::{GameAction, UnitAction, ValueSource},
-        spell_speed::SpellSpeed,
-        targeting::{CreatureSel, MultiTarget, PlayerSel, SingleTarget, TileSel},
-        timing::ActionTiming,
-    },
-    board::effect::EffectType,
-    card::card_id::CardID,
-    phases::Phase,
+use super::{
+    action_prototype::{GameAction, UnitAction, ValueSource},
+    spell_speed::SpellSpeed,
+    targeting::{CreatureSel, MultiTarget, PlayerSel, SingleTarget, TileSel},
+    timing::ActionTiming,
 };
+use crate::board::effect::EffectType;
+use crate::card::card_id::CardID;
+use crate::phases::Phase;
 
 // The verification macro
 macro_rules! verify_targets {

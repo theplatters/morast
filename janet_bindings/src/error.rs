@@ -9,3 +9,9 @@ pub enum JanetError {
     String(NulError),
     File(String),
 }
+
+impl std::fmt::Display for JanetError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
