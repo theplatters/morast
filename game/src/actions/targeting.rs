@@ -320,18 +320,18 @@ pub type HandSel<C: Constraint> = TargetSelector<HandTarget, C>;
 
 #[derive(Debug, Clone)]
 pub enum SingleTargetSelector {
-    CreatureSingle(CreatureSel<SingleTarget>),
-    TileSingle(TileSel<SingleTarget>),
-    PlayerSingle(PlayerSel<SingleTarget>),
-    HandSingle(HandSel<SingleTarget>),
+    Creature(CreatureSel<SingleTarget>),
+    Tile(TileSel<SingleTarget>),
+    Player(PlayerSel<SingleTarget>),
+    Hand(HandSel<SingleTarget>),
 }
 
 #[derive(Debug, Clone)]
 pub enum MultiTargetSelector {
-    CreatureMulti(CreatureSel<MultiTarget>),
-    TileMulti(TileSel<MultiTarget>),
-    PlayerMulti(PlayerSel<MultiTarget>),
-    HandMulti(HandSel<MultiTarget>),
+    Creature(CreatureSel<MultiTarget>),
+    Tile(TileSel<MultiTarget>),
+    Player(PlayerSel<MultiTarget>),
+    Hand(HandSel<MultiTarget>),
 }
 
 #[derive(Debug, Clone)]

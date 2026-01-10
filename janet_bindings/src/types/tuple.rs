@@ -15,7 +15,7 @@ impl Tuple {
         if pos >= self.length {
             return Err(JanetError::OutOfBounds);
         }
-        unsafe { JanetEnum::from(*self.raw.add(pos)) }
+        unsafe { JanetEnum::try_from(*self.raw.add(pos)) }
     }
 
     pub fn len(&self) -> usize {
@@ -37,7 +37,7 @@ impl Tuple {
         unsafe {
             let tuple_ptr = janet_tuple_begin(values.len() as i32);
             for (i, value) in values.iter().enumerate() {
-                *tuple_ptr.add(i) = value.to_janet();
+                *tuple_ptr.add(i) = value.to_owned().into();
             }
             let janet_tuple = janet_tuple_end(tuple_ptr);
             Self {
@@ -52,7 +52,7 @@ impl Tuple {
         unsafe {
             let tuple_ptr = janet_tuple_begin(values.len() as i32);
             for (i, value) in values.iter().enumerate() {
-                *tuple_ptr.add(i) = value.to_janet();
+                *tuple_ptr.add(i) = value.to_owned().into();
             }
             let janet_tuple = janet_tuple_end(tuple_ptr);
             Self {

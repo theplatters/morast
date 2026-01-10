@@ -21,24 +21,16 @@ impl Table {
         let key_cstring = CString::new(key).unwrap();
         let key_ptr = key_cstring.as_ptr();
 
-        let value_err = JanetEnum::from(unsafe {
+        JanetEnum::try_from(unsafe {
             janet_table_get(self.raw, janet_wrap_symbol(janet_csymbol(key_ptr)))
-        });
-
-        if value_err.is_err() {
-            eprintln!("Error: {:?}", value_err.unwrap_err());
-            None
-        } else {
-            match value_err.ok()? {
-                JanetEnum::Null => None,
-                value => Some(value),
-            }
-        }
+        })
+        .ok()
     }
 
     pub fn get_int(&self, key: i32) -> Option<JanetEnum> {
         let value =
-            JanetEnum::from(unsafe { janet_table_get(self.raw, janet_wrap_integer(key)) }).ok()?;
+            JanetEnum::try_from(unsafe { janet_table_get(self.raw, janet_wrap_integer(key)) })
+                .ok()?;
 
         unsafe {
             println!("Value: {:?}", value);

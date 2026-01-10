@@ -177,16 +177,21 @@ pub mod janet {
         ffi::{CStr, c_void},
         os::raw::c_char,
         ptr,
+        sync::OnceLock,
     };
 
     use bevy::{asset::ron::value, log::info, ui::auto};
     use janet_bindings::{
         bindings::{
-            Janet, JanetAbstract, JanetAbstractType, janet_abstract, janet_fixarity, janet_panic,
+            Janet, JanetAbstractType, janet_abstract, janet_fixarity, janet_panic,
             janet_register_abstract_type, janet_unwrap_abstract, janet_wrap_abstract,
         },
         controller::{CoreFunction, Environment},
-        types::janetenum::JanetEnum,
+        error::JanetError,
+        types::{
+            janetabstract::{IsAbstact, JanetAbstract},
+            janetenum::JanetEnum,
+        },
     };
 
     use crate::actions::{
@@ -323,6 +328,19 @@ pub mod janet {
         Poison,
     }
 
+    impl IsAbstact for AnyTargetBuilder {
+        const SIZE: usize = std::mem::size_of::<AnyTargetBuilder>();
+
+        fn type_info() -> &'static JanetAbstractType {
+            const ANY_TARGET_BUILDER_ATYPE: JanetAbstractType = JanetAbstractType::new(
+                c"target/any-target-builder",
+                JanetAbstractType::gc::<AnyTargetBuilder>,
+            )
+            .with_put_metod(any_builder_put);
+            &ANY_TARGET_BUILDER_ATYPE
+        }
+    }
+
     unsafe fn set_auto_for<T, M>(
         any: &mut AnyTargetBuilder,
         b: TargetSelectorBuilder<T, M, SetCardinality, UnsetSelection>,
@@ -332,11 +350,13 @@ pub mod janet {
         T: TargetKind<M>,
         M: Constraint,
     {
-        let auto_abst = janet_unwrap_abstract(value) as *mut <T as TargetKind<M>>::Auto;
-        let auto = std::ptr::read(auto_abst);
+        unsafe {
+            let auto_abst = janet_unwrap_abstract(value) as *mut <T as TargetKind<M>>::Auto;
+            let auto = std::ptr::read(auto_abst);
 
-        let b2 = b.auto(auto);
-        *any = wrap(b2);
+            let b2 = b.auto(auto);
+            *any = wrap(b2);
+        }
     }
 
     unsafe fn set_manual_for<T, M>(
@@ -348,11 +368,13 @@ pub mod janet {
         T: TargetKind<M>,
         M: Constraint,
     {
-        let man_abst = janet_unwrap_abstract(value) as *mut <T as TargetKind<M>>::Manual;
-        let manual = std::ptr::read(man_abst);
+        unsafe {
+            let man_abst = janet_unwrap_abstract(value) as *mut <T as TargetKind<M>>::Manual;
+            let manual = std::ptr::read(man_abst);
 
-        let b2 = b.manual(manual);
-        *any = wrap(b2);
+            let b2 = b.manual(manual);
+            *any = wrap(b2);
+        }
     }
 
     macro_rules! any_builder_setters {
@@ -478,12 +500,6 @@ pub mod janet {
         }
     }
 
-    static mut ANY_TARGET_BUILDER: JanetAbstractType = JanetAbstractType::new(
-        c"target/any-taret-builder",
-        JanetAbstractType::gc::<AnyTargetBuilder>,
-    )
-    .with_put_metod(any_builder_put);
-
     macro_rules! core_fns {
     ($( $name:literal => $cfun:path ; $docs:literal ),* $(,)?) => {
         &[
@@ -494,22 +510,6 @@ pub mod janet {
     };
     }
 
-    unsafe fn cfun_make_any_builder(
-        argc: i32,
-        argv: *mut Janet,
-        init: impl FnOnce() -> AnyTargetBuilder,
-    ) -> Janet {
-        unsafe {
-            janet_fixarity(argc, 0);
-
-            let abst: JanetAbstract =
-                janet_abstract(&raw const ANY_TARGET_BUILDER, size_of::<AnyTargetBuilder>());
-            let p = abst as *mut AnyTargetBuilder;
-            ptr::write(p, init());
-            janet_wrap_abstract(abst)
-        }
-    }
-
     macro_rules! def_cfun_target_builder {
         (
         $fn_name:ident,
@@ -518,20 +518,12 @@ pub mod janet {
         $mode_ty:ty,
         $mode_method:ident
     ) => {
-            pub unsafe extern "C" fn $fn_name(argc: i32, _argv: *mut Janet) -> Janet {
+            pub unsafe extern "C" fn $fn_name(argv: &[JanetEnum]) -> Result<JanetEnum, JanetError> {
                 unsafe {
-                    janet_fixarity(argc, 0);
-
-                    let abst: JanetAbstract = janet_abstract(
-                        &raw const ANY_TARGET_BUILDER,
-                        ::std::mem::size_of::<AnyTargetBuilder>(),
-                    );
-                    let p = abst as *mut AnyTargetBuilder;
-
                     let b = TargetSelector::<$target_ty, $mode_ty>::builder().$mode_method();
-                    ::std::ptr::write(p, AnyTargetBuilder::$variant(b));
-
-                    janet_wrap_abstract(abst)
+                    Ok(JanetEnum::Abstract(JanetAbstract::new(
+                        AnyTargetBuilder::$variant(b),
+                    )))
                 }
             }
         };

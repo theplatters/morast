@@ -3,19 +3,19 @@ use std::{ffi::CStr, hash::Hash};
 
 use crate::{
     bindings::{
-        JANET_TYPE_JANET_ARRAY, JANET_TYPE_JANET_BOOLEAN, JANET_TYPE_JANET_FUNCTION,
-        JANET_TYPE_JANET_NIL, JANET_TYPE_JANET_NUMBER, JANET_TYPE_JANET_STRING,
-        JANET_TYPE_JANET_SYMBOL, JANET_TYPE_JANET_TABLE, JANET_TYPE_JANET_TUPLE, Janet, JanetArray,
-        janet_array, janet_array_push, janet_checktype, janet_csymbol, janet_getarray,
-        janet_getinteger64, janet_is_int, janet_resolve, janet_type, janet_unwrap_array,
-        janet_unwrap_boolean, janet_unwrap_function, janet_unwrap_integer, janet_unwrap_number,
-        janet_unwrap_string, janet_unwrap_symbol, janet_unwrap_table, janet_unwrap_u64,
-        janet_wrap_array, janet_wrap_boolean, janet_wrap_integer, janet_wrap_nil,
+        JANET_TYPE_JANET_ABSTRACT, JANET_TYPE_JANET_ARRAY, JANET_TYPE_JANET_BOOLEAN,
+        JANET_TYPE_JANET_FUNCTION, JANET_TYPE_JANET_NIL, JANET_TYPE_JANET_NUMBER,
+        JANET_TYPE_JANET_STRING, JANET_TYPE_JANET_SYMBOL, JANET_TYPE_JANET_TABLE,
+        JANET_TYPE_JANET_TUPLE, Janet, JanetArray, janet_array, janet_array_push, janet_checktype,
+        janet_csymbol, janet_getarray, janet_getinteger64, janet_is_int, janet_resolve, janet_type,
+        janet_unwrap_array, janet_unwrap_boolean, janet_unwrap_function, janet_unwrap_integer,
+        janet_unwrap_number, janet_unwrap_string, janet_unwrap_symbol, janet_unwrap_table,
+        janet_unwrap_u64, janet_wrap_array, janet_wrap_boolean, janet_wrap_integer, janet_wrap_nil,
         janet_wrap_number, janet_wrap_string, janet_wrap_u64,
     },
     controller::Environment,
     error::JanetError,
-    types::tuple::Tuple,
+    types::{janetabstract::JanetAbstract, tuple::Tuple},
 };
 
 use super::{function::Function, table::Table};
@@ -35,6 +35,7 @@ pub enum JanetEnum {
     Array(Vec<JanetEnum>),
     Table(Table),
     Tuple(Tuple),
+    Abstract(JanetAbstract),
     Null,
 }
 
@@ -45,30 +46,6 @@ impl Hash for JanetEnum {
 }
 
 impl JanetEnum {
-    pub fn to_janet(&self) -> Janet {
-        unsafe {
-            match self {
-                JanetEnum::Int(i) => janet_wrap_integer(*i),
-                JanetEnum::UInt(u) => janet_wrap_u64(*u),
-                JanetEnum::Float(f) => janet_wrap_number(*f),
-                JanetEnum::Bool(b) => janet_wrap_boolean(if *b { 1 } else { 0 }),
-                JanetEnum::String(s) => {
-                    let c_str = std::ffi::CString::new(s.as_str()).unwrap_or_default();
-                    janet_wrap_string(c_str.as_ptr() as *const u8)
-                }
-                JanetEnum::Array(arr) => {
-                    let janet_arr = janet_array(arr.len() as i32);
-                    for item in arr {
-                        janet_array_push(janet_arr, item.to_janet());
-                    }
-                    janet_wrap_array(janet_arr)
-                }
-                JanetEnum::Null => janet_wrap_nil(),
-                // Handle other types as needed
-                _ => janet_wrap_nil(),
-            }
-        }
-    }
     pub fn unwrap_array(arr: JanetArray) -> Result<Vec<JanetEnum>, JanetError> {
         let mut arr_vec: Vec<JanetEnum> = Vec::with_capacity(arr.count as usize);
 
@@ -76,7 +53,7 @@ impl JanetEnum {
         unsafe {
             for i in 0..arr.count {
                 let item = *arr.data.add(i as usize);
-                arr_vec.push(JanetEnum::from(item)?);
+                arr_vec.push(JanetEnum::try_from(item)?);
             }
         }
 
@@ -105,7 +82,7 @@ impl JanetEnum {
                 println!("Return type is nill");
                 return None;
             }
-            Self::from(out).ok()
+            Self::try_from(out).ok()
         }
     }
     /// Check if the value is null
@@ -130,8 +107,39 @@ impl JanetEnum {
             _ => None,
         }
     }
+}
 
-    pub fn from(item: Janet) -> Result<JanetEnum, JanetError> {
+impl From<JanetEnum> for Janet {
+    fn from(value: JanetEnum) -> Self {
+        unsafe {
+            match value {
+                JanetEnum::Int(i) => janet_wrap_integer(i),
+                JanetEnum::UInt(u) => janet_wrap_u64(u),
+                JanetEnum::Float(f) => janet_wrap_number(f),
+                JanetEnum::Bool(b) => janet_wrap_boolean(if b { 1 } else { 0 }),
+                JanetEnum::String(s) => {
+                    let c_str = std::ffi::CString::new(s.as_str()).unwrap_or_default();
+                    janet_wrap_string(c_str.as_ptr() as *const u8)
+                }
+                JanetEnum::Array(arr) => {
+                    let janet_arr = janet_array(arr.len() as i32);
+                    for item in arr {
+                        janet_array_push(janet_arr, item.into());
+                    }
+                    janet_wrap_array(janet_arr)
+                }
+                JanetEnum::Null => janet_wrap_nil(),
+                // Handle other types as needed
+                _ => janet_wrap_nil(),
+            }
+        }
+    }
+}
+
+impl TryFrom<Janet> for JanetEnum {
+    type Error = JanetError;
+
+    fn try_from(item: Janet) -> Result<Self, Self::Error> {
         unsafe {
             match janet_type(item) {
                 JANET_TYPE_JANET_FUNCTION => Ok(JanetEnum::Function(Function::new(
@@ -189,6 +197,9 @@ impl JanetEnum {
                         .to_owned(),
                 )),
                 JANET_TYPE_JANET_TUPLE => Ok(JanetEnum::Tuple(Tuple::new(item))),
+                JANET_TYPE_JANET_ABSTRACT => {
+                    Ok(JanetEnum::Abstract(JanetAbstract::from_janet(item)))
+                }
                 other => Err(JanetError::Type(format!(
                     "Type '{}' is currently unsupported",
                     other
@@ -211,6 +222,7 @@ impl fmt::Display for JanetEnum {
             JanetEnum::Table(_) => "Table",
             JanetEnum::Null => "Null",
             JanetEnum::Tuple(_) => "Tuple",
+            JanetEnum::Abstract(_) => "Abstract",
         };
         write!(f, "{}", s)
     }

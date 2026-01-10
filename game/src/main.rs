@@ -29,6 +29,7 @@ use crate::{
         card_registry::{CardRegistry, init_card_registry},
     },
     events::GameMessagesPlugin,
+    janet_api::janet_systems::read_card_list,
     player::{add_player, draw_starting_cards},
     renderer::RendererPlugin,
     turn_controller::TurnControllerPlugin,
@@ -42,7 +43,6 @@ fn main() {
         .add_systems(
             Startup,
             (
-                read_card_list,
                 init_card_registry,
                 add_player,
                 add_cards,

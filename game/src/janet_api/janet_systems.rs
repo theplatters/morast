@@ -2,7 +2,7 @@ use bevy::ecs::system::NonSend;
 use janet_bindings::controller::Environment;
 
 use crate::{
-    actions::target_builder::janet::BUILDER_FUNCTIONS,
+    actions::target_builder::janet::{ANY_TARGET_BUILDER_ATYPE, BUILDER_FUNCTIONS},
     janet_api::{core_constants::CORE_CONSTANTS, core_functions::CORE_FUNCTIONS},
 };
 
@@ -21,4 +21,6 @@ pub fn register_builder_types(env: NonSend<Environment>) {
     for fun in BUILDER_FUNCTIONS {
         env.register_function(fun, Some("target"));
     }
+
+    env.register_abstract_type(unsafe { ANY_TARGET_BUILDER_ATYPE });
 }

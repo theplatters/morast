@@ -35,7 +35,7 @@ impl Function {
                 return Err(JanetError::Signal(format!("Got signal {}", signal)));
             }
 
-            JanetEnum::from(out)
+            JanetEnum::try_from(out)
         }
     }
 

@@ -10,6 +10,7 @@ use crate::bindings::{Janet, JanetAbstractType};
 pub mod cfunction;
 pub mod function;
 pub mod janetabstract;
+pub mod janetcfunction;
 pub mod janetenum;
 pub mod table;
 pub mod tuple;
