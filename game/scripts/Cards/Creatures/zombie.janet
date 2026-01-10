@@ -21,3 +21,7 @@
   'description "He has seen better days"
   'display-image-asset-string "missing"})
 
+
+(var tt (target/creature-single))
+
+(put tt  "auto" "Hello")

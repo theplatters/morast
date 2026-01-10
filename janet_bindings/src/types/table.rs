@@ -113,7 +113,7 @@ impl Table {
 
     // Helper methods for numeric types that can be coerced
     pub fn get_number(&self, key: &str) -> Option<f64> {
-        self.get(key)?.as_number()
+        self.get(key)?.as_f64()
     }
 
     pub fn get_number_as_int(&self, key: &str) -> Option<i32> {

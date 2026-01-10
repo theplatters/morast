@@ -44,12 +44,12 @@ impl Environment {
         }
     }
 
-    pub fn register_constant(&self, core_constant: &CoreConstant) -> Result<(), NulError> {
+    pub fn register_constant(&self, core_constant: CoreConstant) -> Result<(), NulError> {
         let name_cstr = CString::new(core_constant.name)?;
         let doc_cstr = core_constant.docs.map(CString::new).transpose()?;
 
         unsafe {
-            let janet_value = core_constant.value.to_janet();
+            let janet_value = core_constant.value.into();
             janet_def(
                 self.env_ptr(),
                 name_cstr.as_ptr(),
@@ -158,7 +158,7 @@ impl Environment {
                 &mut out as *mut Janet,
             );
         }
-        JanetEnum::from(out)
+        JanetEnum::try_from(out)
     }
 }
 

@@ -10,29 +10,21 @@ macro_rules! janet_cfun {
             argc: i32,
             argv: *mut $crate::bindings::Janet,
         ) -> $crate::bindings::Janet {
-            let args: &[$crate::bindings::Janet] = if argc <= 0 {
-                &[]
+            let args: Vec<$crate::types::janetenum::JanetEnum> = if argc == 0 {
+                Vec::new()
             } else {
-                // Safety: argv points to argc Janets for this call (Janet ABI contract).
                 unsafe { std::slice::from_raw_parts(argv, argc as usize) }
+                    .iter()
+                    .copied()
+                    .map($crate::types::janetenum::JanetEnum::try_from)
+                    .collect::<Result<_, $crate::error::JanetError>>()
+                    .unwrap()
             };
 
-            $f(args).to_janet()
+            match $f(&args) {
+                Ok(v) => v.into(),
+                Err(_e) => unsafe { janet_panic(c"Something gone seriously wrong".as_ptr()) },
+            }
         }
     };
-}
-
-fn wrapper(argc: usize, argv: *mut Janet, f: JanetCFunction) -> Janet {
-    let args: Vec<JanetEnum> = if argc <= 0 {
-        Vec::new()
-    } else {
-        // Safety: argv points to argc Janets for this call (Janet ABI contract).
-        unsafe { std::slice::from_raw_parts(argv, argc as usize) }
-            .iter()
-            .copied()
-            .map(JanetEnum::try_from) // or JanetEnum::from if infallible
-            .collect::<Result<Vec<JanetEnum>, JanetError>>()?
-    };
-
-    f(&args).to_janet()
 }

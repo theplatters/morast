@@ -173,34 +173,21 @@ impl TargetSelector<CreatureTarget, AnyCardinality> {
 // repeat similarly for Tile/Player/Hand
 
 pub mod janet {
-    use std::{
-        ffi::{CStr, c_void},
-        os::raw::c_char,
-        ptr,
-        sync::OnceLock,
-    };
+    use std::ffi::c_void;
 
-    use bevy::{asset::ron::value, log::info, ui::auto};
+    use super::super::targeting::TargetSelector;
     use janet_bindings::{
-        bindings::{
-            Janet, JanetAbstractType, janet_abstract, janet_fixarity, janet_panic,
-            janet_register_abstract_type, janet_unwrap_abstract, janet_wrap_abstract,
-        },
-        controller::{CoreFunction, Environment},
-        error::JanetError,
-        types::{
-            janetabstract::{IsAbstact, JanetAbstract},
-            janetenum::JanetEnum,
-        },
+        bindings::{Janet, JanetAbstractType, janet_panic, janet_unwrap_abstract},
+        controller::CoreFunction,
+        core_fns,
+        types::{Get, janetabstract::IsAbstact, janetenum::JanetEnum},
     };
 
     use crate::actions::{
-        target_builder::{
-            SetCardinality, SetSelection, TargetSelectorBuilder, UnsetCardinality, UnsetSelection,
-        },
+        target_builder::{SetCardinality, SetSelection, TargetSelectorBuilder, UnsetSelection},
         targeting::{
-            AutoMultiCreature, Constraint, CreatureTarget, HandTarget, MultiTarget, PlayerTarget,
-            SingleTarget, TargetKind, TargetSelector, TileTarget,
+            Constraint, CreatureTarget, HandTarget, MultiTarget, PlayerTarget, SingleTarget,
+            TargetKind, TileTarget,
         },
     };
 
@@ -308,7 +295,7 @@ pub mod janet {
         SetSelection,
     >;
 
-    enum AnyTargetBuilder {
+    pub enum AnyTargetBuilder {
         SingleCreatureTargetBuilder(SingleCreatureTargetBuilder),
         MultiCreatureTargetBuilder(MultiCreatureTargetBuilder),
         SingleTileTargetBuilder(SingleTileTargetBuilder),
@@ -468,7 +455,7 @@ pub mod janet {
     }
 
     unsafe extern "C" fn any_builder_put(data: *mut c_void, key: Janet, value: Janet) {
-        let key_enum = JanetEnum::from(key).unwrap();
+        let key_enum = JanetEnum::try_from(key).unwrap();
         if let Some(key_str) = key_enum.into_string() {
             match key_str.as_str() {
                 "auto" => unsafe { any_builder_set_auto(data, value) },
@@ -478,58 +465,39 @@ pub mod janet {
         }
     }
 
-    unsafe fn make_builder_auto<T: TargetKind<M>, M: Constraint>(data: *mut c_void, value: Janet) {
-        let auto_kind_ptr = unsafe { janet_unwrap_abstract(value) } as *mut T::Auto;
-        let builder_ptr = data as *mut TargetSelectorBuilder<T, M, SetCardinality, UnsetSelection>;
-        let auto_kind = unsafe { ptr::read(auto_kind_ptr) };
-
-        let builder = unsafe { ptr::read(builder_ptr).auto(auto_kind) };
-    }
-
-    unsafe extern "C" fn builder_put<T: TargetKind<M>, M: Constraint>(
-        data: *mut c_void,
-        key: Janet,
-        value: Janet,
-    ) {
-        let key_enum = JanetEnum::from(key).unwrap();
-        if let Some(key_str) = key_enum.into_string() {
-            match key_str.as_str() {
-                "auto" => unsafe { make_builder_auto::<T, M>(data, value) },
-                _ => panic!("Not yet implemeted"),
-            }
-        }
-    }
-
-    macro_rules! core_fns {
-    ($( $name:literal => $cfun:path ; $docs:literal ),* $(,)?) => {
-        &[
-            $(
-                CoreFunction { name: $name, cfun: $cfun, docs: $docs },
-            )*
-        ] as &[CoreFunction]
-    };
-    }
-
+    #[macro_export]
     macro_rules! def_cfun_target_builder {
         (
-        $fn_name:ident,
+        $impl_name:ident,     // Rust-level impl fn
+        $raw_name:ident,      // Janet ABI wrapper fn
         $variant:ident,
         $target_ty:ty,
         $mode_ty:ty,
         $mode_method:ident
     ) => {
-            pub unsafe extern "C" fn $fn_name(argv: &[JanetEnum]) -> Result<JanetEnum, JanetError> {
-                unsafe {
-                    let b = TargetSelector::<$target_ty, $mode_ty>::builder().$mode_method();
-                    Ok(JanetEnum::Abstract(JanetAbstract::new(
+            fn $impl_name(
+                _argv: &[janet_bindings::types::janetenum::JanetEnum],
+            ) -> Result<
+                janet_bindings::types::janetenum::JanetEnum,
+                janet_bindings::error::JanetError,
+            > {
+                let b = TargetSelector::<$target_ty, $mode_ty>::builder().$mode_method();
+
+                print!("Creating target builder");
+                Ok(janet_bindings::types::janetenum::JanetEnum::Abstract(
+                    janet_bindings::types::janetabstract::JanetAbstract::new(
                         AnyTargetBuilder::$variant(b),
-                    )))
-                }
+                    ),
+                ))
             }
+
+            // Generate the actual Janet ABI wrapper:
+            janet_bindings::janet_cfun!($raw_name, $impl_name);
         };
     }
 
     def_cfun_target_builder!(
+        target_single_creature_impl,
         cfun_target_single_creature,
         SingleCreatureTargetBuilder,
         CreatureTarget,
@@ -538,6 +506,7 @@ pub mod janet {
     );
 
     def_cfun_target_builder!(
+        target_multi_creature_impl,
         cfun_target_multi_creature,
         MultiCreatureTargetBuilder,
         CreatureTarget,
@@ -546,6 +515,7 @@ pub mod janet {
     );
 
     def_cfun_target_builder!(
+        tile_single_creature_impl,
         cfun_target_single_tile,
         SingleTileTargetBuilder,
         TileTarget,
@@ -554,6 +524,7 @@ pub mod janet {
     );
 
     def_cfun_target_builder!(
+        tile_multi_creature_impl,
         cfun_target_multi_tile,
         MultiTileTargetBuilder,
         TileTarget,
@@ -562,6 +533,7 @@ pub mod janet {
     );
 
     def_cfun_target_builder!(
+        player_single_creature_impl,
         cfun_target_single_player,
         SinglePlayerTargetBuilder,
         PlayerTarget,
@@ -570,6 +542,7 @@ pub mod janet {
     );
 
     def_cfun_target_builder!(
+        player_multi_creature_impl,
         cfun_target_multi_player,
         MultiPlayerTargetBuilder,
         PlayerTarget,
@@ -578,6 +551,7 @@ pub mod janet {
     );
 
     def_cfun_target_builder!(
+        hand_single_creature_impl,
         cfun_target_single_hand,
         SingleHandTargetBuilder,
         HandTarget,
@@ -586,6 +560,7 @@ pub mod janet {
     );
 
     def_cfun_target_builder!(
+        hand_multi_creature_impl,
         cfun_target_multi_hand,
         MultiHandTargetBuilder,
         HandTarget,

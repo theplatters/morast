@@ -49,7 +49,6 @@ impl JanetEnum {
     pub fn unwrap_array(arr: JanetArray) -> Result<Vec<JanetEnum>, JanetError> {
         let mut arr_vec: Vec<JanetEnum> = Vec::with_capacity(arr.count as usize);
 
-        // Use a more efficient approach - iterate without popping
         unsafe {
             for i in 0..arr.count {
                 let item = *arr.data.add(i as usize);
@@ -99,7 +98,7 @@ impl JanetEnum {
     }
 
     /// Convert any numeric type to f64
-    pub fn as_number(&self) -> Option<f64> {
+    pub fn as_f64(&self) -> Option<f64> {
         match self {
             JanetEnum::Int(i) => Some(*i as f64),
             JanetEnum::UInt(u) => Some(*u as f64),

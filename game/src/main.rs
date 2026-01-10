@@ -29,7 +29,7 @@ use crate::{
         card_registry::{CardRegistry, init_card_registry},
     },
     events::GameMessagesPlugin,
-    janet_api::janet_systems::read_card_list,
+    janet_api::janet_systems::{JanetSystem, read_card_list},
     player::{add_player, draw_starting_cards},
     renderer::RendererPlugin,
     turn_controller::TurnControllerPlugin,
@@ -40,10 +40,11 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(CardRegistry::new())
         .init_non_send_resource::<Environment>()
+        .add_plugins(JanetSystem)
         .add_systems(
             Startup,
             (
-                init_card_registry,
+                init_card_registry.after(read_card_list),
                 add_player,
                 add_cards,
                 draw_starting_cards,

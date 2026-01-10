@@ -3,7 +3,7 @@ use janet_bindings::{
     types::janetenum::JanetEnum,
 };
 
-pub const CORE_CONSTANTS: &[CoreConstant] = &[
+pub const CORE_CONSTANTS: [CoreConstant; 6] = [
     // Phase Constants
     CoreConstant {
         name: "phase/start",

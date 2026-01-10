@@ -39,6 +39,19 @@ impl JanetAbstract {
             }
         }
     }
+    /// Registering the type is required to be able to marshal the type.
+    pub fn register<T: IsAbstact>() {
+        let at = T::type_info();
+        unsafe {
+            let syn = crate::bindings::janet_wrap_symbol(crate::bindings::janet_csymbol(at.name));
+
+            // If `abs_type_ptr` is NULL, the type is not registered, so we then register it
+            let abs_type_ptr = crate::bindings::janet_get_abstract_type(syn);
+            if abs_type_ptr.is_null() {
+                crate::bindings::janet_register_abstract_type(at);
+            }
+        }
+    }
 }
 
 impl JanetItem for JanetAbstract {
