@@ -7,10 +7,10 @@ use crate::{
         JANET_TYPE_JANET_FUNCTION, JANET_TYPE_JANET_NIL, JANET_TYPE_JANET_NUMBER,
         JANET_TYPE_JANET_STRING, JANET_TYPE_JANET_SYMBOL, JANET_TYPE_JANET_TABLE,
         JANET_TYPE_JANET_TUPLE, Janet, JanetArray, janet_array, janet_array_push, janet_checktype,
-        janet_csymbol, janet_getarray, janet_getinteger64, janet_is_int, janet_resolve, janet_type,
-        janet_unwrap_array, janet_unwrap_boolean, janet_unwrap_function, janet_unwrap_integer,
-        janet_unwrap_number, janet_unwrap_string, janet_unwrap_symbol, janet_unwrap_table,
-        janet_unwrap_u64, janet_wrap_array, janet_wrap_boolean, janet_wrap_integer, janet_wrap_nil,
+        janet_csymbol, janet_is_int, janet_resolve, janet_type, janet_unwrap_array,
+        janet_unwrap_boolean, janet_unwrap_function, janet_unwrap_integer, janet_unwrap_number,
+        janet_unwrap_string, janet_unwrap_symbol, janet_unwrap_table, janet_unwrap_u64,
+        janet_wrap_array, janet_wrap_boolean, janet_wrap_integer, janet_wrap_nil,
         janet_wrap_number, janet_wrap_string, janet_wrap_u64,
     },
     controller::Environment,
@@ -694,5 +694,11 @@ impl TryFrom<JanetEnum> for [i16; 2] {
                 value
             ))),
         }
+    }
+}
+
+impl<const N: usize> From<[i32; N]> for JanetEnum {
+    fn from(value: [i32; N]) -> Self {
+        JanetEnum::Array(value.map(JanetEnum::Int).into())
     }
 }

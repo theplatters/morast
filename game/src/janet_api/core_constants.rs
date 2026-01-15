@@ -1,7 +1,4 @@
-use janet_bindings::{
-    controller::{CoreConstant, Environment},
-    types::janetenum::JanetEnum,
-};
+use janet_bindings::{controller::CoreConstant, types::janetenum::JanetEnum};
 
 pub const CORE_CONSTANTS: [CoreConstant; 6] = [
     // Phase Constants

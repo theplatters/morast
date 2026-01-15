@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-#[derive(Component)]
+#[derive(Component, Debug, Clone, Copy)]
 pub struct Health(u16);
 
 impl Health {
@@ -9,5 +9,5 @@ impl Health {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Owner(pub Entity);

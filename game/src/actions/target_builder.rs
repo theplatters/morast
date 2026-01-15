@@ -180,7 +180,7 @@ pub mod janet {
         bindings::{Janet, JanetAbstractType, janet_panic, janet_unwrap_abstract},
         controller::CoreFunction,
         core_fns,
-        types::{Get, janetabstract::IsAbstact, janetenum::JanetEnum},
+        types::{janetabstract::IsAbstract, janetenum::JanetEnum},
     };
 
     use crate::actions::{
@@ -315,7 +315,7 @@ pub mod janet {
         Poison,
     }
 
-    impl IsAbstact for AnyTargetBuilder {
+    impl IsAbstract for AnyTargetBuilder {
         const SIZE: usize = std::mem::size_of::<AnyTargetBuilder>();
 
         fn type_info() -> &'static JanetAbstractType {

@@ -11,15 +11,14 @@ use super::{
     conditions::Condition,
     spell_speed::SpellSpeed,
     targeting::{
-        AnyTargetSelector, CreatureTarget, MultiTarget, MultiTargetSelector, PlayerSel,
-        SingleTarget, TargetSelector, TileTarget,
+        CreatureTarget, MultiTarget, MultiTargetSelector, PlayerSel, SingleTarget, TargetSelector,
+        TileTarget,
     },
     timing::ActionTiming,
 };
 
-use crate::board::{effect::EffectType, tile::Tile};
+use crate::board::effect::EffectType;
 use crate::card::card_id::CardID;
-use crate::error::GameError;
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct Pending;
@@ -142,7 +141,7 @@ pub enum ValueSource {
     Constant(u16),
 
     /// Count of entities matching a selector
-    Count(MultiTargetSelector),
+    Count(Box<MultiTargetSelector>),
 
     /// Random value in range [min, max]
     Random {
@@ -152,7 +151,7 @@ pub enum ValueSource {
 
     /// Value from creature stats
     CreatureStat {
-        selector: TargetSelector<CreatureTarget, SingleTarget>,
+        selector: Box<TargetSelector<CreatureTarget, SingleTarget>>,
         stat: StatType,
     },
 
@@ -170,7 +169,7 @@ impl ValueSource {
     }
 
     pub fn count(selector: MultiTargetSelector) -> Self {
-        Self::Count(selector)
+        Self::Count(Box::new(selector))
     }
 }
 

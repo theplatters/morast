@@ -111,16 +111,16 @@ impl Playable for Creature {
     }
 }
 
-#[derive(Component, From, Clone, Copy)]
+#[derive(Component, From, Clone, Copy, Debug)]
 pub struct BaseAttack(pub u16);
 
-#[derive(Component, From, Clone, Copy)]
+#[derive(Component, From, Clone, Copy, Debug)]
 pub struct BaseDefense(pub u16);
 
-#[derive(Component, From, Clone, Copy)]
+#[derive(Component, From, Clone, Copy, Debug)]
 pub struct BaseMovementPoints(pub u16);
 
-#[derive(Component, From, Clone)]
+#[derive(Component, From, Clone, Debug)]
 pub struct AttackPattern(pub Vec<I16Vec2>);
 
 impl AttackPattern {
@@ -148,7 +148,7 @@ impl<'a> IntoIterator for &'a AttackPattern {
     }
 }
 
-#[derive(Component, From, Clone)]
+#[derive(Component, From, Clone, Debug)]
 pub struct MovementPattern(pub Vec<I16Vec2>);
 
 impl<'a> IntoIterator for &'a MovementPattern {

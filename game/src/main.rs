@@ -1,13 +1,5 @@
-use bevy::{math::I16Vec2, prelude::*};
-use janet_bindings::{
-    bindings::{
-        JanetArray, janet_array, janet_array_push, janet_getarray, janet_getinteger64,
-        janet_wrap_array, janet_wrap_integer,
-    },
-    controller::Environment,
-    error::JanetError,
-    types::janetenum::JanetEnum,
-};
+use bevy::prelude::*;
+use janet_bindings::controller::Environment;
 
 mod actions;
 mod board;
@@ -22,7 +14,7 @@ mod renderer;
 mod turn_controller;
 
 use crate::{
-    actions::action_systems::ActionPlugin,
+    actions::{action_systems::ActionPlugin, targeting::systems::TargetPlugin},
     board::BoardPlugin,
     card::{
         add_cards,
@@ -39,7 +31,6 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(CardRegistry::new())
-        .init_non_send_resource::<Environment>()
         .add_plugins(JanetSystem)
         .add_systems(
             Startup,
@@ -57,6 +48,7 @@ fn main() {
             TurnControllerPlugin,
             RendererPlugin,
             ActionPlugin,
+            TargetPlugin,
         ))
         .run();
 }

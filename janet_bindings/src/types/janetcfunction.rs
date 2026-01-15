@@ -1,6 +1,6 @@
 /// High-level signature: `fn(&[Janet]) -> Janet`
 ///
-use crate::{bindings::Janet, error::JanetError, types::janetenum::JanetEnum};
+use crate::types::janetenum::JanetEnum;
 
 type JanetCFunction = fn(&[JanetEnum]) -> JanetEnum;
 #[macro_export]
@@ -23,7 +23,9 @@ macro_rules! janet_cfun {
 
             match $f(&args) {
                 Ok(v) => v.into(),
-                Err(_e) => unsafe { janet_panic(c"Something gone seriously wrong".as_ptr()) },
+                Err(_e) => unsafe {
+                    $crate::bindings::janet_panic(c"Something gone seriously wrong".as_ptr())
+                },
             }
         }
     };

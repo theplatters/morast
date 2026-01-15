@@ -1,26 +1,12 @@
-use std::iter;
-
-use bevy::{
-    asset::AssetServer,
-    ecs::{
-        bundle::Bundle,
-        component::Component,
-        entity::{self, Entity},
-        hierarchy::ChildOf,
-        query::With,
-        relationship::{OrderedRelationshipSourceCollection, RelationshipTarget},
-        system::{Commands, Query, Res},
-    },
-    log::info,
-    sprite::Sprite,
-    state::commands,
-    transform::components::Transform,
+use bevy::ecs::{
+    bundle::Bundle,
+    component::Component,
+    entity::Entity,
+    relationship::RelationshipTarget,
+    system::{Commands, Query},
 };
 
-use crate::{
-    card::{Card, InDeck, InGraveyard, InHand},
-    events::CardsDrawn,
-};
+use crate::card::{Card, InDeck, InGraveyard, InHand};
 
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Player {
@@ -35,9 +21,6 @@ pub struct PlayerResources {
     pub gold: u16,
 }
 
-#[derive(Component)]
-pub struct DeckSize(pub usize);
-
 impl Default for PlayerResources {
     fn default() -> Self {
         Self {
@@ -49,10 +32,10 @@ impl Default for PlayerResources {
 }
 
 /// Tracks whose turn it is
-#[derive(Component)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TurnPlayer;
 
-#[derive(Component)]
+#[derive(Component, Debug, Clone, PartialEq, Eq)]
 #[relationship_target(relationship = InDeck)]
 pub struct Deck(Vec<Entity>);
 
@@ -62,7 +45,7 @@ impl Deck {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Debug, Clone, PartialEq, Eq)]
 #[relationship_target(relationship = InHand)]
 pub struct Hand(Vec<Entity>);
 
@@ -76,7 +59,7 @@ impl Hand {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Debug, Clone, PartialEq, Eq)]
 #[relationship_target(relationship = InGraveyard)]
 pub struct Graveyard(Vec<Entity>);
 

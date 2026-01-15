@@ -12,18 +12,18 @@ pub struct JanetAbstract {
     raw: *mut std::ffi::c_void,
 }
 
-pub trait IsAbstact: Sized {
-    fn gc(data: *mut std::ffi::c_void, _len: usize) -> i32 {
+pub trait IsAbstract: Sized {
+    unsafe extern "C" fn gc(data: *mut std::ffi::c_void, _len: usize) -> i32 {
         unsafe { ptr::drop_in_place(data as *mut Self) };
         0
     }
-    const SIZE: usize;
+    const SIZE: usize = std::mem::size_of::<Self>();
 
     fn type_info() -> &'static JanetAbstractType;
 }
 
 impl JanetAbstract {
-    pub fn new<T: IsAbstact>(value: T) -> Self {
+    pub fn new<T: IsAbstract>(value: T) -> Self {
         unsafe {
             let abst = janet_abstract(T::type_info(), T::SIZE);
             ptr::write(abst as *mut T, value);
@@ -40,7 +40,7 @@ impl JanetAbstract {
         }
     }
     /// Registering the type is required to be able to marshal the type.
-    pub fn register<T: IsAbstact>() {
+    pub fn register<T: IsAbstract>() {
         let at = T::type_info();
         unsafe {
             let syn = crate::bindings::janet_wrap_symbol(crate::bindings::janet_csymbol(at.name));
@@ -54,8 +54,8 @@ impl JanetAbstract {
     }
 }
 
-impl JanetItem for JanetAbstract {
-    fn to_janet(&self) -> Janet {
-        unsafe { janet_wrap_abstract(self.raw) }
+impl From<JanetAbstract> for Janet {
+    fn from(value: JanetAbstract) -> Self {
+        unsafe { janet_wrap_abstract(value.raw) }
     }
 }

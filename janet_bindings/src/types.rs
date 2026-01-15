@@ -59,26 +59,3 @@ impl JanetAbstractType {
         0
     }
 }
-
-pub trait Get {
-    fn get(&mut self, key: Janet) -> Result<Janet, i32>;
-}
-
-unsafe extern "C" fn get_thunk<T: Get>(data: *mut c_void, key: Janet, out: *mut Janet) -> i32 {
-    let this = &mut *(data as *mut T);
-    match this.get(key) {
-        Ok(v) => {
-            if !out.is_null() {
-                *out = v;
-            }
-            0
-        }
-        Err(e) => e,
-    }
-}
-
-impl JanetAbstractType {
-    pub fn with_get_method_for<T: Get>(self) -> Self {
-        self.with_get_metod(get_thunk::<T>)
-    }
-}

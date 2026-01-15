@@ -35,41 +35,41 @@ pub enum Card {
     Trap(Trap),
 }
 
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CreatureCard;
 
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SpellCard;
 
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TrapCard;
 
 // ============================================
 // LOCATION COMPONENTS (instance-specific)
 // ============================================
 
-#[derive(Component)]
+#[derive(Component, Debug, Clone)]
 #[relationship(relationship_target = Deck)]
 pub struct InDeck {
     #[relationship]
     pub parent: Entity,
 }
 
-#[derive(Component)]
+#[derive(Component, Debug, Clone)]
 #[relationship(relationship_target = Hand)]
 pub struct InHand {
     #[relationship]
     pub parent: Entity,
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone)]
 #[relationship(relationship_target = Occupant)]
 pub struct OnBoard {
     #[relationship]
     pub position: Entity,
 }
 
-#[derive(Component)]
+#[derive(Component, Debug, Clone)]
 #[relationship(relationship_target = Graveyard)]
 pub struct InGraveyard {
     #[relationship]
@@ -83,16 +83,16 @@ pub struct Selected;
 // MUTABLE INSTANCE STATE (what changes during play)
 // ============================================
 
-#[derive(Component, Clone, Copy, From)]
+#[derive(Component, Clone, Copy, From, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CurrentAttack(pub u16);
 
-#[derive(Component, Clone, Copy, From)]
+#[derive(Component, Clone, Copy, From, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CurrentDefense(pub u16);
 /// Current movement state
-#[derive(Component, Clone, From)]
+#[derive(Component, Clone, Copy, From, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CurrentMovementPoints(pub u16);
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Debug)]
 pub struct Cost {
     pub value: u16,
 }
