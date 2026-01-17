@@ -110,7 +110,7 @@ impl BoardRes {
                 .get_tile(&pos)
                 .ok_or(BoardError::TileNotFound)
                 .expect("This is a setup error and should never happen");
-            let base_entity = commands
+            let _base_entity = commands
                 .spawn((
                     PlayerBaseBundle::new(),
                     Owner(player_entity),
@@ -133,7 +133,7 @@ impl BoardRes {
         }
     }
 
-    pub fn iter(&self) -> std::collections::hash_map::Iter<U16Vec2, Entity> {
+    pub fn iter(&self) -> std::collections::hash_map::Iter<'_, U16Vec2, Entity> {
         self.tiles.iter()
     }
 

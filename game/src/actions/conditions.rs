@@ -6,7 +6,6 @@ use super::{
 use crate::{
     actions::targeting::{CreatureTarget, MultiTarget, Or, PlayerTarget},
     board::effect::EffectType,
-    components::Health,
 };
 use janet_bindings::{bindings::JanetAbstractType, types::janetabstract::IsAbstract};
 

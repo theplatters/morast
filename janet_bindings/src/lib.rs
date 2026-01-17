@@ -1,4 +1,3 @@
-use crate::types::cfunction::JanetRawCFunction;
 
 pub mod bindings;
 pub mod controller;

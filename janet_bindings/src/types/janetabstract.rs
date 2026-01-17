@@ -1,11 +1,8 @@
 use std::ptr;
 
-use crate::{
-    bindings::{
+use crate::bindings::{
         Janet, JanetAbstractType, janet_abstract, janet_unwrap_abstract, janet_wrap_abstract,
-    },
-    types::janetenum::JanetItem,
-};
+    };
 
 #[derive(Debug, Clone)]
 pub struct JanetAbstract {

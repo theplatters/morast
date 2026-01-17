@@ -1,6 +1,6 @@
 use crate::{
     Result,
-    actions::action_prototype::{Pending, ReadyToExecute},
+    actions::{Pending, ReadyToExecute},
     error::GameError,
 };
 use bevy::{
@@ -46,14 +46,4 @@ pub fn ready_on_play_action(
     Ok(())
 }
 
-#[derive(Component)]
-pub struct ManualTargeting {
-    pub chosen: Vec<Entity>, // selected target entities (creatures, tiles, etc)
-}
-
-#[derive(Component)]
-pub struct AutoTargeting {
-    pub chosen: Vec<Entity>, // selected target entities (creatures, tiles, etc)
-}
-
-pub fn execute_actions(actions: Query<(Entity), With<ReadyToExecute>>) {}
+pub fn execute_actions(_actions: Query<Entity, With<ReadyToExecute>>) {}

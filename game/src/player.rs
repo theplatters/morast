@@ -6,7 +6,7 @@ use bevy::ecs::{
     system::{Commands, Query},
 };
 
-use crate::card::{Card, InDeck, InGraveyard, InHand};
+use crate::card::{InDeck, InGraveyard, InHand};
 
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Player {

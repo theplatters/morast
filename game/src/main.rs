@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use janet_bindings::controller::Environment;
 
 mod actions;
 mod board;

@@ -8,7 +8,7 @@ use janet_bindings::{
 };
 
 use crate::{
-    actions::action_prototype::GameAction,
+    actions::GameAction,
     card::{Card, abilities::Abilities},
     error::GameError,
     janet_api::api::to_i16_vec,
@@ -46,13 +46,13 @@ impl<'a> FieldExtractor<'a> {
         }
     }
 
-    fn get_optional_actions(&self, field: &str) -> Result<Option<GameAction>, GameError> {
+    fn get_optional_actions(&self, _field: &str) -> Result<Option<GameAction>, GameError> {
         Ok(None)
     }
 
     fn get_required_actions(&self, field: &str) -> Result<GameAction, GameError> {
         match self.table.get(field) {
-            Some(value) => todo!(),
+            Some(_value) => todo!(),
             None => Err(GameError::NotFound(format!("{}: {}", self.context, field))),
         }
     }
@@ -95,9 +95,9 @@ impl CardDataRetriever {
     }
 
     fn get_action_from_env(
-        env: &Environment,
-        action_name: &str,
-        card_name: &str,
+        _env: &Environment,
+        _action_name: &str,
+        _card_name: &str,
     ) -> Result<Option<GameAction>, GameError> {
         todo!()
     }

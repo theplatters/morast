@@ -31,28 +31,28 @@ pub fn to_i16_vec(item: JanetEnum) -> Option<Vec<I16Vec2>> {
     Some(result)
 }
 
-pub unsafe extern "C" fn cfun_draw(argc: i32, argv: *mut Janet) -> Janet {
+pub unsafe extern "C" fn cfun_draw(_argc: i32, _argv: *mut Janet) -> Janet {
     todo!()
 }
 
-pub unsafe extern "C" fn cfun_discard(argc: i32, argv: *mut Janet) -> Janet {
+pub unsafe extern "C" fn cfun_discard(_argc: i32, _argv: *mut Janet) -> Janet {
     todo!()
 }
 
-pub unsafe extern "C" fn cfun_add_gold_to_player(argc: i32, argv: *mut Janet) -> Janet {
+pub unsafe extern "C" fn cfun_add_gold_to_player(_argc: i32, _argv: *mut Janet) -> Janet {
     todo!()
 }
 
-pub unsafe extern "C" fn cfun_turn_player(argc: i32, argv: *mut Janet) -> Janet {
+pub unsafe extern "C" fn cfun_turn_player(_argc: i32, _argv: *mut Janet) -> Janet {
     todo!()
 }
 
-pub unsafe extern "C" fn cfun_other_player(argc: i32, argv: *mut Janet) -> Janet {
+pub unsafe extern "C" fn cfun_other_player(_argc: i32, _argv: *mut Janet) -> Janet {
     todo!()
 }
 
 fn plus(size: &[JanetEnum]) -> Result<JanetEnum, JanetError> {
-    if (size.len() != 1) {
+    if size.len() != 1  {
         return Err(JanetError::OutOfBounds);
     }
 
@@ -71,7 +71,7 @@ fn plus(size: &[JanetEnum]) -> Result<JanetEnum, JanetError> {
 }
 
 pub fn cross(argv: &[JanetEnum]) -> Result<JanetEnum, JanetError> {
-    if (argv.len() != 1) {
+    if argv.len() != 1  {
         return Err(JanetError::OutOfBounds);
     }
 
@@ -94,30 +94,30 @@ pub fn cross(argv: &[JanetEnum]) -> Result<JanetEnum, JanetError> {
 janet_cfun!(cfun_cross, cross);
 janet_cfun!(cfun_plus, plus);
 
-pub unsafe extern "C" fn cfun_gold_amount(argc: i32, argv: *mut Janet) -> Janet {
+pub unsafe extern "C" fn cfun_gold_amount(_argc: i32, _argv: *mut Janet) -> Janet {
     todo!()
 }
 
-pub unsafe extern "C" fn cfun_shuffle_deck(argc: i32, argv: *mut Janet) -> Janet {
+pub unsafe extern "C" fn cfun_shuffle_deck(_argc: i32, _argv: *mut Janet) -> Janet {
     todo!()
 }
 
-pub unsafe extern "C" fn cfun_card_owner(argc: i32, argv: *mut Janet) -> Janet {
+pub unsafe extern "C" fn cfun_card_owner(_argc: i32, _argv: *mut Janet) -> Janet {
     todo!()
 }
 
-pub unsafe extern "C" fn cfun_get_current_index(argc: i32, argv: *mut Janet) -> Janet {
+pub unsafe extern "C" fn cfun_get_current_index(_argc: i32, _argv: *mut Janet) -> Janet {
     todo!()
 }
 
-pub unsafe extern "C" fn cfun_apply_effect(argc: i32, argv: *mut Janet) -> Janet {
+pub unsafe extern "C" fn cfun_apply_effect(_argc: i32, _argv: *mut Janet) -> Janet {
     todo!()
 }
 
-pub unsafe extern "C" fn cfun_from_current_position(argc: i32, argv: *mut Janet) -> Janet {
+pub unsafe extern "C" fn cfun_from_current_position(_argc: i32, _argv: *mut Janet) -> Janet {
     todo!()
 }
 
-pub unsafe extern "C" fn cfun_is_owners_turn(argc: i32, argv: *mut Janet) -> Janet {
+pub unsafe extern "C" fn cfun_is_owners_turn(_argc: i32, _argv: *mut Janet) -> Janet {
     todo!()
 }

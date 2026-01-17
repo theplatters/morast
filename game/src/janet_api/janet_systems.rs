@@ -5,7 +5,7 @@ use bevy::{
 use janet_bindings::{controller::Environment, types::janetabstract::JanetAbstract};
 
 use crate::{
-    actions::target_builder::janet::{AnyTargetBuilder, BUILDER_FUNCTIONS},
+    actions::targeting::target_builder::janet::{AnyTargetBuilder, BUILDER_FUNCTIONS},
     janet_api::{core_constants::CORE_CONSTANTS, core_functions::CORE_FUNCTIONS},
 };
 
@@ -29,7 +29,7 @@ pub fn read_card_list(env: NonSend<Environment>) {
     env.read_script("game/scripts/loader.janet").unwrap();
 }
 
-pub fn register_builder_types(env: NonSend<Environment>) {}
+pub fn register_builder_types(_env: NonSend<Environment>) {}
 
 pub struct JanetSystem;
 

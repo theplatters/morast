@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
-use super::targeting::{
+use super::{
     AutoSelector, Constraint, CreatureTarget, ManualSelector, MultiTarget, Or, SelectionMethod,
-    SingleTarget, TargetFilter, TargetKind, TargetSelector,
+    SingleTarget, TargetKind, TargetSelector,
 };
 
 // ------------------------------------------------------------
@@ -175,7 +175,6 @@ impl TargetSelector<CreatureTarget, AnyCardinality> {
 pub mod janet {
     use std::ffi::c_void;
 
-    use super::super::targeting::TargetSelector;
     use janet_bindings::{
         bindings::{Janet, JanetAbstractType, janet_panic, janet_unwrap_abstract},
         controller::CoreFunction,
@@ -183,112 +182,104 @@ pub mod janet {
         types::{janetabstract::IsAbstract, janetenum::JanetEnum},
     };
 
-    use crate::actions::{
+    use crate::actions::targeting::{
+        Constraint, CreatureTarget, HandTarget, MultiTarget, PlayerTarget, SingleTarget,
+        TargetKind, TileTarget,
         target_builder::{SetCardinality, SetSelection, TargetSelectorBuilder, UnsetSelection},
-        targeting::{
-            Constraint, CreatureTarget, HandTarget, MultiTarget, PlayerTarget, SingleTarget,
-            TargetKind, TileTarget,
-        },
     };
 
-    type SingleCreatureTargetBuilder = crate::actions::target_builder::TargetSelectorBuilder<
+    type SingleCreatureTargetBuilder = TargetSelectorBuilder<
         crate::actions::targeting::CreatureTarget,
         crate::actions::targeting::SingleTarget,
         SetCardinality,
         UnsetSelection,
     >;
-    type MultiCreatureTargetBuilder = crate::actions::target_builder::TargetSelectorBuilder<
+    type MultiCreatureTargetBuilder = TargetSelectorBuilder<
         crate::actions::targeting::CreatureTarget,
         crate::actions::targeting::MultiTarget,
         SetCardinality,
         UnsetSelection,
     >;
-    type SingleTileTargetBuilder = crate::actions::target_builder::TargetSelectorBuilder<
+    type SingleTileTargetBuilder = TargetSelectorBuilder<
         crate::actions::targeting::TileTarget,
         crate::actions::targeting::SingleTarget,
         SetCardinality,
         UnsetSelection,
     >;
-    type MultiTileTargetBuilder = crate::actions::target_builder::TargetSelectorBuilder<
+    type MultiTileTargetBuilder = TargetSelectorBuilder<
         crate::actions::targeting::TileTarget,
         crate::actions::targeting::MultiTarget,
         SetCardinality,
         UnsetSelection,
     >;
-    type SinglePlayerTargetBuilder = crate::actions::target_builder::TargetSelectorBuilder<
+    type SinglePlayerTargetBuilder = TargetSelectorBuilder<
         crate::actions::targeting::PlayerTarget,
         crate::actions::targeting::SingleTarget,
         SetCardinality,
         UnsetSelection,
     >;
-    type MultiPlayerTargetBuilder = crate::actions::target_builder::TargetSelectorBuilder<
+    type MultiPlayerTargetBuilder = TargetSelectorBuilder<
         crate::actions::targeting::PlayerTarget,
         crate::actions::targeting::MultiTarget,
         SetCardinality,
         UnsetSelection,
     >;
-    type SingleHandTargetBuilder = crate::actions::target_builder::TargetSelectorBuilder<
+    type SingleHandTargetBuilder = TargetSelectorBuilder<
         crate::actions::targeting::HandTarget,
         crate::actions::targeting::SingleTarget,
         SetCardinality,
         UnsetSelection,
     >;
-    type MultiHandTargetBuilder = crate::actions::target_builder::TargetSelectorBuilder<
+    type MultiHandTargetBuilder = TargetSelectorBuilder<
         crate::actions::targeting::HandTarget,
         crate::actions::targeting::MultiTarget,
         SetCardinality,
         UnsetSelection,
     >;
 
-    type SingleCreatureTargetBuilderSetSelection =
-        crate::actions::target_builder::TargetSelectorBuilder<
-            crate::actions::targeting::CreatureTarget,
-            crate::actions::targeting::SingleTarget,
-            SetCardinality,
-            SetSelection,
-        >;
-    type MultiCreatureTargetBuilderSetSelection =
-        crate::actions::target_builder::TargetSelectorBuilder<
-            crate::actions::targeting::CreatureTarget,
-            crate::actions::targeting::MultiTarget,
-            SetCardinality,
-            SetSelection,
-        >;
-    type SingleTileTargetBuilderSetSelection =
-        crate::actions::target_builder::TargetSelectorBuilder<
-            crate::actions::targeting::TileTarget,
-            crate::actions::targeting::SingleTarget,
-            SetCardinality,
-            SetSelection,
-        >;
-    type MultiTileTargetBuilderSetSelection = crate::actions::target_builder::TargetSelectorBuilder<
+    type SingleCreatureTargetBuilderSetSelection = TargetSelectorBuilder<
+        crate::actions::targeting::CreatureTarget,
+        crate::actions::targeting::SingleTarget,
+        SetCardinality,
+        SetSelection,
+    >;
+    type MultiCreatureTargetBuilderSetSelection = TargetSelectorBuilder<
+        crate::actions::targeting::CreatureTarget,
+        crate::actions::targeting::MultiTarget,
+        SetCardinality,
+        SetSelection,
+    >;
+    type SingleTileTargetBuilderSetSelection = TargetSelectorBuilder<
+        crate::actions::targeting::TileTarget,
+        crate::actions::targeting::SingleTarget,
+        SetCardinality,
+        SetSelection,
+    >;
+    type MultiTileTargetBuilderSetSelection = TargetSelectorBuilder<
         crate::actions::targeting::TileTarget,
         crate::actions::targeting::MultiTarget,
         SetCardinality,
         SetSelection,
     >;
-    type SinglePlayerTargetBuilderSetSelection =
-        crate::actions::target_builder::TargetSelectorBuilder<
-            crate::actions::targeting::PlayerTarget,
-            crate::actions::targeting::SingleTarget,
-            SetCardinality,
-            SetSelection,
-        >;
-    type MultiPlayerTargetBuilderSetSelection =
-        crate::actions::target_builder::TargetSelectorBuilder<
-            crate::actions::targeting::PlayerTarget,
-            crate::actions::targeting::MultiTarget,
-            SetCardinality,
-            SetSelection,
-        >;
-    type SingleHandTargetBuilderSetSelection =
-        crate::actions::target_builder::TargetSelectorBuilder<
-            crate::actions::targeting::HandTarget,
-            crate::actions::targeting::SingleTarget,
-            SetCardinality,
-            SetSelection,
-        >;
-    type MultiHandTargetBuilderSetSelection = crate::actions::target_builder::TargetSelectorBuilder<
+    type SinglePlayerTargetBuilderSetSelection = TargetSelectorBuilder<
+        crate::actions::targeting::PlayerTarget,
+        crate::actions::targeting::SingleTarget,
+        SetCardinality,
+        SetSelection,
+    >;
+    type MultiPlayerTargetBuilderSetSelection = TargetSelectorBuilder<
+        crate::actions::targeting::PlayerTarget,
+        crate::actions::targeting::MultiTarget,
+        SetCardinality,
+        SetSelection,
+    >;
+    type SingleHandTargetBuilderSetSelection = TargetSelectorBuilder<
+        crate::actions::targeting::HandTarget,
+        crate::actions::targeting::SingleTarget,
+        SetCardinality,
+        SetSelection,
+    >;
+    type MultiHandTargetBuilderSetSelection = TargetSelectorBuilder<
         crate::actions::targeting::HandTarget,
         crate::actions::targeting::MultiTarget,
         SetCardinality,
@@ -481,7 +472,9 @@ pub mod janet {
                 janet_bindings::types::janetenum::JanetEnum,
                 janet_bindings::error::JanetError,
             > {
-                let b = TargetSelector::<$target_ty, $mode_ty>::builder().$mode_method();
+                let b =
+                    $crate::actions::targeting::TargetSelector::<$target_ty, $mode_ty>::builder()
+                        .$mode_method();
 
                 print!("Creating target builder");
                 Ok(janet_bindings::types::janetenum::JanetEnum::Abstract(

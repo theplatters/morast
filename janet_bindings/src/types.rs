@@ -1,9 +1,6 @@
 use std::ffi::CStr;
 use std::ptr;
-use std::{
-    ffi::{CString, c_void},
-    str::FromStr,
-};
+use std::ffi::c_void;
 
 use crate::bindings::{Janet, JanetAbstractType};
 

@@ -4,7 +4,7 @@ use bevy::{
 };
 
 use crate::{
-    actions::action_prototype::GameAction,
+    actions::GameAction,
     card::{
         Card, CardBehavior, Cost, FromRegistry, Playable, card_id::CardID,
         card_registry::CardRegistry,

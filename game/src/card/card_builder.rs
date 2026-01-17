@@ -1,7 +1,7 @@
 use bevy::math::I16Vec2;
 
 use crate::{
-    actions::action_prototype::GameAction,
+    actions::GameAction,
     card::{
         Card, abilities::Abilities, card_reader::CommonData, creature::Creature, spell_card::Spell,
         trap_card::Trap,

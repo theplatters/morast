@@ -1,10 +1,10 @@
 use bevy::math::I16Vec2;
 
 use super::{
-    action_prototype::{GameAction, UnitAction, ValueSource},
     spell_speed::SpellSpeed,
     targeting::{CreatureSel, MultiTarget, PlayerSel, SingleTarget, TileSel},
     timing::ActionTiming,
+    {GameAction, UnitAction, ValueSource},
 };
 use crate::board::effect::EffectType;
 use crate::card::card_id::CardID;

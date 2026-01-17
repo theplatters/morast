@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use bevy::ecs::{
     resource::Resource,
-    system::{NonSend, NonSendMut, ResMut},
+    system::{NonSendMut, ResMut},
 };
 
 use super::{
@@ -11,10 +11,7 @@ use super::{
     card_type::CardTypes,
     creature::Creature,
 };
-use crate::{
-    error::GameError,
-    janet_api::{core_constants::CORE_CONSTANTS, core_functions::CORE_FUNCTIONS},
-};
+use crate::error::GameError;
 use janet_bindings::controller::Environment;
 
 use super::{
@@ -44,7 +41,7 @@ impl CardRegistry {
         self.cards.keys()
     }
 
-    pub async fn init(&mut self, env: &mut Environment) {}
+    pub async fn init(&mut self, _env: &mut Environment) {}
 
     pub fn add_card_from_janet(
         &mut self,
