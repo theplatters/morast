@@ -16,7 +16,13 @@ pub fn execute_action(
             UnitAction::CastSpell => todo!(),
             UnitAction::PlaceTrap => todo!(),
             UnitAction::EndTurn => todo!(),
-            UnitAction::MoveCreature { target, .. } => {}
+            UnitAction::MoveCreature { target, .. } => {
+                commands.spawn((
+                    target.clone(),
+                    RequiredForCompletion(action_entity),
+                    Pending,
+                ));
+            }
             UnitAction::DealDamage {
                 target_selector: targeting_type,
                 amount,
