@@ -1,15 +1,12 @@
-use bevy::{
-    ecs::{entity::Entity, query::With, system::Query},
-    reflect::Is,
-};
+use bevy::ecs::{entity::Entity, query::With, system::Query};
 
 use crate::{
     actions::{
-        action_prototype::ValueSource,
         targeting::{
-            CreatureTarget, HandTarget, PlayerTarget, TargetFilter, TargetSelector, TileTarget,
+            CreatureTarget, HandTarget, PlayerTarget, TargetFilter, TileTarget,
             systems::{CreatureQuery, HandQuery, PlayerQuery, TileQuery},
         },
+        value_source::ValueSource,
     },
     board::tile::Tile,
 };

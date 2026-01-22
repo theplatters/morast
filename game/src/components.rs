@@ -11,3 +11,6 @@ impl Health {
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Owner(pub Entity);
+
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Caster(pub Entity);

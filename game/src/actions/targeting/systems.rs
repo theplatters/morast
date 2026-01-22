@@ -5,31 +5,40 @@ use bevy::{
         entity::Entity,
         hierarchy::{ChildOf, Children},
         query::{QueryData, With},
+        resource::Resource,
         schedule::{IntoScheduleConfigs, common_conditions::any_with_component},
         system::{Commands, Query},
     },
+    platform::collections::HashMap,
 };
 
 use crate::{
     actions::{
+        NeedsFiltering, NeedsTargeting,
         targeting::{
             Constraint, CreatureTarget, HandTarget, IsTargetSelectMode, MultiTarget, PlayerTarget,
             SingleTarget, TargetKind, TargetSelector, TileTarget,
             filters::{FilterParams, IsFilter},
         },
-        {NeedsFiltering, NeedsTargeting},
+        value_source::{ValueEvalParams, ValueSource},
     },
     board::tile::{Position, Tile},
     card::{CreatureCard, CurrentAttack, CurrentDefense, InHand, OnBoard, SpellCard, TrapCard},
-    components::{Health, Owner},
+    components::{Caster, Health, Owner},
     player::{Player, TurnPlayer},
 };
+
+#[derive(Resource, Default)]
+pub struct CandidateStore {
+    /// selector_entity -> suitable target entities
+    pub by_selector: HashMap<Entity, Vec<Entity>>,
+}
 
 pub struct TargetPlugin;
 
 impl Plugin for TargetPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-        app.add_systems(
+        app.init_resource::<CandidateStore>().add_systems(
             FixedUpdate,
             (
                 (
@@ -57,12 +66,6 @@ impl Plugin for TargetPlugin {
             ),
         );
     }
-}
-
-#[derive(Component)]
-pub struct Candidate {
-    pub for_selector: Entity,
-    pub target: Entity,
 }
 
 #[derive(QueryData)]
@@ -100,13 +103,15 @@ pub struct HandQuery {
 #[derive(QueryData)]
 struct TargetSelectorQuery<K: TargetKind<C>, C: Constraint> {
     pub entity: Entity,
-    pub child_of: &'static ChildOf,
+    pub caster: &'static Caster,
     pub selector: &'static TargetSelector<K, C>,
+    pub for_entity: &'static ChildOf,
 }
 
 fn apply_targeting<TTarget, TCardinality>(
     q_selectors: Query<TargetSelectorQuery<TTarget, TCardinality>, With<NeedsTargeting>>,
     query: FilterParams,
+    mut candidates: bevy::ecs::system::ResMut<CandidateStore>,
     mut commands: Commands,
 ) where
     TTarget: TargetKind<TCardinality>,
@@ -114,8 +119,9 @@ fn apply_targeting<TTarget, TCardinality>(
 {
     for TargetSelectorQueryItem::<TTarget, TCardinality> {
         entity: e_selector,
-        child_of: &ChildOf(caster),
+        caster: &Caster(caster),
         selector,
+        ..
     } in &q_selectors
     {
         let targets = match &selector.selection {
@@ -125,10 +131,8 @@ fn apply_targeting<TTarget, TCardinality>(
             }
         };
 
-        commands.spawn_batch(targets.into_iter().map(move |e| Candidate {
-            for_selector: e_selector,
-            target: e,
-        }));
+        // store targets
+        candidates.by_selector.insert(e_selector, targets);
 
         commands
             .entity(e_selector)
@@ -142,34 +146,58 @@ pub struct NeedsFinalization;
 
 fn apply_filter<TTarget, TCardinality>(
     q_selectors: Query<TargetSelectorQuery<TTarget, TCardinality>, With<NeedsFiltering>>,
-    q_suitable_targets: Query<(Entity, &Candidate)>,
-    params: FilterParams, // or take as argument in the outer system and capture
+    params: FilterParams,
+    mut candidates: bevy::ecs::system::ResMut<CandidateStore>,
     mut commands: Commands,
 ) where
     TTarget: TargetKind<TCardinality>,
     TCardinality: Constraint,
 {
-    for q_selector in q_selectors {
-        for (
-            e_candidate,
-            Candidate {
-                for_selector,
-                target,
-            },
-        ) in q_suitable_targets
-        {
-            if *for_selector == q_selector.entity
-                && q_selector
+    for q_selector in &q_selectors {
+        let caster = q_selector.caster.0;
+
+        if let Some(list) = candidates.by_selector.get_mut(&q_selector.entity) {
+            list.retain(|&target| {
+                q_selector
                     .selector
                     .validation
-                    .validate(&params, q_selector.child_of.0, *target)
-            {
-                commands.entity(e_candidate).despawn();
-            }
-            commands
-                .entity(q_selector.entity)
-                .remove::<NeedsFiltering>()
-                .insert(NeedsFinalization);
+                    .validate(&params, caster, target)
+            });
+        } else {
+            // optional: ensure key exists
+            candidates.by_selector.insert(q_selector.entity, Vec::new());
         }
+
+        commands
+            .entity(q_selector.entity)
+            .remove::<NeedsFiltering>()
+            .insert(NeedsFinalization);
+    }
+}
+
+fn finalize_targeting<TTarget, TCardinality>(
+    q_selectors: Query<TargetSelectorQuery<TTarget, TCardinality>, With<NeedsFinalization>>,
+    q_value_sources: Query<(&ValueSource, &ChildOf)>,
+    mut candidates: bevy::ecs::system::ResMut<CandidateStore>, // mut if you want to cleanup
+    mut commands: Commands,
+) where
+    TTarget: TargetKind<TCardinality>,
+    TCardinality: Constraint,
+{
+    for q_selector in &q_selectors {
+        let list: &[Entity] = candidates
+            .by_selector
+            .get(&q_selector.entity)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[]);
+
+        let finalization_effect = q_selector.selector.finalize(list, &value_source_context);
+
+        // optional: cleanup the candidate list once finalized
+        // (depends on how your next pipeline step works)
+        candidates.by_selector.remove(&q_selector.entity);
+
+        // also transition out of NeedsFinalization if appropriate
+        // commands.entity(q_selector.entity).remove::<NeedsFinalization>();
     }
 }

@@ -26,11 +26,16 @@ use crate::{
     turn_controller::TurnControllerPlugin,
 };
 
+// If you need deterministic randomness, store a RNG resource:
+#[derive(Resource, Default)]
+pub struct GameRng(pub rand::rngs::OsRng);
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(CardRegistry::new())
         .add_plugins(JanetSystem)
+        .init_resource::<GameRng>()
         .add_systems(
             Startup,
             (

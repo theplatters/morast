@@ -6,23 +6,23 @@ use bevy::{
 use crate::{
     actions::{
         action_builder::ActionPrototypeBuilder,
-        action_prototype::{ChoiceSource, StatModifier, ValueSource},
         conditions::Condition,
         spell_speed::SpellSpeed,
         targeting::{CreatureSel, MultiTarget, PlayerSel, SingleTarget, TileSel},
         timing::ActionTiming,
+        value_source::{ChoiceSource, StatModifier, ValueSource},
     },
     board::effect::EffectType,
     card::card_id::CardID,
 };
 
 pub mod action_builder;
-pub mod action_prototype;
 pub mod action_systems;
 pub mod conditions;
 pub mod spell_speed;
 pub mod targeting;
 pub mod timing;
+pub mod value_source;
 #[derive(Component, Debug, Clone, Copy)]
 pub struct Pending;
 

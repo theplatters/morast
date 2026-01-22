@@ -1,14 +1,17 @@
-use bevy::ecs::{component::Component, entity::Entity, query::With, system::Query};
+use bevy::{
+    ecs::{component::Component, entity::Entity, query::With, system::Query},
+    log::warn,
+};
 use janet_bindings::types::janetabstract::IsAbstract;
 use rand::seq::SliceRandom;
 
 use crate::{
     actions::{
-        action_prototype::ValueSource,
         targeting::{
             filters::{FilterParams, IsFilter},
-            systems::{CreatureQuery, TileQuery},
+            systems::{CreatureQuery, NeedsFinalization, TileQuery},
         },
+        value_source::{ValueEvalParams, ValueSource},
     },
     board::tile::Tile,
 };
@@ -88,10 +91,48 @@ pub enum SelectionMethod<K: TargetKind<C>, C: Constraint> {
     Manual(ManualSelector<K, C>),
 }
 
+impl<K: TargetKind<C>, C: Constraint> IsTargetSelectMode for SelectionMethod<K, C> {
+    fn find_suitable(&self, query: &FilterParams, caster: Entity) -> Vec<Entity> {
+        match self {
+            SelectionMethod::Auto(auto_selector) => auto_selector.find_suitable(query, caster),
+            SelectionMethod::Manual(manual_selector) => {
+                manual_selector.find_suitable(query, caster)
+            }
+        }
+    }
+    fn finalize(
+        &self,
+        candidates: &[Entity],
+        value_eval_context: &ValueEvalParams,
+    ) -> FinalizeEffect {
+        match self {
+            SelectionMethod::Auto(auto_selector) => {
+                auto_selector.finalize(candidates, value_eval_context)
+            }
+            SelectionMethod::Manual(manual_selector) => {
+                manual_selector.finalize(candidates, value_eval_context)
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AutoSelector<K: TargetKind<C>, C: Constraint> {
     pub mode: K::Auto,
     _k: std::marker::PhantomData<(K, C)>,
+}
+
+impl<K: TargetKind<C>, C: Constraint> IsTargetSelectMode for AutoSelector<K, C> {
+    fn find_suitable(&self, query: &FilterParams, caster: Entity) -> Vec<Entity> {
+        self.mode.find_suitable(query, caster)
+    }
+    fn finalize(
+        &self,
+        candidates: &[Entity],
+        value_eval_context: &ValueEvalParams,
+    ) -> FinalizeEffect {
+        self.mode.finalize(candidates, value_eval_context)
+    }
 }
 
 impl<K: TargetKind<C>, C: Constraint> AutoSelector<K, C> {
@@ -107,6 +148,20 @@ impl<K: TargetKind<C>, C: Constraint> AutoSelector<K, C> {
 pub struct ManualSelector<K: TargetKind<C>, C: Constraint> {
     pub mode: K::Manual,
     _k: std::marker::PhantomData<(K, C)>,
+}
+
+impl<K: TargetKind<C>, C: Constraint> IsTargetSelectMode for ManualSelector<K, C> {
+    fn find_suitable(&self, query: &FilterParams, caster: Entity) -> Vec<Entity> {
+        self.mode.find_suitable(query, caster)
+    }
+
+    fn finalize(
+        &self,
+        candidates: &[Entity],
+        value_eval_context: &ValueEvalParams,
+    ) -> FinalizeEffect {
+        self.mode.finalize(candidates, value_eval_context)
+    }
 }
 
 impl<K: TargetKind<C>, C: Constraint> ManualSelector<K, C> {
@@ -351,6 +406,21 @@ fn select_all_tiles(q_tiles: Query<TileQuery, With<Tile>>) -> Vec<Entity> {
 
 pub trait IsTargetSelectMode: Clone + std::fmt::Debug + Send + Sync + 'static {
     fn find_suitable(&self, query: &FilterParams, caster: Entity) -> Vec<Entity>;
+    fn finalize(
+        &self,
+        candidates: &[Entity],
+        value_eval_context: &ValueEvalParams,
+    ) -> FinalizeEffect;
+}
+
+#[derive(Debug)]
+pub enum FinalizeEffect {
+    None,
+    AwaitInput,
+    ExecuteSingle(Entity),
+    ExecuteAll,
+    ExecuteSubset(Vec<Entity>), // for random / limited / reordered selections
+    AwaitingValueSource { value_source: ValueSource }, // evaluated later using runtime context
 }
 
 impl IsTargetSelectMode for AutoSingleCreature {
@@ -373,6 +443,20 @@ impl IsTargetSelectMode for AutoSingleCreature {
             AutoSingleCreature::Caster => vec![caster],
         }
     }
+    fn finalize(
+        &self,
+        candidates: &[Entity],
+        value_eval_context: &ValueEvalParams,
+    ) -> FinalizeEffect {
+        match candidates {
+            [] => FinalizeEffect::None,
+            [only] => FinalizeEffect::ExecuteSingle(*only),
+            _ => {
+                warn!("Too many items for single target selector");
+                FinalizeEffect::None
+            }
+        }
+    }
 }
 
 impl IsTargetSelectMode for AutoMultiCreature {
@@ -388,6 +472,30 @@ impl IsTargetSelectMode for AutoMultiCreature {
             }
         }
     }
+    fn finalize(
+        &self,
+        candidates: &[Entity],
+        value_eval_context: &ValueEvalParams,
+    ) -> FinalizeEffect {
+        match self {
+            AutoMultiCreature::AllEnemy | AutoMultiCreature::AllFriendly => {
+                if candidates.is_empty() {
+                    FinalizeEffect::None
+                } else {
+                    FinalizeEffect::ExecuteAll
+                }
+            }
+            AutoMultiCreature::Random { count } => {
+                if candidates.is_empty() {
+                    return FinalizeEffect::None;
+                }
+
+                FinalizeEffect::AwaitingValueSource {
+                    value_source: count.clone(),
+                }
+            }
+        }
+    }
 }
 
 impl IsTargetSelectMode for ManualCreature {
@@ -397,6 +505,17 @@ impl IsTargetSelectMode for ManualCreature {
             ManualCreature::MaxNFriendly { .. } | ManualCreature::ExactlyNFriendly { .. } => {
                 select_friendly(query.creatures, caster)
             }
+        }
+    }
+    fn finalize(
+        &self,
+        candidates: &[Entity],
+        value_eval_context: &ValueEvalParams,
+    ) -> FinalizeEffect {
+        match self {
+            ManualCreature::Choose { min, max } => todo!(),
+            ManualCreature::MaxNFriendly { count } => todo!(),
+            ManualCreature::ExactlyNFriendly { count } => todo!(),
         }
     }
 }
@@ -409,7 +528,18 @@ impl IsTargetSelectMode for ManualTile {
             }
         }
     }
+    fn finalize(
+        &self,
+        candidates: &[Entity],
+        value_eval_context: &ValueEvalParams,
+    ) -> FinalizeEffect {
+        match self {
+            ManualTile::ChooseTiles { amount } => todo!(),
+            ManualTile::ChooseArea { radius } => todo!(),
+        }
+    }
 }
+
 /// Auto selection for single-player target
 impl IsTargetSelectMode for AutoPlayerSingle {
     fn find_suitable(&self, query: &FilterParams, caster: Entity) -> Vec<Entity> {
@@ -421,6 +551,20 @@ impl IsTargetSelectMode for AutoPlayerSingle {
             .filter_map(|p| (p.turn_player.is_some() == want_turn).then_some(p.entity))
             .collect()
     }
+    fn finalize(
+        &self,
+        candidates: &[Entity],
+        value_eval_context: &ValueEvalParams,
+    ) -> FinalizeEffect {
+        match candidates {
+            [] => FinalizeEffect::None,
+            [only] => FinalizeEffect::ExecuteSingle(*only),
+            _ => {
+                warn!("Too many items for single target selector");
+                FinalizeEffect::None
+            }
+        }
+    }
 }
 
 /// Auto selection for multi-player target (currently: all players)
@@ -429,6 +573,13 @@ impl IsTargetSelectMode for AutoPlayerMulti {
         // only one mode right now
         query.player.iter().map(|p| p.entity).collect()
     }
+    fn finalize(
+        &self,
+        candidates: &[Entity],
+        value_eval_context: &ValueEvalParams,
+    ) -> FinalizeEffect {
+        FinalizeEffect::ExecuteAll
+    }
 }
 
 /// Manual player selection: return all players as "suitable" candidates for UI selection
@@ -436,11 +587,27 @@ impl IsTargetSelectMode for ManualPlayer {
     fn find_suitable(&self, query: &FilterParams, _caster: Entity) -> Vec<Entity> {
         query.player.iter().map(|p| p.entity).collect()
     }
+
+    fn finalize(
+        &self,
+        candidates: &[Entity],
+        value_eval_context: &ValueEvalParams,
+    ) -> FinalizeEffect {
+        todo!()
+    }
 }
 
 impl IsTargetSelectMode for ManualHand {
     fn find_suitable(&self, query: &FilterParams, _caster: Entity) -> Vec<Entity> {
         query.hand.iter().map(|p| p.entity).collect()
+    }
+
+    fn finalize(
+        &self,
+        candidates: &[Entity],
+        value_eval_context: &ValueEvalParams,
+    ) -> FinalizeEffect {
+        todo!()
     }
 }
 
@@ -458,11 +625,25 @@ impl IsTargetSelectMode for AutoHand {
             .map(|card| card.entity)
             .collect()
     }
+    fn finalize(
+        &self,
+        _candidates: &[Entity],
+        _value_eval_context: &ValueEvalParams,
+    ) -> FinalizeEffect {
+        FinalizeEffect::ExecuteAll
+    }
 }
 
 impl IsTargetSelectMode for () {
-    fn find_suitable(&self, query: &FilterParams, caster: Entity) -> Vec<Entity> {
+    fn find_suitable(&self, _query: &FilterParams, _caster: Entity) -> Vec<Entity> {
         Vec::new()
+    }
+    fn finalize(
+        &self,
+        _candidates: &[Entity],
+        _value_eval_context: &ValueEvalParams,
+    ) -> FinalizeEffect {
+        FinalizeEffect::None
     }
 }
 
@@ -472,5 +653,29 @@ impl<L: IsTargetSelectMode, R: IsTargetSelectMode> IsTargetSelectMode for Either
             Either::Left(l) => l.find_suitable(query, caster),
             Either::Right(r) => r.find_suitable(query, caster),
         }
+    }
+    fn finalize(
+        &self,
+        candidates: &[Entity],
+        value_eval_context: &ValueEvalParams,
+    ) -> FinalizeEffect {
+        match self {
+            Either::Left(l) => l.finalize(candidates, value_eval_context),
+            Either::Right(r) => r.finalize(candidates, value_eval_context),
+        }
+    }
+}
+
+impl<K: TargetKind<C>, C: Constraint> IsTargetSelectMode for TargetSelector<K, C> {
+    fn find_suitable(&self, query: &FilterParams, caster: Entity) -> Vec<Entity> {
+        self.selection.find_suitable(query, caster)
+    }
+
+    fn finalize(
+        &self,
+        candidates: &[Entity],
+        value_eval_context: &ValueEvalParams,
+    ) -> FinalizeEffect {
+        self.selection.finalize(candidates, value_eval_context)
     }
 }

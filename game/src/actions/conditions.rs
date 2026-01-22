@@ -1,6 +1,6 @@
 use super::{
-    action_prototype::ValueSource,
     targeting::{SingleTarget, TargetSelector, TileTarget},
+    value_source::ValueSource,
 };
 
 use crate::{

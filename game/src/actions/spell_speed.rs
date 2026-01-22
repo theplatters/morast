@@ -38,7 +38,7 @@ impl TryFrom<JanetEnum> for SpellSpeed {
                 "instant" => Ok(SpellSpeed::Instant),
                 _ => Err(GameError::Cast(format!("Invalid SpellSpeed string: {}", s))),
             },
-            _ => Err(GameError::Cast(format!("Invalid SpellSpeed type "))),
+            _ => Err(GameError::Cast("Invalid SpellSpeed type ".to_string())),
         }
     }
 }
