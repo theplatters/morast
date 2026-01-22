@@ -66,8 +66,19 @@ impl ActionPrototypeBuilder {
         self
     }
 
-    pub fn move_creature(mut self, direction: I16Vec2) -> Self {
-        self.action = Some(UnitAction::MoveCreature { direction });
+    pub fn move_creature(
+        mut self,
+        direction_x: ValueSource,
+        direction_y: ValueSource,
+        absolute: bool,
+        target: CreatureSel<SingleTarget>,
+    ) -> Self {
+        self.action = Some(UnitAction::MoveCreature {
+            direction_x,
+            direction_y,
+            absolute,
+            target,
+        });
         self
     }
 
@@ -77,7 +88,7 @@ impl ActionPrototypeBuilder {
     {
         self.action = Some(UnitAction::DealDamage {
             amount,
-            targeting_type: targeting_type.into(),
+            target_selector: targeting_type.into(),
         });
         self
     }
@@ -88,7 +99,7 @@ impl ActionPrototypeBuilder {
     {
         self.action = Some(UnitAction::HealCreature {
             amount,
-            targeting_type: targeting_type.into(),
+            target_selector: targeting_type.into(),
         });
         self
     }

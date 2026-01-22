@@ -26,7 +26,6 @@ use crate::{
     turn_controller::TurnControllerPlugin,
 };
 
-// If you need deterministic randomness, store a RNG resource:
 #[derive(Resource, Default)]
 pub struct GameRng(pub rand::rngs::OsRng);
 

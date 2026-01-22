@@ -20,12 +20,12 @@ use crate::{
             SingleTarget, TargetKind, TargetSelector, TileTarget,
             filters::{FilterParams, IsFilter},
         },
-        value_source::{ValueEvalParams, ValueSource},
+        value_source::ValueSource,
     },
-    board::tile::{Position, Tile},
+    board::tile::Position,
     card::{CreatureCard, CurrentAttack, CurrentDefense, InHand, OnBoard, SpellCard, TrapCard},
     components::{Caster, Health, Owner},
-    player::{Player, TurnPlayer},
+    player::TurnPlayer,
 };
 
 #[derive(Resource, Default)]
@@ -178,7 +178,7 @@ fn apply_filter<TTarget, TCardinality>(
 fn finalize_targeting<TTarget, TCardinality>(
     q_selectors: Query<TargetSelectorQuery<TTarget, TCardinality>, With<NeedsFinalization>>,
     q_value_sources: Query<(&ValueSource, &ChildOf)>,
-    mut candidates: bevy::ecs::system::ResMut<CandidateStore>, // mut if you want to cleanup
+    mut candidates: bevy::ecs::system::ResMut<CandidateStore>,
     mut commands: Commands,
 ) where
     TTarget: TargetKind<TCardinality>,

@@ -321,6 +321,10 @@ pub enum AnyTargetSelector {
     PlayerMulti(PlayerSel<MultiTarget>),
     HandSingle(HandSel<SingleTarget>),
     HandMulti(HandSel<MultiTarget>),
+    CreatureSingleMulti(CreatureSel<Or<SingleTarget, MultiTarget>>),
+    TileSingleMulti(TileSel<Or<SingleTarget, MultiTarget>>),
+    PlayerSingleMulti(PlayerSel<Or<SingleTarget, MultiTarget>>),
+    HandSingleMulti(HandSel<Or<SingleTarget, MultiTarget>>),
 }
 
 impl<K> From<TargetSelector<K, SingleTarget>> for TargetSelector<K, Or<SingleTarget, MultiTarget>>

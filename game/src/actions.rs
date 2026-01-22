@@ -1,6 +1,7 @@
 use bevy::{
-    ecs::{bundle::Bundle, component::Component},
+    ecs::{bundle::Bundle, component::Component, entity::Entity},
     math::I16Vec2,
+    ui::Val,
 };
 
 use crate::{
@@ -8,7 +9,9 @@ use crate::{
         action_builder::ActionPrototypeBuilder,
         conditions::Condition,
         spell_speed::SpellSpeed,
-        targeting::{CreatureSel, MultiTarget, PlayerSel, SingleTarget, TileSel},
+        targeting::{
+            AnyTargetSelector, CreatureSel, MultiTarget, PlayerSel, SingleTarget, TileSel,
+        },
         timing::ActionTiming,
         value_source::{ChoiceSource, StatModifier, ValueSource},
     },
@@ -20,6 +23,7 @@ pub mod action_builder;
 pub mod action_systems;
 pub mod conditions;
 pub mod spell_speed;
+pub mod systems;
 pub mod targeting;
 pub mod timing;
 pub mod value_source;
@@ -31,6 +35,22 @@ pub struct NeedsTargeting;
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct NeedsFiltering;
+
+#[derive(Component)]
+#[relationship_target(relationship = RequiredForCompletion, linked_spawn)]
+pub struct WaitForEntities {
+    remaining: Vec<Entity>,
+}
+
+#[derive(Component)]
+#[relationship(relationship_target = WaitForEntities)]
+pub struct RequiredForCompletion(pub Entity);
+
+#[derive(Component)]
+struct Done; // added to any entity when it finishes
+
+#[derive(Component)]
+struct ReadyToProceed;
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct ReadyToExecute;
@@ -57,17 +77,20 @@ pub enum UnitAction {
     CastSpell,
     PlaceTrap,
     MoveCreature {
-        direction: I16Vec2,
+        direction_x: ValueSource,
+        direction_y: ValueSource,
+        absolute: bool,
+        target: CreatureSel<SingleTarget>,
     },
     EndTurn,
 
     // Atomic effects
     DealDamage {
-        targeting_type: CreatureSel<targeting::Or<SingleTarget, MultiTarget>>,
+        target_selector: CreatureSel<targeting::Or<SingleTarget, MultiTarget>>,
         amount: ValueSource,
     },
     HealCreature {
-        targeting_type: CreatureSel<targeting::Or<SingleTarget, MultiTarget>>,
+        target_selector: CreatureSel<targeting::Or<SingleTarget, MultiTarget>>,
         amount: ValueSource,
     },
     DrawCards {
@@ -103,6 +126,7 @@ pub enum UnitAction {
     },
     Mill {
         count: ValueSource,
+        player_selector: PlayerSel<targeting::Or<SingleTarget, MultiTarget>>,
     },
 
     // Composite actions with better control flow
@@ -134,5 +158,39 @@ pub enum UnitAction {
 impl GameAction {
     pub fn builder() -> ActionPrototypeBuilder {
         ActionPrototypeBuilder::new()
+    }
+}
+
+pub enum RequirementRef<'a> {
+    Target(&'a AnyTargetSelector),
+    Value(&'a ValueSource),
+    Cond(&'a Condition),
+}
+
+impl UnitAction {
+    pub fn requirements(&self) -> Vec<RequirementRef<'_>> {
+        match self {
+            UnitAction::MoveCreature { target, .. } => vec![RequirementRef::Target(target)],
+
+            UnitAction::DealDamage {
+                target_selector,
+                amount,
+            } => vec![
+                RequirementRef::Target(target_selector),
+                RequirementRef::Value(amount),
+            ],
+
+            UnitAction::HealCreature {
+                target_selector,
+                amount,
+            } => vec![
+                RequirementRef::Target(target_selector),
+                RequirementRef::Value(amount),
+            ],
+
+            UnitAction::Conditional { condition, .. } => vec![RequirementRef::Cond(condition)],
+
+            _ => smallvec![],
+        }
     }
 }
