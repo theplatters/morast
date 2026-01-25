@@ -1,2 +1,7 @@
-/target
-/lib
+game/assets
+game/target
+target
+Cargo.lock
+janet_bindings/target
+janet_bindings/lib
+

@@ -1,0 +1,7 @@
+error: invalid basic string, expected `"`
+  --> ../janet_bindings_derive/Cargo.toml:12:17
+   |
+12 | proc-macro2 = "1
+   |                 ^
+error: failed to load manifest for workspace member `/home/franzs/Schreibtisch/Morast/janet_bindings_derive`
+referenced by workspace at `/home/franzs/Schreibtisch/Morast/Cargo.toml`
