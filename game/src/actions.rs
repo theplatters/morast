@@ -1,8 +1,4 @@
-use bevy::{
-    ecs::{bundle::Bundle, component::Component, entity::Entity},
-    math::I16Vec2,
-    ui::Val,
-};
+use bevy::ecs::{bundle::Bundle, component::Component, entity::Entity};
 
 use crate::{
     actions::{
@@ -65,6 +61,33 @@ pub struct GameAction {
     pub speed: SpellSpeed,
 }
 
+pub enum Expr {
+    Expr(Box<Expr>),
+    Logic(Logic),
+    UnitAction(UnitAction),
+}
+
+pub enum Logic {
+    Sequence(Vec<UnitAction>),
+    Parallel(Vec<UnitAction>),
+    Choice {
+        options: Vec<UnitAction>,
+        chooser: ChoiceSource,
+    },
+
+    Repeat {
+        action: Box<UnitAction>,
+        count: ValueSource,
+    },
+
+    // Conditional actions
+    Conditional {
+        condition: Condition,
+        on_true: Box<UnitAction>,
+        on_false: Option<Box<UnitAction>>,
+    },
+}
+
 // ============================================================================
 // Core Action Types
 // ============================================================================
@@ -72,10 +95,6 @@ pub struct GameAction {
 /// Main action effect that can be executed
 #[derive(Component, Debug, Clone)]
 pub enum UnitAction {
-    // Basic game actions
-    PlaceCreature,
-    CastSpell,
-    PlaceTrap,
     MoveCreature {
         direction_x: ValueSource,
         direction_y: ValueSource,
@@ -119,7 +138,7 @@ pub enum UnitAction {
     },
     DiscardCards {
         count: ValueSource,
-        random: bool,
+        choice: ChoiceSource,
     },
     ReturnToHand {
         targeting_type: CreatureSel<targeting::Or<SingleTarget, MultiTarget>>,
@@ -127,31 +146,6 @@ pub enum UnitAction {
     Mill {
         count: ValueSource,
         player_selector: PlayerSel<targeting::Or<SingleTarget, MultiTarget>>,
-    },
-
-    // Composite actions with better control flow
-    Sequence(Vec<UnitAction>),
-    Parallel(Vec<UnitAction>),
-    Choice {
-        options: Vec<UnitAction>,
-        chooser: ChoiceSource,
-    },
-
-    Repeat {
-        action: Box<UnitAction>,
-        count: ValueSource,
-    },
-
-    // Conditional actions
-    Conditional {
-        condition: Condition,
-        on_true: Box<UnitAction>,
-        on_false: Option<Box<UnitAction>>,
-    },
-
-    // Advanced patterns
-    ForEach {
-        action: Box<UnitAction>,
     },
 }
 
@@ -161,36 +155,114 @@ impl GameAction {
     }
 }
 
-pub enum RequirementRef<'a> {
-    Target(&'a AnyTargetSelector),
-    Value(&'a ValueSource),
-    Cond(&'a Condition),
+pub enum Requirement {
+    Target(AnyTargetSelector),
+    Value(ValueSource),
+    Cond(Condition),
 }
 
-impl UnitAction {
-    pub fn requirements(&self) -> Vec<RequirementRef<'_>> {
+impl From<AnyTargetSelector> for Requirement {
+    fn from(value: AnyTargetSelector) -> Self {
+        Requirement::Target(value)
+    }
+}
+
+impl From<ValueSource> for Requirement {
+    fn from(value: ValueSource) -> Self {
+        Requirement::Value(value)
+    }
+}
+
+impl From<Condition> for Requirement {
+    fn from(value: Condition) -> Self {
+        Requirement::Cond(value)
+    }
+}
+
+impl Requirement {
+    #[inline]
+    fn target<T: Into<AnyTargetSelector>>(t: T) -> Self {
+        Requirement::Target(t.into())
+    }
+
+    #[inline]
+    fn value(v: ValueSource) -> Self {
+        Requirement::Value(v.into())
+    }
+
+    #[inline]
+    fn cond(c: Condition) -> Self {
+        Requirement::Cond(c)
+    }
+}
+
+pub trait IsWaiter {
+    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement));
+}
+
+impl IsWaiter for UnitAction {
+    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
         match self {
-            UnitAction::MoveCreature { target, .. } => vec![RequirementRef::Target(target)],
+            UnitAction::MoveCreature { target, .. } => {
+                f(Requirement::target(target.clone()));
+            }
 
             UnitAction::DealDamage {
                 target_selector,
                 amount,
-            } => vec![
-                RequirementRef::Target(target_selector),
-                RequirementRef::Value(amount),
-            ],
-
-            UnitAction::HealCreature {
+            }
+            | UnitAction::HealCreature {
                 target_selector,
                 amount,
-            } => vec![
-                RequirementRef::Target(target_selector),
-                RequirementRef::Value(amount),
-            ],
+            } => {
+                f(Requirement::target(target_selector.clone()));
+                f(Requirement::value(amount.clone()));
+            }
 
-            UnitAction::Conditional { condition, .. } => vec![RequirementRef::Cond(condition)],
+            UnitAction::DrawCards {
+                count,
+                player_selector,
+            }
+            | UnitAction::AddGold {
+                amount: count,
+                player_selector,
+            } => {
+                f(Requirement::target(player_selector.clone()));
+                f(Requirement::value(count.clone()));
+            }
 
-            _ => smallvec![],
+            UnitAction::ApplyEffect {
+                duration,
+                targeting_type,
+                ..
+            } => {
+                f(Requirement::target(targeting_type.clone()));
+                f(Requirement::value(duration.clone()));
+            }
+
+            UnitAction::SummonCreature { position, .. } => {
+                f(Requirement::target(position.clone()));
+            }
+
+            UnitAction::DestroyCreature { targeting_type }
+            | UnitAction::ModifyStats { targeting_type, .. }
+            | UnitAction::ReturnToHand { targeting_type } => {
+                f(Requirement::target(targeting_type.clone()));
+            }
+
+            UnitAction::DiscardCards { count, .. } => {
+                f(Requirement::value(count.clone()));
+            }
+
+            UnitAction::Mill {
+                count,
+                player_selector,
+            } => {
+                f(Requirement::value(count.clone()));
+                f(Requirement::target(player_selector.clone()));
+            }
+
+            UnitAction::EndTurn => {}
         }
     }
 }

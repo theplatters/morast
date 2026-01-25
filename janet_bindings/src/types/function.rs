@@ -10,23 +10,24 @@ use crate::{
 use super::janetenum::JanetEnum;
 
 #[derive(Clone, Debug)]
-pub struct Function {
+pub struct JFunction {
     janet_fun: *mut JanetFunction,
 }
 
-impl Function {
+impl JFunction {
     pub fn new(janet_fun: *mut JanetFunction) -> Self {
         Self { janet_fun }
     }
 
-    pub fn eval(&self, argv: &[Janet]) -> Result<JanetEnum, JanetError> {
+    pub fn eval(&self, argv: &[JanetEnum]) -> Result<JanetEnum, JanetError> {
         let signal: JanetSignal;
+        let argv_as_janet: Vec<Janet> = argv.iter().map(|el| el.into()).collect();
         unsafe {
             let mut out: Janet = janet_wrap_nil();
             signal = janet_pcall(
                 self.janet_fun as *mut _,
                 argv.len() as i32,
-                argv.as_ptr(),
+                argv_as_janet.as_ptr(),
                 &mut out as *mut _,
                 std::ptr::null_mut(),
             );
@@ -43,7 +44,7 @@ impl Function {
         env: &Environment,
         method_name: &str,
         namespace: Option<&str>,
-    ) -> Option<Function> {
+    ) -> Option<JFunction> {
         let together = match namespace {
             None => method_name.to_string(),
             Some(n) => format!("{n}/{method_name}"),
@@ -64,12 +65,12 @@ impl Function {
             if janet_checktype(out, JANET_TYPE_JANET_FUNCTION) == 0 {
                 return None;
             }
-            Some(Function {
+            Some(JFunction {
                 janet_fun: janet_unwrap_function(out),
             })
         }
     }
 }
 
-unsafe impl Send for Function {}
-unsafe impl Sync for Function {}
+unsafe impl Send for JFunction {}
+unsafe impl Sync for JFunction {}

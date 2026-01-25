@@ -1,74 +1,51 @@
+use bevy::ecs::query::With;
 use bevy::ecs::{
     entity::Entity,
-    query::{Added, With},
+    query::{Added, AnyOf},
     system::{Commands, Query},
 };
 
-use crate::actions::{Pending, RequiredForCompletion, UnitAction};
+use crate::actions::{
+    IsWaiter, NeedsTargeting, Pending, RequiredForCompletion, Requirement, UnitAction,
+    targeting::AnyTargetSelector, value_source::ValueSource,
+};
 
-pub fn execute_action(
-    q_actions: Query<(Entity, &UnitAction), Added<Pending>>,
+pub fn spawn_requirements(
+    q_actions: Query<
+        (
+            Entity,
+            AnyOf<(&UnitAction, &ValueSource, &AnyTargetSelector)>,
+        ),
+        Added<Pending>,
+    >,
     mut commands: Commands,
 ) {
-    for (action_entity, action_effect) in q_actions {
-        match action_effect {
-            UnitAction::PlaceCreature => todo!(),
-            UnitAction::CastSpell => todo!(),
-            UnitAction::PlaceTrap => todo!(),
-            UnitAction::EndTurn => todo!(),
-            UnitAction::MoveCreature { target, .. } => {
+    for (action_e, a) in q_actions {
+        let mut spawn_req = |requirement: Requirement| match requirement {
+            Requirement::Target(any_target_selector) => {
                 commands.spawn((
-                    target.clone(),
-                    RequiredForCompletion(action_entity),
+                    any_target_selector,
                     Pending,
+                    RequiredForCompletion(action_e),
+                    NeedsTargeting,
                 ));
             }
-            UnitAction::DealDamage {
-                target_selector: targeting_type,
-                amount,
-            } => todo!(),
-            UnitAction::HealCreature {
-                target_selector: targeting_type,
-                amount,
-            } => todo!(),
-            UnitAction::DrawCards {
-                count,
-                player_selector,
-            } => todo!(),
-            UnitAction::AddGold {
-                amount,
-                player_selector,
-            } => todo!(),
-            UnitAction::ApplyEffect {
-                effect,
-                duration,
-                targeting_type,
-            } => todo!(),
-            UnitAction::SummonCreature {
-                creature_id,
-                position,
-            } => todo!(),
-            UnitAction::DestroyCreature { targeting_type } => todo!(),
-            UnitAction::ModifyStats {
-                targeting_type,
-                stat_modifier,
-            } => todo!(),
-            UnitAction::DiscardCards { count, random } => todo!(),
-            UnitAction::ReturnToHand { targeting_type } => todo!(),
-            UnitAction::Mill {
-                count,
-                player_selector,
-            } => todo!(),
-            UnitAction::Sequence(unit_actions) => todo!(),
-            UnitAction::Parallel(unit_actions) => todo!(),
-            UnitAction::Choice { options, chooser } => todo!(),
-            UnitAction::Repeat { action, count } => todo!(),
-            UnitAction::Conditional {
-                condition,
-                on_true,
-                on_false,
-            } => todo!(),
-            UnitAction::ForEach { action } => todo!(),
+            Requirement::Value(value_source) => {
+                commands.spawn((value_source, Pending, RequiredForCompletion(action_e)));
+            }
+            Requirement::Cond(condition) => {
+                commands.spawn((condition, Pending, RequiredForCompletion(action_e)));
+            }
+        };
+
+        if let Some(unit_action) = a.0 {
+            unit_action.emit_requirements(&mut spawn_req);
+        }
+        if let Some(value_source) = a.1 {
+            value_source.emit_requirements(&mut spawn_req);
+        }
+        if let Some(target_selector) = a.2 {
+            target_selector.emit_requirements(&mut spawn_req);
         }
     }
 }

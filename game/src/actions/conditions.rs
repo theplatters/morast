@@ -7,9 +7,13 @@ use crate::{
     actions::targeting::{CreatureTarget, MultiTarget, Or, PlayerTarget},
     board::effect::EffectType,
 };
+use bevy::{
+    ecs::{component::Component, world::World},
+    reflect::Is,
+};
 use janet_bindings::{bindings::JanetAbstractType, types::janetabstract::IsAbstract};
 
-#[derive(Debug, Clone)]
+#[derive(Component, Debug, Clone)]
 pub enum Condition {
     /// Always true
     Always,

@@ -1,12 +1,14 @@
 use bevy::{
     ecs::{component::Component, entity::Entity, query::With, system::Query},
     log::warn,
+    reflect::Is,
 };
 use janet_bindings::types::janetabstract::IsAbstract;
 use rand::seq::SliceRandom;
 
 use crate::{
     actions::{
+        IsWaiter, Requirement,
         targeting::{
             filters::{FilterParams, IsFilter},
             systems::{CreatureQuery, NeedsFinalization, TileQuery},
@@ -55,8 +57,8 @@ pub trait TargetFilter {
 pub trait TargetKind<C: Constraint>:
     'static + Send + Sync + Clone + std::fmt::Debug + TargetFilter
 {
-    type Auto: IsTargetSelectMode;
-    type Manual: IsTargetSelectMode;
+    type Auto: IsTargetSelectMode + Clone;
+    type Manual: IsTargetSelectMode + Clone;
 }
 
 #[derive(Component, Clone, Debug)]
@@ -100,18 +102,10 @@ impl<K: TargetKind<C>, C: Constraint> IsTargetSelectMode for SelectionMethod<K, 
             }
         }
     }
-    fn finalize(
-        &self,
-        candidates: &[Entity],
-        value_eval_context: &ValueEvalParams,
-    ) -> FinalizeEffect {
+    fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
         match self {
-            SelectionMethod::Auto(auto_selector) => {
-                auto_selector.finalize(candidates, value_eval_context)
-            }
-            SelectionMethod::Manual(manual_selector) => {
-                manual_selector.finalize(candidates, value_eval_context)
-            }
+            SelectionMethod::Auto(auto_selector) => auto_selector.finalize(candidates),
+            SelectionMethod::Manual(manual_selector) => manual_selector.finalize(candidates),
         }
     }
 }
@@ -126,12 +120,8 @@ impl<K: TargetKind<C>, C: Constraint> IsTargetSelectMode for AutoSelector<K, C> 
     fn find_suitable(&self, query: &FilterParams, caster: Entity) -> Vec<Entity> {
         self.mode.find_suitable(query, caster)
     }
-    fn finalize(
-        &self,
-        candidates: &[Entity],
-        value_eval_context: &ValueEvalParams,
-    ) -> FinalizeEffect {
-        self.mode.finalize(candidates, value_eval_context)
+    fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
+        self.mode.finalize(candidates)
     }
 }
 
@@ -155,12 +145,8 @@ impl<K: TargetKind<C>, C: Constraint> IsTargetSelectMode for ManualSelector<K, C
         self.mode.find_suitable(query, caster)
     }
 
-    fn finalize(
-        &self,
-        candidates: &[Entity],
-        value_eval_context: &ValueEvalParams,
-    ) -> FinalizeEffect {
-        self.mode.finalize(candidates, value_eval_context)
+    fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
+        self.mode.finalize(candidates)
     }
 }
 
@@ -226,7 +212,7 @@ pub enum AutoHand {
 
 #[derive(Clone, Debug)]
 pub struct ManualHand {
-    count: u16,
+    count: ValueSource,
 }
 
 impl TargetKind<SingleTarget> for CreatureTarget {
@@ -311,20 +297,15 @@ pub enum MultiTargetSelector {
     Hand(HandSel<MultiTarget>),
 }
 
-#[derive(Debug, Clone)]
-pub enum AnyTargetSelector {
-    CreatureSingle(CreatureSel<SingleTarget>),
-    CreatureMulti(CreatureSel<MultiTarget>),
-    TileSingle(TileSel<SingleTarget>),
-    TileMulti(TileSel<MultiTarget>),
-    PlayerSingle(PlayerSel<SingleTarget>),
-    PlayerMulti(PlayerSel<MultiTarget>),
-    HandSingle(HandSel<SingleTarget>),
-    HandMulti(HandSel<MultiTarget>),
-    CreatureSingleMulti(CreatureSel<Or<SingleTarget, MultiTarget>>),
-    TileSingleMulti(TileSel<Or<SingleTarget, MultiTarget>>),
-    PlayerSingleMulti(PlayerSel<Or<SingleTarget, MultiTarget>>),
-    HandSingleMulti(HandSel<Or<SingleTarget, MultiTarget>>),
+impl From<MultiTargetSelector> for AnyTargetSelector {
+    fn from(value: MultiTargetSelector) -> Self {
+        match value {
+            MultiTargetSelector::Creature(target_selector) => target_selector.into(),
+            MultiTargetSelector::Tile(target_selector) => target_selector.into(),
+            MultiTargetSelector::Player(target_selector) => target_selector.into(),
+            MultiTargetSelector::Hand(target_selector) => target_selector.into(),
+        }
+    }
 }
 
 impl<K> From<TargetSelector<K, SingleTarget>> for TargetSelector<K, Or<SingleTarget, MultiTarget>>
@@ -408,13 +389,9 @@ fn select_all_tiles(q_tiles: Query<TileQuery, With<Tile>>) -> Vec<Entity> {
     q_tiles.iter().map(|c| c.entity).collect()
 }
 
-pub trait IsTargetSelectMode: Clone + std::fmt::Debug + Send + Sync + 'static {
+pub trait IsTargetSelectMode: std::fmt::Debug + Send + Sync + 'static {
     fn find_suitable(&self, query: &FilterParams, caster: Entity) -> Vec<Entity>;
-    fn finalize(
-        &self,
-        candidates: &[Entity],
-        value_eval_context: &ValueEvalParams,
-    ) -> FinalizeEffect;
+    fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect;
 }
 
 #[derive(Debug)]
@@ -447,11 +424,7 @@ impl IsTargetSelectMode for AutoSingleCreature {
             AutoSingleCreature::Caster => vec![caster],
         }
     }
-    fn finalize(
-        &self,
-        candidates: &[Entity],
-        value_eval_context: &ValueEvalParams,
-    ) -> FinalizeEffect {
+    fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
         match candidates {
             [] => FinalizeEffect::None,
             [only] => FinalizeEffect::ExecuteSingle(*only),
@@ -476,11 +449,7 @@ impl IsTargetSelectMode for AutoMultiCreature {
             }
         }
     }
-    fn finalize(
-        &self,
-        candidates: &[Entity],
-        value_eval_context: &ValueEvalParams,
-    ) -> FinalizeEffect {
+    fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
         match self {
             AutoMultiCreature::AllEnemy | AutoMultiCreature::AllFriendly => {
                 if candidates.is_empty() {
@@ -511,11 +480,7 @@ impl IsTargetSelectMode for ManualCreature {
             }
         }
     }
-    fn finalize(
-        &self,
-        candidates: &[Entity],
-        value_eval_context: &ValueEvalParams,
-    ) -> FinalizeEffect {
+    fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
         match self {
             ManualCreature::Choose { min, max } => todo!(),
             ManualCreature::MaxNFriendly { count } => todo!(),
@@ -532,11 +497,7 @@ impl IsTargetSelectMode for ManualTile {
             }
         }
     }
-    fn finalize(
-        &self,
-        candidates: &[Entity],
-        value_eval_context: &ValueEvalParams,
-    ) -> FinalizeEffect {
+    fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
         match self {
             ManualTile::ChooseTiles { amount } => todo!(),
             ManualTile::ChooseArea { radius } => todo!(),
@@ -555,11 +516,7 @@ impl IsTargetSelectMode for AutoPlayerSingle {
             .filter_map(|p| (p.turn_player.is_some() == want_turn).then_some(p.entity))
             .collect()
     }
-    fn finalize(
-        &self,
-        candidates: &[Entity],
-        value_eval_context: &ValueEvalParams,
-    ) -> FinalizeEffect {
+    fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
         match candidates {
             [] => FinalizeEffect::None,
             [only] => FinalizeEffect::ExecuteSingle(*only),
@@ -577,11 +534,7 @@ impl IsTargetSelectMode for AutoPlayerMulti {
         // only one mode right now
         query.player.iter().map(|p| p.entity).collect()
     }
-    fn finalize(
-        &self,
-        candidates: &[Entity],
-        value_eval_context: &ValueEvalParams,
-    ) -> FinalizeEffect {
+    fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
         FinalizeEffect::ExecuteAll
     }
 }
@@ -592,11 +545,7 @@ impl IsTargetSelectMode for ManualPlayer {
         query.player.iter().map(|p| p.entity).collect()
     }
 
-    fn finalize(
-        &self,
-        candidates: &[Entity],
-        value_eval_context: &ValueEvalParams,
-    ) -> FinalizeEffect {
+    fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
         todo!()
     }
 }
@@ -606,11 +555,7 @@ impl IsTargetSelectMode for ManualHand {
         query.hand.iter().map(|p| p.entity).collect()
     }
 
-    fn finalize(
-        &self,
-        candidates: &[Entity],
-        value_eval_context: &ValueEvalParams,
-    ) -> FinalizeEffect {
+    fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
         todo!()
     }
 }
@@ -629,11 +574,7 @@ impl IsTargetSelectMode for AutoHand {
             .map(|card| card.entity)
             .collect()
     }
-    fn finalize(
-        &self,
-        _candidates: &[Entity],
-        _value_eval_context: &ValueEvalParams,
-    ) -> FinalizeEffect {
+    fn finalize(&self, _candidates: &[Entity]) -> FinalizeEffect {
         FinalizeEffect::ExecuteAll
     }
 }
@@ -642,11 +583,7 @@ impl IsTargetSelectMode for () {
     fn find_suitable(&self, _query: &FilterParams, _caster: Entity) -> Vec<Entity> {
         Vec::new()
     }
-    fn finalize(
-        &self,
-        _candidates: &[Entity],
-        _value_eval_context: &ValueEvalParams,
-    ) -> FinalizeEffect {
+    fn finalize(&self, _candidates: &[Entity]) -> FinalizeEffect {
         FinalizeEffect::None
     }
 }
@@ -658,14 +595,10 @@ impl<L: IsTargetSelectMode, R: IsTargetSelectMode> IsTargetSelectMode for Either
             Either::Right(r) => r.find_suitable(query, caster),
         }
     }
-    fn finalize(
-        &self,
-        candidates: &[Entity],
-        value_eval_context: &ValueEvalParams,
-    ) -> FinalizeEffect {
+    fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
         match self {
-            Either::Left(l) => l.finalize(candidates, value_eval_context),
-            Either::Right(r) => r.finalize(candidates, value_eval_context),
+            Either::Left(l) => l.finalize(candidates),
+            Either::Right(r) => r.finalize(candidates),
         }
     }
 }
@@ -675,11 +608,323 @@ impl<K: TargetKind<C>, C: Constraint> IsTargetSelectMode for TargetSelector<K, C
         self.selection.find_suitable(query, caster)
     }
 
-    fn finalize(
-        &self,
-        candidates: &[Entity],
-        value_eval_context: &ValueEvalParams,
-    ) -> FinalizeEffect {
-        self.selection.finalize(candidates, value_eval_context)
+    fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
+        self.selection.finalize(candidates)
+    }
+}
+
+#[derive(Component, Debug, Clone)]
+pub enum AnyTargetSelector {
+    CreatureSingle(CreatureSel<SingleTarget>),
+    CreatureMulti(CreatureSel<MultiTarget>),
+    TileSingle(TileSel<SingleTarget>),
+    TileMulti(TileSel<MultiTarget>),
+    PlayerSingle(PlayerSel<SingleTarget>),
+    PlayerMulti(PlayerSel<MultiTarget>),
+    HandSingle(HandSel<SingleTarget>),
+    HandMulti(HandSel<MultiTarget>),
+    CreatureSingleMulti(CreatureSel<Or<SingleTarget, MultiTarget>>),
+    TileSingleMulti(TileSel<Or<SingleTarget, MultiTarget>>),
+    PlayerSingleMulti(PlayerSel<Or<SingleTarget, MultiTarget>>),
+    HandSingleMulti(HandSel<Or<SingleTarget, MultiTarget>>),
+}
+
+impl AnyTargetSelector {
+    pub fn selection(&self) -> &dyn IsTargetSelectMode {
+        match self {
+            AnyTargetSelector::CreatureSingle(ts) => &ts.selection,
+            AnyTargetSelector::CreatureMulti(ts) => &ts.selection,
+            AnyTargetSelector::TileSingle(ts) => &ts.selection,
+            AnyTargetSelector::TileMulti(ts) => &ts.selection,
+            AnyTargetSelector::PlayerSingle(ts) => &ts.selection,
+            AnyTargetSelector::PlayerMulti(ts) => &ts.selection,
+            AnyTargetSelector::HandSingle(ts) => &ts.selection,
+            AnyTargetSelector::HandMulti(ts) => &ts.selection,
+            AnyTargetSelector::CreatureSingleMulti(ts) => &ts.selection,
+            AnyTargetSelector::TileSingleMulti(ts) => &ts.selection,
+            AnyTargetSelector::PlayerSingleMulti(ts) => &ts.selection,
+            AnyTargetSelector::HandSingleMulti(ts) => &ts.selection,
+        }
+    }
+
+    pub fn validation(&self) -> &dyn IsFilter {
+        match self {
+            AnyTargetSelector::CreatureSingle(ts) => &ts.validation,
+            AnyTargetSelector::CreatureMulti(ts) => &ts.validation,
+            AnyTargetSelector::TileSingle(ts) => &ts.validation,
+            AnyTargetSelector::TileMulti(ts) => &ts.validation,
+            AnyTargetSelector::PlayerSingle(ts) => &ts.validation,
+            AnyTargetSelector::PlayerMulti(ts) => &ts.validation,
+            AnyTargetSelector::HandSingle(ts) => &ts.validation,
+            AnyTargetSelector::HandMulti(ts) => &ts.validation,
+            AnyTargetSelector::CreatureSingleMulti(ts) => &ts.validation,
+            AnyTargetSelector::TileSingleMulti(ts) => &ts.validation,
+            AnyTargetSelector::PlayerSingleMulti(ts) => &ts.validation,
+            AnyTargetSelector::HandSingleMulti(ts) => &ts.validation,
+        }
+    }
+}
+
+impl IsWaiter for AnyTargetSelector {
+    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
+        match self {
+            AnyTargetSelector::CreatureSingle(target_selector) => {
+                target_selector.emit_requirements(f)
+            }
+            AnyTargetSelector::CreatureMulti(target_selector) => {
+                target_selector.emit_requirements(f)
+            }
+            AnyTargetSelector::TileSingle(target_selector) => target_selector.emit_requirements(f),
+            AnyTargetSelector::TileMulti(target_selector) => target_selector.emit_requirements(f),
+            AnyTargetSelector::PlayerSingle(target_selector) => {
+                target_selector.emit_requirements(f)
+            }
+            AnyTargetSelector::PlayerMulti(target_selector) => target_selector.emit_requirements(f),
+            AnyTargetSelector::HandSingle(target_selector) => target_selector.emit_requirements(f),
+            AnyTargetSelector::HandMulti(target_selector) => target_selector.emit_requirements(f),
+            AnyTargetSelector::CreatureSingleMulti(target_selector) => {
+                target_selector.emit_requirements(f)
+            }
+            AnyTargetSelector::TileSingleMulti(target_selector) => {
+                target_selector.emit_requirements(f)
+            }
+            AnyTargetSelector::PlayerSingleMulti(target_selector) => {
+                target_selector.emit_requirements(f)
+            }
+            AnyTargetSelector::HandSingleMulti(target_selector) => {
+                target_selector.emit_requirements(f)
+            }
+        }
+    }
+}
+
+impl From<TargetSelector<CreatureTarget, SingleTarget>> for AnyTargetSelector {
+    fn from(value: TargetSelector<CreatureTarget, SingleTarget>) -> Self {
+        AnyTargetSelector::CreatureSingle(value)
+    }
+}
+
+impl From<TargetSelector<CreatureTarget, MultiTarget>> for AnyTargetSelector {
+    fn from(value: TargetSelector<CreatureTarget, MultiTarget>) -> Self {
+        AnyTargetSelector::CreatureMulti(value)
+    }
+}
+
+impl From<TargetSelector<CreatureTarget, Or<SingleTarget, MultiTarget>>> for AnyTargetSelector {
+    fn from(value: TargetSelector<CreatureTarget, Or<SingleTarget, MultiTarget>>) -> Self {
+        AnyTargetSelector::CreatureSingleMulti(value)
+    }
+}
+
+impl From<TargetSelector<PlayerTarget, SingleTarget>> for AnyTargetSelector {
+    fn from(value: TargetSelector<PlayerTarget, SingleTarget>) -> Self {
+        AnyTargetSelector::PlayerSingle(value)
+    }
+}
+
+impl From<TargetSelector<PlayerTarget, MultiTarget>> for AnyTargetSelector {
+    fn from(value: TargetSelector<PlayerTarget, MultiTarget>) -> Self {
+        AnyTargetSelector::PlayerMulti(value)
+    }
+}
+
+impl From<TargetSelector<PlayerTarget, Or<SingleTarget, MultiTarget>>> for AnyTargetSelector {
+    fn from(value: TargetSelector<PlayerTarget, Or<SingleTarget, MultiTarget>>) -> Self {
+        AnyTargetSelector::PlayerSingleMulti(value)
+    }
+}
+impl From<TargetSelector<HandTarget, SingleTarget>> for AnyTargetSelector {
+    fn from(value: TargetSelector<HandTarget, SingleTarget>) -> Self {
+        AnyTargetSelector::HandSingle(value)
+    }
+}
+
+impl From<TargetSelector<HandTarget, MultiTarget>> for AnyTargetSelector {
+    fn from(value: TargetSelector<HandTarget, MultiTarget>) -> Self {
+        AnyTargetSelector::HandMulti(value)
+    }
+}
+
+impl From<TargetSelector<HandTarget, Or<SingleTarget, MultiTarget>>> for AnyTargetSelector {
+    fn from(value: TargetSelector<HandTarget, Or<SingleTarget, MultiTarget>>) -> Self {
+        AnyTargetSelector::HandSingleMulti(value)
+    }
+}
+
+impl From<TargetSelector<TileTarget, SingleTarget>> for AnyTargetSelector {
+    fn from(value: TargetSelector<TileTarget, SingleTarget>) -> Self {
+        AnyTargetSelector::TileSingle(value)
+    }
+}
+
+impl From<TargetSelector<TileTarget, MultiTarget>> for AnyTargetSelector {
+    fn from(value: TargetSelector<TileTarget, MultiTarget>) -> Self {
+        AnyTargetSelector::TileMulti(value)
+    }
+}
+
+impl From<TargetSelector<TileTarget, Or<SingleTarget, MultiTarget>>> for AnyTargetSelector {
+    fn from(value: TargetSelector<TileTarget, Or<SingleTarget, MultiTarget>>) -> Self {
+        AnyTargetSelector::TileSingleMulti(value)
+    }
+}
+
+impl<K, C> IsWaiter for SelectionMethod<K, C>
+where
+    K: TargetKind<C>,
+    C: Constraint,
+    K::Auto: IsWaiter,
+    K::Manual: IsWaiter,
+{
+    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
+        match self {
+            SelectionMethod::Auto(auto_selector) => auto_selector.emit_requirements(f),
+            SelectionMethod::Manual(manual_selector) => manual_selector.emit_requirements(f),
+        }
+    }
+}
+
+impl<K, C> IsWaiter for ManualSelector<K, C>
+where
+    K: TargetKind<C>,
+    C: Constraint,
+    K::Auto: IsWaiter,
+    K::Manual: IsWaiter,
+{
+    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
+        self.mode.emit_requirements(f)
+    }
+}
+
+impl<K, C> IsWaiter for AutoSelector<K, C>
+where
+    K: TargetKind<C>,
+    C: Constraint,
+    K::Auto: IsWaiter,
+    K::Manual: IsWaiter,
+{
+    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
+        self.mode.emit_requirements(f)
+    }
+}
+
+impl<K, C> IsWaiter for TargetSelector<K, C>
+where
+    K: TargetKind<C>,
+    C: Constraint,
+    K::Auto: IsWaiter,
+    K::Manual: IsWaiter,
+    K::Filter: IsWaiter,
+{
+    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
+        self.validation.emit_requirements(f);
+        self.selection.emit_requirements(f);
+    }
+}
+
+impl IsWaiter for () {
+    fn emit_requirements(&self, _: &mut dyn FnMut(Requirement)) {}
+}
+
+impl IsWaiter for AutoMultiCreature {
+    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
+        match self {
+            AutoMultiCreature::AllEnemy => {}
+            AutoMultiCreature::AllFriendly => {}
+            AutoMultiCreature::Random { count } => {
+                f(Requirement::value(count.clone()));
+            }
+        }
+    }
+}
+
+impl IsWaiter for ManualCreature {
+    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
+        match self {
+            ManualCreature::Choose { min, max } => {
+                f(Requirement::value(min.clone()));
+                f(Requirement::value(max.clone()));
+            }
+            ManualCreature::MaxNFriendly { count } => {
+                f(Requirement::value(count.clone()));
+            }
+            ManualCreature::ExactlyNFriendly { count } => {
+                f(Requirement::value(count.clone()));
+            }
+        }
+    }
+}
+
+impl IsWaiter for AutoSingleCreature {
+    fn emit_requirements(&self, _: &mut dyn FnMut(Requirement)) {
+        // no requirements
+    }
+}
+
+impl IsWaiter for ManualTile {
+    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
+        match self {
+            ManualTile::ChooseTiles { amount } => {
+                f(Requirement::value(amount.clone()));
+            }
+            ManualTile::ChooseArea { radius } => {
+                f(Requirement::value(radius.clone()));
+            }
+        }
+    }
+}
+
+// If you also want an impl for AutoPlayerSingle (it was missing before)
+impl IsWaiter for AutoPlayerSingle {
+    fn emit_requirements(&self, _: &mut dyn FnMut(Requirement)) {
+        // no requirements
+    }
+}
+
+impl IsWaiter for AutoPlayerMulti {
+    fn emit_requirements(&self, _: &mut dyn FnMut(Requirement)) {
+        // no requirements
+    }
+}
+
+impl IsWaiter for ManualPlayer {
+    fn emit_requirements(&self, _: &mut dyn FnMut(Requirement)) {
+        // no requirements
+    }
+}
+
+impl IsWaiter for AutoHand {
+    fn emit_requirements(&self, _: &mut dyn FnMut(Requirement)) {
+        // no requirements
+    }
+}
+
+impl IsWaiter for ManualHand {
+    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
+        f(Requirement::value(self.count.clone()));
+    }
+}
+
+impl IsWaiter for MultiTargetSelector {
+    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
+        match self {
+            MultiTargetSelector::Creature(target_selector) => target_selector.emit_requirements(f),
+            MultiTargetSelector::Tile(target_selector) => target_selector.emit_requirements(f),
+            MultiTargetSelector::Player(target_selector) => target_selector.emit_requirements(f),
+            MultiTargetSelector::Hand(target_selector) => target_selector.emit_requirements(f),
+        }
+    }
+}
+
+impl<L, R> IsWaiter for Either<L, R>
+where
+    L: IsWaiter,
+    R: IsWaiter,
+{
+    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
+        match self {
+            Either::Left(l) => l.emit_requirements(f),
+            Either::Right(r) => r.emit_requirements(f),
+        }
     }
 }

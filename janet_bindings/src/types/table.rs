@@ -104,7 +104,7 @@ impl Table {
         }
     }
 
-    pub fn get_function(&self, key: &str) -> Option<super::function::Function> {
+    pub fn get_function(&self, key: &str) -> Option<super::function::JFunction> {
         match self.get(key)? {
             JanetEnum::Function(func) => Some(func),
             _ => None,

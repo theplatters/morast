@@ -18,11 +18,7 @@ use crate::{
     types::{janetabstract::JanetAbstract, tuple::Tuple},
 };
 
-use super::{function::Function, table::Table};
-
-pub trait JanetItem {
-    fn to_janet(&self) -> Janet;
-}
+use super::{function::JFunction, table::Table};
 
 #[derive(Debug, Clone)]
 pub enum JanetEnum {
@@ -31,7 +27,7 @@ pub enum JanetEnum {
     Float(f64),
     Bool(bool),
     String(String),
-    Function(Function),
+    Function(JFunction),
     Array(Vec<JanetEnum>),
     Table(Table),
     Tuple(Tuple),
@@ -135,13 +131,40 @@ impl From<JanetEnum> for Janet {
     }
 }
 
+impl From<&JanetEnum> for Janet {
+    fn from(value: &JanetEnum) -> Self {
+        unsafe {
+            match value {
+                JanetEnum::Int(i) => janet_wrap_integer(*i),
+                JanetEnum::UInt(u) => janet_wrap_u64(*u),
+                JanetEnum::Float(f) => janet_wrap_number(*f),
+                JanetEnum::Bool(b) => janet_wrap_boolean(if *b { 1 } else { 0 }),
+                JanetEnum::String(s) => {
+                    let c_str = std::ffi::CString::new(s.as_str()).unwrap_or_default();
+                    janet_wrap_string(c_str.as_ptr() as *const u8)
+                }
+                JanetEnum::Array(arr) => {
+                    let janet_arr = janet_array(arr.len() as i32);
+                    for item in arr {
+                        janet_array_push(janet_arr, item.into());
+                    }
+                    janet_wrap_array(janet_arr)
+                }
+                JanetEnum::Null => janet_wrap_nil(),
+                // Handle other types as needed
+                _ => janet_wrap_nil(),
+            }
+        }
+    }
+}
+
 impl TryFrom<Janet> for JanetEnum {
     type Error = JanetError;
 
     fn try_from(item: Janet) -> Result<Self, Self::Error> {
         unsafe {
             match janet_type(item) {
-                JANET_TYPE_JANET_FUNCTION => Ok(JanetEnum::Function(Function::new(
+                JANET_TYPE_JANET_FUNCTION => Ok(JanetEnum::Function(JFunction::new(
                     janet_unwrap_function(item),
                 ))),
                 JANET_TYPE_JANET_BOOLEAN => {
@@ -291,7 +314,7 @@ impl JanetEnum {
         }
     }
 
-    pub fn as_function(&self) -> Option<&Function> {
+    pub fn as_function(&self) -> Option<&JFunction> {
         match self {
             JanetEnum::Function(f) => Some(f),
             _ => None,
@@ -362,7 +385,7 @@ impl JanetEnum {
         }
     }
 
-    pub fn into_function(self) -> Option<Function> {
+    pub fn into_function(self) -> Option<JFunction> {
         match self {
             JanetEnum::Function(f) => Some(f),
             _ => None,
@@ -426,7 +449,7 @@ impl JanetEnum {
         }
     }
 
-    pub fn expect_function(self) -> Result<Function, JanetError> {
+    pub fn expect_function(self) -> Result<JFunction, JanetError> {
         match self {
             JanetEnum::Function(f) => Ok(f),
             _ => Err(JanetError::Cast(format!("Expected Function, got {}", self))),
@@ -570,7 +593,7 @@ impl TryFrom<JanetEnum> for Table {
     }
 }
 
-impl TryFrom<JanetEnum> for Function {
+impl TryFrom<JanetEnum> for JFunction {
     type Error = JanetError;
 
     fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {

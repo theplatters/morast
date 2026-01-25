@@ -45,24 +45,9 @@ impl ActionPrototypeBuilder {
         self.action = Some(action);
         self
     }
-    // Core action setters
-    pub fn place_creature(mut self) -> Self {
-        self.action = Some(UnitAction::PlaceCreature);
-        self
-    }
-
-    pub fn place_trap(mut self) -> Self {
-        self.action = Some(UnitAction::PlaceTrap);
-        self
-    }
 
     pub fn end_turn(mut self) -> Self {
         self.action = Some(UnitAction::EndTurn);
-        self
-    }
-
-    pub fn cast_spell(mut self) -> Self {
-        self.action = Some(UnitAction::CastSpell);
         self
     }
 
@@ -163,12 +148,6 @@ impl ActionPrototypeBuilder {
         self.action = Some(UnitAction::DestroyCreature {
             targeting_type: targeting_type.into(),
         });
-        self
-    }
-
-    // Composite actions
-    pub fn sequence(mut self, actions: Vec<UnitAction>) -> Self {
-        self.action = Some(UnitAction::Sequence(actions));
         self
     }
 

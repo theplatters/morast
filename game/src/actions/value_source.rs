@@ -1,10 +1,16 @@
-use bevy::ecs::{
-    component::Component,
-    entity::Entity,
-    system::{Query, ResMut, SystemParam},
+use bevy::{
+    ecs::{
+        component::Component,
+        entity::Entity,
+        system::{Query, ResMut, SystemParam},
+    },
+    ui::Val,
 };
 
-use crate::{GameRng, actions::targeting::systems::CreatureQuery};
+use crate::{
+    GameRng,
+    actions::{IsWaiter, Requirement, targeting::systems::CreatureQuery},
+};
 
 use super::targeting::{CreatureTarget, MultiTargetSelector, SingleTarget, TargetSelector};
 
@@ -23,8 +29,8 @@ pub enum ValueSource {
 
     /// Random value in range [min, max]
     Random {
-        min: u16,
-        max: u16,
+        min: Box<ValueSource>,
+        max: Box<ValueSource>,
     },
 
     /// Value from creature stats
@@ -39,6 +45,38 @@ pub enum ValueSource {
     Divide(Box<ValueSource>, Box<ValueSource>),
     Min(Box<ValueSource>, Box<ValueSource>),
     Max(Box<ValueSource>, Box<ValueSource>),
+}
+
+impl IsWaiter for ValueSource {
+    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
+        match self {
+            ValueSource::Constant(_) => {
+                // no requirements
+            }
+
+            ValueSource::Count(multi_target_selector) => {
+                f(Requirement::target(*multi_target_selector.clone()));
+            }
+
+            ValueSource::Random { min, max } => {
+                f(Requirement::value(*min.clone()));
+                f(Requirement::value(*max.clone()));
+            }
+
+            ValueSource::CreatureStat { selector, stat: _ } => {
+                f(Requirement::target(*selector.clone()));
+            }
+
+            ValueSource::Add(a, b)
+            | ValueSource::Multiply(a, b)
+            | ValueSource::Divide(a, b)
+            | ValueSource::Min(a, b)
+            | ValueSource::Max(a, b) => {
+                f(Requirement::value(*a.clone()));
+                f(Requirement::value(*b.clone()));
+            }
+        }
+    }
 }
 
 #[derive(SystemParam)]
@@ -57,56 +95,7 @@ impl ValueSource {
     }
 
     pub fn eval<'w, 's>(&self, params: &mut ValueEvalParams<'w, 's>, caster: Entity) -> u16 {
-        // Helper to clamp i32 -> u16
-        fn clamp_u16(v: i32) -> u16 {
-            v.clamp(0, u16::MAX as i32) as u16
-        }
-
-        match self {
-            Self::Constant(v) => *v,
-
-            Self::Random { min, max } => {
-                let (a, b) = (*min, *max);
-                let (lo, hi) = if a <= b { (a, b) } else { (b, a) };
-                todo!()
-            }
-
-            Self::Count(sel) => todo!(),
-
-            Self::CreatureStat { selector, stat } => {
-                todo!()
-            }
-
-            Self::Add(a, b) => {
-                let av = a.eval(params, caster) as i32;
-                let bv = b.eval(params, caster) as i32;
-                clamp_u16(av + bv)
-            }
-
-            Self::Multiply(a, b) => {
-                let av = a.eval(params, caster) as i32;
-                let bv = b.eval(params, caster) as i32;
-                clamp_u16(av.saturating_mul(bv))
-            }
-
-            Self::Divide(a, b) => {
-                let av = a.eval(params, caster) as i32;
-                let bv = b.eval(params, caster) as i32;
-                if bv == 0 { 0 } else { clamp_u16(av / bv) }
-            }
-
-            Self::Min(a, b) => {
-                let av = a.eval(params, caster);
-                let bv = b.eval(params, caster);
-                av.min(bv)
-            }
-
-            Self::Max(a, b) => {
-                let av = a.eval(params, caster);
-                let bv = b.eval(params, caster);
-                av.max(bv)
-            }
-        }
+        todo!()
     }
 }
 
