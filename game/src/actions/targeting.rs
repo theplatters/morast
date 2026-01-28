@@ -1,19 +1,17 @@
 use bevy::{
     ecs::{component::Component, entity::Entity, query::With, system::Query},
     log::warn,
-    reflect::Is,
 };
 use janet_bindings::types::janetabstract::IsAbstract;
 use rand::seq::SliceRandom;
 
 use crate::{
     actions::{
-        IsWaiter, Requirement,
         targeting::{
             filters::{FilterParams, IsFilter},
-            systems::{CreatureQuery, NeedsFinalization, TileQuery},
+            systems::{CreatureQuery, TileQuery},
         },
-        value_source::{ValueEvalParams, ValueSource},
+        value_source::ValueSource,
     },
     board::tile::Tile,
 };
@@ -665,39 +663,6 @@ impl AnyTargetSelector {
     }
 }
 
-impl IsWaiter for AnyTargetSelector {
-    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
-        match self {
-            AnyTargetSelector::CreatureSingle(target_selector) => {
-                target_selector.emit_requirements(f)
-            }
-            AnyTargetSelector::CreatureMulti(target_selector) => {
-                target_selector.emit_requirements(f)
-            }
-            AnyTargetSelector::TileSingle(target_selector) => target_selector.emit_requirements(f),
-            AnyTargetSelector::TileMulti(target_selector) => target_selector.emit_requirements(f),
-            AnyTargetSelector::PlayerSingle(target_selector) => {
-                target_selector.emit_requirements(f)
-            }
-            AnyTargetSelector::PlayerMulti(target_selector) => target_selector.emit_requirements(f),
-            AnyTargetSelector::HandSingle(target_selector) => target_selector.emit_requirements(f),
-            AnyTargetSelector::HandMulti(target_selector) => target_selector.emit_requirements(f),
-            AnyTargetSelector::CreatureSingleMulti(target_selector) => {
-                target_selector.emit_requirements(f)
-            }
-            AnyTargetSelector::TileSingleMulti(target_selector) => {
-                target_selector.emit_requirements(f)
-            }
-            AnyTargetSelector::PlayerSingleMulti(target_selector) => {
-                target_selector.emit_requirements(f)
-            }
-            AnyTargetSelector::HandSingleMulti(target_selector) => {
-                target_selector.emit_requirements(f)
-            }
-        }
-    }
-}
-
 impl From<TargetSelector<CreatureTarget, SingleTarget>> for AnyTargetSelector {
     fn from(value: TargetSelector<CreatureTarget, SingleTarget>) -> Self {
         AnyTargetSelector::CreatureSingle(value)
@@ -766,165 +731,5 @@ impl From<TargetSelector<TileTarget, MultiTarget>> for AnyTargetSelector {
 impl From<TargetSelector<TileTarget, Or<SingleTarget, MultiTarget>>> for AnyTargetSelector {
     fn from(value: TargetSelector<TileTarget, Or<SingleTarget, MultiTarget>>) -> Self {
         AnyTargetSelector::TileSingleMulti(value)
-    }
-}
-
-impl<K, C> IsWaiter for SelectionMethod<K, C>
-where
-    K: TargetKind<C>,
-    C: Constraint,
-    K::Auto: IsWaiter,
-    K::Manual: IsWaiter,
-{
-    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
-        match self {
-            SelectionMethod::Auto(auto_selector) => auto_selector.emit_requirements(f),
-            SelectionMethod::Manual(manual_selector) => manual_selector.emit_requirements(f),
-        }
-    }
-}
-
-impl<K, C> IsWaiter for ManualSelector<K, C>
-where
-    K: TargetKind<C>,
-    C: Constraint,
-    K::Auto: IsWaiter,
-    K::Manual: IsWaiter,
-{
-    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
-        self.mode.emit_requirements(f)
-    }
-}
-
-impl<K, C> IsWaiter for AutoSelector<K, C>
-where
-    K: TargetKind<C>,
-    C: Constraint,
-    K::Auto: IsWaiter,
-    K::Manual: IsWaiter,
-{
-    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
-        self.mode.emit_requirements(f)
-    }
-}
-
-impl<K, C> IsWaiter for TargetSelector<K, C>
-where
-    K: TargetKind<C>,
-    C: Constraint,
-    K::Auto: IsWaiter,
-    K::Manual: IsWaiter,
-    K::Filter: IsWaiter,
-{
-    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
-        self.validation.emit_requirements(f);
-        self.selection.emit_requirements(f);
-    }
-}
-
-impl IsWaiter for () {
-    fn emit_requirements(&self, _: &mut dyn FnMut(Requirement)) {}
-}
-
-impl IsWaiter for AutoMultiCreature {
-    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
-        match self {
-            AutoMultiCreature::AllEnemy => {}
-            AutoMultiCreature::AllFriendly => {}
-            AutoMultiCreature::Random { count } => {
-                f(Requirement::value(count.clone()));
-            }
-        }
-    }
-}
-
-impl IsWaiter for ManualCreature {
-    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
-        match self {
-            ManualCreature::Choose { min, max } => {
-                f(Requirement::value(min.clone()));
-                f(Requirement::value(max.clone()));
-            }
-            ManualCreature::MaxNFriendly { count } => {
-                f(Requirement::value(count.clone()));
-            }
-            ManualCreature::ExactlyNFriendly { count } => {
-                f(Requirement::value(count.clone()));
-            }
-        }
-    }
-}
-
-impl IsWaiter for AutoSingleCreature {
-    fn emit_requirements(&self, _: &mut dyn FnMut(Requirement)) {
-        // no requirements
-    }
-}
-
-impl IsWaiter for ManualTile {
-    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
-        match self {
-            ManualTile::ChooseTiles { amount } => {
-                f(Requirement::value(amount.clone()));
-            }
-            ManualTile::ChooseArea { radius } => {
-                f(Requirement::value(radius.clone()));
-            }
-        }
-    }
-}
-
-// If you also want an impl for AutoPlayerSingle (it was missing before)
-impl IsWaiter for AutoPlayerSingle {
-    fn emit_requirements(&self, _: &mut dyn FnMut(Requirement)) {
-        // no requirements
-    }
-}
-
-impl IsWaiter for AutoPlayerMulti {
-    fn emit_requirements(&self, _: &mut dyn FnMut(Requirement)) {
-        // no requirements
-    }
-}
-
-impl IsWaiter for ManualPlayer {
-    fn emit_requirements(&self, _: &mut dyn FnMut(Requirement)) {
-        // no requirements
-    }
-}
-
-impl IsWaiter for AutoHand {
-    fn emit_requirements(&self, _: &mut dyn FnMut(Requirement)) {
-        // no requirements
-    }
-}
-
-impl IsWaiter for ManualHand {
-    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
-        f(Requirement::value(self.count.clone()));
-    }
-}
-
-impl IsWaiter for MultiTargetSelector {
-    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
-        match self {
-            MultiTargetSelector::Creature(target_selector) => target_selector.emit_requirements(f),
-            MultiTargetSelector::Tile(target_selector) => target_selector.emit_requirements(f),
-            MultiTargetSelector::Player(target_selector) => target_selector.emit_requirements(f),
-            MultiTargetSelector::Hand(target_selector) => target_selector.emit_requirements(f),
-        }
-    }
-}
-
-impl<L, R> IsWaiter for Either<L, R>
-where
-    L: IsWaiter,
-    R: IsWaiter,
-{
-    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
-        match self {
-            Either::Left(l) => l.emit_requirements(f),
-            Either::Right(r) => r.emit_requirements(f),
-        }
     }
 }

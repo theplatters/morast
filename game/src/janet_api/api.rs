@@ -1,6 +1,19 @@
-use bevy::math::I16Vec2;
+use bevy::{
+    ecs::{entity::Entity, world::World},
+    math::I16Vec2,
+};
 
-use janet_bindings::{bindings::Janet, error::JanetError, janet_cfun, types::janetenum::JanetEnum};
+use janet_bindings::{
+    bindings::{Janet, JanetAbstract, janet_checkabstract, janet_wrap_nil},
+    error::JanetError,
+    janet_cfun,
+    types::{janetabstract::IsAbstract, janetenum::JanetEnum},
+};
+
+use crate::{
+    actions::{DealDamage, HealCreature},
+    janet_api::world_context::ScriptCtx,
+};
 
 pub fn to_i16_vec(item: JanetEnum) -> Option<Vec<I16Vec2>> {
     let JanetEnum::Array(arr) = item else {
@@ -31,28 +44,19 @@ pub fn to_i16_vec(item: JanetEnum) -> Option<Vec<I16Vec2>> {
     Some(result)
 }
 
-pub unsafe extern "C" fn cfun_draw(_argc: i32, _argv: *mut Janet) -> Janet {
-    todo!()
-}
-
-pub unsafe extern "C" fn cfun_discard(_argc: i32, _argv: *mut Janet) -> Janet {
-    todo!()
-}
-
-pub unsafe extern "C" fn cfun_add_gold_to_player(_argc: i32, _argv: *mut Janet) -> Janet {
-    todo!()
-}
-
-pub unsafe extern "C" fn cfun_turn_player(_argc: i32, _argv: *mut Janet) -> Janet {
-    todo!()
-}
-
-pub unsafe extern "C" fn cfun_other_player(_argc: i32, _argv: *mut Janet) -> Janet {
-    todo!()
+fn unwrap_entity(item: &JanetEnum) -> Result<Entity, JanetError> {
+    let Some(entity) = Entity::from_raw_u32(item.as_uint().ok_or(JanetError::Type(
+        "Second argument is not a uint which s not supported".into(),
+    ))? as u32) else {
+        return Err(JanetError::Type(
+            "Second argument is not a uint which s not supported".into(),
+        ));
+    };
+    Ok(entity)
 }
 
 fn plus(size: &[JanetEnum]) -> Result<JanetEnum, JanetError> {
-    if size.len() != 1  {
+    if size.len() != 1 {
         return Err(JanetError::OutOfBounds);
     }
 
@@ -70,8 +74,10 @@ fn plus(size: &[JanetEnum]) -> Result<JanetEnum, JanetError> {
     Ok(plus_enum)
 }
 
+janet_cfun!(cfun_plus, plus);
+
 pub fn cross(argv: &[JanetEnum]) -> Result<JanetEnum, JanetError> {
-    if argv.len() != 1  {
+    if argv.len() != 1 {
         return Err(JanetError::OutOfBounds);
     }
 
@@ -92,32 +98,52 @@ pub fn cross(argv: &[JanetEnum]) -> Result<JanetEnum, JanetError> {
 }
 
 janet_cfun!(cfun_cross, cross);
-janet_cfun!(cfun_plus, plus);
 
-pub unsafe extern "C" fn cfun_gold_amount(_argc: i32, _argv: *mut Janet) -> Janet {
-    todo!()
+pub fn damage(argv: &[JanetEnum]) -> Result<JanetEnum, JanetError> {
+    if argv.len() != 3 {
+        return Err(JanetError::OutOfBounds);
+    }
+
+    let Some(mut world) = argv[0].clone().into_abstract() else {
+        return Err(JanetError::Type("First argument is not a world".into()));
+    };
+    let Some(script_ctx) = world.as_mut::<ScriptCtx>() else {
+        return Err(JanetError::Type("First argument is not a world".into()));
+    };
+    let entity = unwrap_entity(&argv[1])?;
+
+    let amount = argv[2].as_uint().ok_or(JanetError::Type(
+        "Second argument is not a uint which s not supported".into(),
+    ))? as u16;
+
+    script_ctx.trigger(DealDamage { amount, entity });
+
+    Ok(JanetEnum::Null)
 }
 
-pub unsafe extern "C" fn cfun_shuffle_deck(_argc: i32, _argv: *mut Janet) -> Janet {
-    todo!()
+janet_cfun!(cfun_damage, damage);
+
+pub fn heal(argv: &[JanetEnum]) -> Result<JanetEnum, JanetError> {
+    if argv.len() != 3 {
+        return Err(JanetError::OutOfBounds);
+    }
+
+    let Some(mut world) = argv[0].clone().into_abstract() else {
+        return Err(JanetError::Type("First argument is not a world".into()));
+    };
+    let Some(script_ctx) = world.as_mut::<ScriptCtx>() else {
+        return Err(JanetError::Type("First argument is not a world".into()));
+    };
+
+    let entity = unwrap_entity(&argv[1])?;
+
+    let amount = argv[2].as_uint().ok_or(JanetError::Type(
+        "Second argument is not a uint which s not supported".into(),
+    ))? as u16;
+
+    script_ctx.trigger(HealCreature { amount, entity });
+
+    Ok(JanetEnum::Null)
 }
 
-pub unsafe extern "C" fn cfun_card_owner(_argc: i32, _argv: *mut Janet) -> Janet {
-    todo!()
-}
-
-pub unsafe extern "C" fn cfun_get_current_index(_argc: i32, _argv: *mut Janet) -> Janet {
-    todo!()
-}
-
-pub unsafe extern "C" fn cfun_apply_effect(_argc: i32, _argv: *mut Janet) -> Janet {
-    todo!()
-}
-
-pub unsafe extern "C" fn cfun_from_current_position(_argc: i32, _argv: *mut Janet) -> Janet {
-    todo!()
-}
-
-pub unsafe extern "C" fn cfun_is_owners_turn(_argc: i32, _argv: *mut Janet) -> Janet {
-    todo!()
-}
+janet_cfun!(cfun_heal, heal);

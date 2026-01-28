@@ -1,12 +1,23 @@
-use std::ptr;
+use std::{fmt::format, ptr};
 
-use crate::bindings::{
-        Janet, JanetAbstractType, janet_abstract, janet_unwrap_abstract, janet_wrap_abstract,
-    };
+use crate::{
+    bindings::{
+        Janet, JanetAbstractType, janet_abstract, janet_abstract_head, janet_unwrap_abstract,
+        janet_wrap_abstract,
+    },
+    error::JanetError,
+    types::janetenum::JanetEnum,
+};
 
 #[derive(Debug, Clone)]
 pub struct JanetAbstract {
     raw: *mut std::ffi::c_void,
+}
+
+impl<T: IsAbstract> From<T> for JanetEnum {
+    fn from(value: T) -> Self {
+        JanetEnum::Abstract(JanetAbstract::new(value))
+    }
 }
 
 pub trait IsAbstract: Sized {
@@ -29,7 +40,20 @@ impl JanetAbstract {
         }
     }
 
-    pub fn from_janet(item: Janet) -> Self {
+    pub fn from_janet<T: IsAbstract>(item: Janet) -> Result<Self, JanetError> {
+        {
+            let raw = unsafe { crate::bindings::janet_checkabstract(item, T::type_info()) };
+            if raw.is_null() {
+                return Err(JanetError::Type(
+                    "Type is not the correct abstract type".to_string(),
+                ));
+            }
+
+            Ok(JanetAbstract { raw })
+        }
+    }
+
+    pub fn from_janet_unchecked(item: Janet) -> Self {
         unsafe {
             Self {
                 raw: janet_unwrap_abstract(item),
@@ -47,6 +71,25 @@ impl JanetAbstract {
             if abs_type_ptr.is_null() {
                 crate::bindings::janet_register_abstract_type(at);
             }
+        }
+    }
+
+    pub fn verify<T: IsAbstract>(&self) -> bool {
+        unsafe { (*janet_abstract_head(self.raw)).type_ != T::type_info() }
+    }
+
+    pub fn as_ref<T: IsAbstract>(&self) -> Option<&T> {
+        if self.verify::<T>() {
+            unsafe { (self.raw as *const T).as_ref() }
+        } else {
+            None
+        }
+    }
+    pub fn as_mut<T: IsAbstract>(&mut self) -> Option<&mut T> {
+        if self.verify::<T>() {
+            unsafe { (self.raw as *mut T).as_mut() }
+        } else {
+            None
         }
     }
 }

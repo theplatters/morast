@@ -1,21 +1,25 @@
-use bevy::ecs::world::World;
+use bevy::ecs::{component::Component, entity::Entity, event::Event, world::World};
 use janet_bindings::{
-    bindings::{Janet, JanetAbstractType},
+    bindings::JanetAbstractType,
     types::{function::JFunction, janetabstract::IsAbstract},
 };
 
+#[repr(C)]
 pub struct ScriptCtx<'w> {
     world: &'w mut World,
-}
-
-pub enum Callback<'w, Res, Ret> {
-    RustFun(Box<dyn FnMut(&'w World, Res) -> Ret>),
-    JanetFun(JFunction),
+    caller: Entity,
 }
 
 impl<'w> ScriptCtx<'w> {
-    pub fn new(world: &'w mut bevy::prelude::World) -> Self {
-        Self { world }
+    pub fn new(world: &'w mut bevy::prelude::World, caller: Entity) -> Self {
+        Self { world, caller }
+    }
+
+    pub fn trigger<'a, E>(&mut self, event: E)
+    where
+        E: Event<Trigger<'a>: Default>,
+    {
+        self.world.trigger(event);
     }
 }
 

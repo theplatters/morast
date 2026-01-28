@@ -2,7 +2,7 @@ use bevy::ecs::{entity::Entity, query::With, system::Query};
 
 use crate::{
     actions::{
-        IsWaiter, Requirement,
+        Requirement,
         targeting::{
             CreatureTarget, HandTarget, PlayerTarget, TargetFilter, TileTarget,
             systems::{CreatureQuery, HandQuery, PlayerQuery, TileQuery},
@@ -181,95 +181,4 @@ pub struct FilterParams<'w, 's> {
     pub tiles: Query<'w, 's, TileQuery, With<Tile>>,
     pub hand: Query<'w, 's, HandQuery>,
     pub player: Query<'w, 's, PlayerQuery>,
-}
-impl IsWaiter for HandExtraRules {
-    fn emit_requirements(&self, _f: &mut dyn FnMut(Requirement)) {}
-}
-
-impl<B, E> IsWaiter for RulesWithExtras<B, E>
-where
-    B: IsWaiter + IsFilter,
-    E: IsWaiter + IsFilter,
-{
-    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
-        self.base.emit_requirements(f);
-        for extra in &self.extras {
-            extra.emit_requirements(f);
-        }
-    }
-}
-
-impl IsWaiter for HandFilters {
-    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
-        if let Some(v) = &self.min_cost {
-            f(Requirement::value(v.clone()));
-        }
-        if let Some(v) = &self.max_cost {
-            f(Requirement::value(v.clone()));
-        }
-    }
-}
-
-impl IsWaiter for CreatureFilters {
-    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
-        if let Some(v) = &self.min_health {
-            f(Requirement::value(v.clone()));
-        }
-        if let Some(v) = &self.max_health {
-            f(Requirement::value(v.clone()));
-        }
-        if let Some((a, b)) = &self.health_percent {
-            f(Requirement::value(a.clone()));
-            f(Requirement::value(b.clone()));
-        }
-        if let Some(v) = &self.min_attack {
-            f(Requirement::value(v.clone()));
-        }
-    }
-}
-
-impl IsWaiter for PlayerExtraRules {
-    fn emit_requirements(&self, _: &mut dyn FnMut(Requirement)) {
-        // no requirements
-    }
-}
-
-impl IsWaiter for PlayerFilters {
-    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
-        if let Some(v) = &self.min_gold {
-            f(Requirement::value(v.clone()));
-        }
-        if let Some(v) = &self.max_gold {
-            f(Requirement::value(v.clone()));
-        }
-        if let Some(v) = &self.has_cards_in_hand {
-            f(Requirement::value(v.clone()));
-        }
-        if let Some(v) = &self.min_health {
-            f(Requirement::value(v.clone()));
-        }
-        if let Some(v) = &self.max_health {
-            f(Requirement::value(v.clone()));
-        }
-    }
-}
-
-impl IsWaiter for TileExtraRules {
-    fn emit_requirements(&self, _: &mut dyn FnMut(Requirement)) {
-        // no requirements
-    }
-}
-
-impl IsWaiter for CreatureExtraRules {
-    fn emit_requirements(&self, _: &mut dyn FnMut(Requirement)) {
-        // no requirements
-    }
-}
-
-impl IsWaiter for TileFilters {
-    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
-        if let Some(v) = &self.in_range_of_caster {
-            f(Requirement::value(v.clone()));
-        }
-    }
 }

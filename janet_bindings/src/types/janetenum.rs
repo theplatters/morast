@@ -102,6 +102,10 @@ impl JanetEnum {
             _ => None,
         }
     }
+
+    pub fn is_abstract(&self) -> bool {
+        matches!(self, JanetEnum::Abstract(_))
+    }
 }
 
 impl From<JanetEnum> for Janet {
@@ -219,9 +223,9 @@ impl TryFrom<Janet> for JanetEnum {
                         .to_owned(),
                 )),
                 JANET_TYPE_JANET_TUPLE => Ok(JanetEnum::Tuple(Tuple::new(item))),
-                JANET_TYPE_JANET_ABSTRACT => {
-                    Ok(JanetEnum::Abstract(JanetAbstract::from_janet(item)))
-                }
+                JANET_TYPE_JANET_ABSTRACT => Ok(JanetEnum::Abstract(
+                    JanetAbstract::from_janet_unchecked(item),
+                )),
                 other => Err(JanetError::Type(format!(
                     "Type '{}' is currently unsupported",
                     other
@@ -409,6 +413,13 @@ impl JanetEnum {
     pub fn into_tuple(self) -> Option<Tuple> {
         match self {
             JanetEnum::Tuple(tuple) => Some(tuple),
+            _ => None,
+        }
+    }
+
+    pub fn into_abstract(self) -> Option<JanetAbstract> {
+        match self {
+            JanetEnum::Abstract(a) => Some(a),
             _ => None,
         }
     }

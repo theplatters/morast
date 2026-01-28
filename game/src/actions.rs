@@ -1,4 +1,7 @@
-use bevy::ecs::{bundle::Bundle, component::Component, entity::Entity};
+use bevy::{
+    ecs::{bundle::Bundle, component::Component, entity::Entity, event::EntityEvent},
+    math::I16Vec2,
+};
 
 use crate::{
     actions::{
@@ -179,90 +182,65 @@ impl From<Condition> for Requirement {
     }
 }
 
-impl Requirement {
-    #[inline]
-    fn target<T: Into<AnyTargetSelector>>(t: T) -> Self {
-        Requirement::Target(t.into())
-    }
-
-    #[inline]
-    fn value(v: ValueSource) -> Self {
-        Requirement::Value(v.into())
-    }
-
-    #[inline]
-    fn cond(c: Condition) -> Self {
-        Requirement::Cond(c)
-    }
+#[derive(EntityEvent)]
+pub struct MoveCreature {
+    direction: I16Vec2,
+    absolute: bool,
+    entity: Entity,
 }
 
-pub trait IsWaiter {
-    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement));
+#[derive(EntityEvent)]
+pub struct EndTurn(Entity);
+
+// Atomic effects
+#[derive(EntityEvent)]
+pub struct DealDamage {
+    pub amount: u16,
+    pub entity: Entity,
 }
 
-impl IsWaiter for UnitAction {
-    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
-        match self {
-            UnitAction::MoveCreature { target, .. } => {
-                f(Requirement::target(target.clone()));
-            }
+#[derive(EntityEvent)]
+pub struct HealCreature {
+    pub amount: u16,
+    pub entity: Entity,
+}
+#[derive(EntityEvent)]
+pub struct DrawCards {
+    amount: u16,
+    entity: Entity,
+}
+#[derive(EntityEvent)]
+pub struct AddGold {
+    amount: u16,
+    entity: Entity,
+}
+#[derive(EntityEvent)]
+pub struct ApplyEffect {
+    effect: EffectType,
+    duration: u16,
+    entity: Entity,
+}
 
-            UnitAction::DealDamage {
-                target_selector,
-                amount,
-            }
-            | UnitAction::HealCreature {
-                target_selector,
-                amount,
-            } => {
-                f(Requirement::target(target_selector.clone()));
-                f(Requirement::value(amount.clone()));
-            }
-
-            UnitAction::DrawCards {
-                count,
-                player_selector,
-            }
-            | UnitAction::AddGold {
-                amount: count,
-                player_selector,
-            } => {
-                f(Requirement::target(player_selector.clone()));
-                f(Requirement::value(count.clone()));
-            }
-
-            UnitAction::ApplyEffect {
-                duration,
-                targeting_type,
-                ..
-            } => {
-                f(Requirement::target(targeting_type.clone()));
-                f(Requirement::value(duration.clone()));
-            }
-
-            UnitAction::SummonCreature { position, .. } => {
-                f(Requirement::target(position.clone()));
-            }
-
-            UnitAction::DestroyCreature { targeting_type }
-            | UnitAction::ModifyStats { targeting_type, .. }
-            | UnitAction::ReturnToHand { targeting_type } => {
-                f(Requirement::target(targeting_type.clone()));
-            }
-
-            UnitAction::DiscardCards { count, .. } => {
-                f(Requirement::value(count.clone()));
-            }
-
-            UnitAction::Mill {
-                count,
-                player_selector,
-            } => {
-                f(Requirement::value(count.clone()));
-                f(Requirement::target(player_selector.clone()));
-            }
-
-            UnitAction::EndTurn => {}
-        }
-    }
+#[derive(EntityEvent)]
+pub struct DestroyCreature {
+    entity: Entity,
+}
+#[derive(EntityEvent)]
+pub struct ModifyStats {
+    entity: Entity,
+    stat_modifier: StatModifier,
+}
+#[derive(EntityEvent)]
+pub struct DiscardCards {
+    amount: u16,
+    entity: Entity,
+}
+#[derive(EntityEvent)]
+pub struct ReturnToHand {
+    entity: Entity,
+}
+#[derive(EntityEvent)]
+pub struct Mill {
+    amount: u16,
+    entity: Entity,
 }

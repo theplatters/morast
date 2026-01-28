@@ -9,7 +9,7 @@ use bevy::{
 
 use crate::{
     GameRng,
-    actions::{IsWaiter, Requirement, targeting::systems::CreatureQuery},
+    actions::{Requirement, targeting::systems::CreatureQuery},
 };
 
 use super::targeting::{CreatureTarget, MultiTargetSelector, SingleTarget, TargetSelector};
@@ -45,38 +45,6 @@ pub enum ValueSource {
     Divide(Box<ValueSource>, Box<ValueSource>),
     Min(Box<ValueSource>, Box<ValueSource>),
     Max(Box<ValueSource>, Box<ValueSource>),
-}
-
-impl IsWaiter for ValueSource {
-    fn emit_requirements(&self, f: &mut dyn FnMut(Requirement)) {
-        match self {
-            ValueSource::Constant(_) => {
-                // no requirements
-            }
-
-            ValueSource::Count(multi_target_selector) => {
-                f(Requirement::target(*multi_target_selector.clone()));
-            }
-
-            ValueSource::Random { min, max } => {
-                f(Requirement::value(*min.clone()));
-                f(Requirement::value(*max.clone()));
-            }
-
-            ValueSource::CreatureStat { selector, stat: _ } => {
-                f(Requirement::target(*selector.clone()));
-            }
-
-            ValueSource::Add(a, b)
-            | ValueSource::Multiply(a, b)
-            | ValueSource::Divide(a, b)
-            | ValueSource::Min(a, b)
-            | ValueSource::Max(a, b) => {
-                f(Requirement::value(*a.clone()));
-                f(Requirement::value(*b.clone()));
-            }
-        }
-    }
 }
 
 #[derive(SystemParam)]
