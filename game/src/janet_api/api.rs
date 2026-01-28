@@ -1,14 +1,6 @@
-use bevy::{
-    ecs::{entity::Entity, world::World},
-    math::I16Vec2,
-};
+use bevy::{ecs::entity::Entity, math::I16Vec2};
 
-use janet_bindings::{
-    bindings::{Janet, JanetAbstract, janet_checkabstract, janet_wrap_nil},
-    error::JanetError,
-    janet_cfun,
-    types::{janetabstract::IsAbstract, janetenum::JanetEnum},
-};
+use janet_bindings::{error::JanetError, janet_cfun, types::janetenum::JanetEnum};
 
 use crate::{
     actions::{DealDamage, HealCreature},
@@ -55,6 +47,16 @@ fn unwrap_entity(item: &JanetEnum) -> Result<Entity, JanetError> {
     Ok(entity)
 }
 
+fn unwrap_context(item: &mut JanetEnum) -> Result<&mut ScriptCtx, JanetError> {
+    let Some(world) = item.as_abstract_mut() else {
+        return Err(JanetError::Type("First argument is not a world".into()));
+    };
+    let Some(script_ctx) = world.as_mut::<ScriptCtx>() else {
+        return Err(JanetError::Type("First argument is not a world".into()));
+    };
+    Ok(script_ctx)
+}
+
 fn plus(size: &[JanetEnum]) -> Result<JanetEnum, JanetError> {
     if size.len() != 1 {
         return Err(JanetError::OutOfBounds);
@@ -99,51 +101,47 @@ pub fn cross(argv: &[JanetEnum]) -> Result<JanetEnum, JanetError> {
 
 janet_cfun!(cfun_cross, cross);
 
-pub fn damage(argv: &[JanetEnum]) -> Result<JanetEnum, JanetError> {
+pub fn damage(argv: &mut [JanetEnum]) -> Result<JanetEnum, JanetError> {
     if argv.len() != 3 {
         return Err(JanetError::OutOfBounds);
     }
-
-    let Some(mut world) = argv[0].clone().into_abstract() else {
-        return Err(JanetError::Type("First argument is not a world".into()));
-    };
-    let Some(script_ctx) = world.as_mut::<ScriptCtx>() else {
-        return Err(JanetError::Type("First argument is not a world".into()));
-    };
-    let entity = unwrap_entity(&argv[1])?;
 
     let amount = argv[2].as_uint().ok_or(JanetError::Type(
         "Second argument is not a uint which s not supported".into(),
     ))? as u16;
 
-    script_ctx.trigger(DealDamage { amount, entity });
+    let entity = unwrap_entity(&argv[1])?;
+    let mut context = unwrap_context(&mut argv[0])?;
+
+    context.trigger(DealDamage { amount, entity });
 
     Ok(JanetEnum::Null)
 }
 
 janet_cfun!(cfun_damage, damage);
 
-pub fn heal(argv: &[JanetEnum]) -> Result<JanetEnum, JanetError> {
+pub fn heal(argv: &mut [JanetEnum]) -> Result<JanetEnum, JanetError> {
     if argv.len() != 3 {
         return Err(JanetError::OutOfBounds);
     }
-
-    let Some(mut world) = argv[0].clone().into_abstract() else {
-        return Err(JanetError::Type("First argument is not a world".into()));
-    };
-    let Some(script_ctx) = world.as_mut::<ScriptCtx>() else {
-        return Err(JanetError::Type("First argument is not a world".into()));
-    };
-
-    let entity = unwrap_entity(&argv[1])?;
 
     let amount = argv[2].as_uint().ok_or(JanetError::Type(
         "Second argument is not a uint which s not supported".into(),
     ))? as u16;
 
-    script_ctx.trigger(HealCreature { amount, entity });
+    let entity = unwrap_entity(&argv[1])?;
+    let mut context = unwrap_context(&mut argv[0])?;
+
+    context.trigger(HealCreature { amount, entity });
 
     Ok(JanetEnum::Null)
 }
 
 janet_cfun!(cfun_heal, heal);
+
+pub fn turn_player(argv: &mut [JanetEnum]) -> Result<JanetEnum, JanetError> {
+    let context = unwrap_context(&mut argv[0])?;
+    Ok(JanetEnum::UInt(context.turn_player().to_bits()))
+}
+
+janet_cfun!(cfun_turn_player, turn_player);

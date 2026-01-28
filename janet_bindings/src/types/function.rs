@@ -19,7 +19,7 @@ impl JFunction {
         Self { janet_fun }
     }
 
-    pub fn eval(&self, argv: &[JanetEnum]) -> Result<JanetEnum, JanetError> {
+    pub fn eval(&self, argv: &mut [JanetEnum]) -> Result<JanetEnum, JanetError> {
         let signal: JanetSignal;
         let argv_as_janet: Vec<Janet> = argv.iter().map(|el| el.into()).collect();
         unsafe {

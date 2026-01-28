@@ -15,5 +15,6 @@ pub const CORE_FUNCTIONS: &[CoreFunction] = core_fns![
     "plus" => cfun_plus; "Generates a Plus of size n",
     "cross" => cfun_cross; "Generates a Cross of size n",
     "damage" => cfun_damage; "Damages the given entity",
-    "heal" => cfun_heal; "Heals the given entity"
+    "heal" => cfun_heal; "Heals the given entity",
+    "turn-player" => cfun_turn_player; "Get's the entity of the current turn player"
 ];

@@ -20,7 +20,7 @@ use crate::{
 
 use super::{function::JFunction, table::Table};
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum JanetEnum {
     Int(i32),
     UInt(u64),
@@ -332,13 +332,6 @@ impl JanetEnum {
         }
     }
 
-    pub fn as_array_owned(&self) -> Option<Vec<JanetEnum>> {
-        match self {
-            JanetEnum::Array(arr) => Some(arr.clone()),
-            _ => None,
-        }
-    }
-
     pub fn as_table(&self) -> Option<&Table> {
         match self {
             JanetEnum::Table(table) => Some(table),
@@ -417,7 +410,13 @@ impl JanetEnum {
         }
     }
 
-    pub fn into_abstract(self) -> Option<JanetAbstract> {
+    pub fn as_abstract(&self) -> Option<&JanetAbstract> {
+        match &self {
+            JanetEnum::Abstract(a) => Some(a),
+            _ => None,
+        }
+    }
+    pub fn as_abstract_mut(&mut self) -> Option<&mut JanetAbstract> {
         match self {
             JanetEnum::Abstract(a) => Some(a),
             _ => None,

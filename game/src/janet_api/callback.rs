@@ -45,8 +45,8 @@ impl<T: Completable> Callback<T, ()> {
                         (f)(&mut ctx, &e.payload);
                     }
                     CallbackFunction::JanetFun(j) => {
-                        let argv = [ctx.into(), e.payload.clone().into()];
-                        j.eval(argv.as_ref());
+                        let mut argv = [ctx.into(), e.payload.clone().into()];
+                        j.eval(argv.as_mut_slice());
                     }
                 };
             },

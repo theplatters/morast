@@ -1,7 +1,3 @@
-
-(defn get-gold [game card-id] (if (std/is-owners-turn? game card-id) 
-      (std/get-gold game 4 (std/owner game card-id))))
-
 (def merchant @{
 'cost 3
 'movement-points 2

@@ -9,7 +9,7 @@ use crate::{
     types::janetenum::JanetEnum,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct JanetAbstract {
     raw: *mut std::ffi::c_void,
 }
@@ -75,7 +75,7 @@ impl JanetAbstract {
     }
 
     pub fn verify<T: IsAbstract>(&self) -> bool {
-        unsafe { (*janet_abstract_head(self.raw)).type_ != T::type_info() }
+        unsafe { (*janet_abstract_head(self.raw)).type_ == T::type_info() }
     }
 
     pub fn as_ref<T: IsAbstract>(&self) -> Option<&T> {
