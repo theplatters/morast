@@ -1,6 +1,6 @@
-use std::ffi::NulError;
+use std::{error::Error, ffi::NulError};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum JanetError {
     OutOfBounds,
     Cast(String),
@@ -15,3 +15,5 @@ impl std::fmt::Display for JanetError {
         todo!()
     }
 }
+
+impl Error for JanetError {}

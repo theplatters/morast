@@ -5,10 +5,7 @@ use bevy::{
 
 use crate::{
     actions::GameAction,
-    card::{
-        Card, CardBehavior, Cost, FromRegistry, Playable, card_id::CardID,
-        card_registry::CardRegistry,
-    },
+    card::{Card, CardBehavior, Cost, FromRegistry, card_id::CardID, card_registry::CardRegistry},
 };
 
 #[derive(Debug)]
@@ -17,6 +14,7 @@ pub struct Spell {
     cost: u16,
     description: String,
     on_play_action: GameAction,
+    actions: Vec<GameAction>,
     display_image_asset_string: String,
 }
 
@@ -47,6 +45,7 @@ impl Spell {
         description: String,
         cost: u16,
         on_play_action: GameAction,
+        actions: Vec<GameAction>,
         display_image_asset_string: String,
     ) -> Self {
         Self {
@@ -54,14 +53,9 @@ impl Spell {
             description,
             cost,
             on_play_action,
+            actions,
             display_image_asset_string,
         }
-    }
-}
-
-impl Playable for Spell {
-    fn on_play_action(&self) -> Option<&GameAction> {
-        Some(&self.on_play_action)
     }
 }
 

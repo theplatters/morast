@@ -15,6 +15,7 @@ pub struct CardBuilder {
     cost: Option<u16>,
     description: Option<String>,
     display_image_asset_string: Option<String>,
+    actions: Vec<GameAction>,
 }
 
 // Type-specific builders that contain the common builder
@@ -26,22 +27,20 @@ pub struct CreatureBuilder {
     attack_strength: Option<u16>,
     defense: Option<u16>,
     abilities: Option<Vec<Abilities>>,
-    on_play_action: Option<GameAction>,
-    turn_begin_action: Option<GameAction>,
-    turn_end_action: Option<GameAction>,
-    draw_action: Option<GameAction>,
-    discard_action: Option<GameAction>,
+    actions: Vec<GameAction>,
 }
 
 pub struct SpellBuilder {
     common: CardBuilder,
     on_play_action: Option<GameAction>,
+    actions: Vec<GameAction>,
 }
 
 pub struct TrapBuilder {
     common: CardBuilder,
     on_play_action: Option<GameAction>,
-    reveal_action: Option<GameAction>,
+    on_reveal_action: Option<GameAction>,
+    actions: Vec<GameAction>,
 }
 
 impl CardBuilder {
@@ -51,6 +50,7 @@ impl CardBuilder {
             cost: None,
             description: None,
             display_image_asset_string: None,
+            actions: Vec::new(),
         }
     }
 
@@ -63,11 +63,7 @@ impl CardBuilder {
             attack_strength: None,
             defense: None,
             abilities: None,
-            on_play_action: None,
-            turn_begin_action: None,
-            turn_end_action: None,
-            draw_action: None,
-            discard_action: None,
+            actions: Vec::new(),
         }
     }
 
@@ -75,6 +71,7 @@ impl CardBuilder {
         SpellBuilder {
             common: self,
             on_play_action: None,
+            actions: Vec::new(),
         }
     }
 
@@ -82,7 +79,8 @@ impl CardBuilder {
         TrapBuilder {
             common: self,
             on_play_action: None,
-            reveal_action: None,
+            on_reveal_action: None,
+            actions: Vec::new(),
         }
     }
 
@@ -179,58 +177,6 @@ impl CreatureBuilder {
         self
     }
 
-    // Optional on_play_action for creatures
-    pub fn on_play_action_option(mut self, action: Option<GameAction>) -> Self {
-        self.on_play_action = action;
-        self
-    }
-
-    pub fn turn_begin_action_option(mut self, action: Option<GameAction>) -> Self {
-        self.turn_begin_action = action;
-        self
-    }
-
-    pub fn turn_end_action_option(mut self, action: Option<GameAction>) -> Self {
-        self.turn_end_action = action;
-        self
-    }
-
-    pub fn draw_action_option(mut self, action: Option<GameAction>) -> Self {
-        self.draw_action = action;
-        self
-    }
-
-    pub fn discard_action_option(mut self, action: Option<GameAction>) -> Self {
-        self.discard_action = action;
-        self
-    }
-
-    // Optional on_play_action for creatures
-    pub fn on_play_action(mut self, action: GameAction) -> Self {
-        self.on_play_action = Some(action);
-        self
-    }
-
-    pub fn turn_begin_action(mut self, action: GameAction) -> Self {
-        self.turn_begin_action = Some(action);
-        self
-    }
-
-    pub fn turn_end_action(mut self, action: GameAction) -> Self {
-        self.turn_end_action = Some(action);
-        self
-    }
-
-    pub fn draw_action(mut self, action: GameAction) -> Self {
-        self.draw_action = Some(action);
-        self
-    }
-
-    pub fn discard_action(mut self, action: GameAction) -> Self {
-        self.discard_action = Some(action);
-        self
-    }
-
     pub fn build(self) -> Result<Card, GameError> {
         let creature = Creature::new(
             self.common
@@ -242,11 +188,7 @@ impl CreatureBuilder {
             self.attack_strength.unwrap_or(1),
             self.defense.unwrap_or(1),
             self.common.cost.unwrap_or(1),
-            self.on_play_action,
-            self.turn_begin_action,
-            self.turn_end_action,
-            self.draw_action,
-            self.discard_action,
+            self.actions,
             self.abilities.unwrap_or_default(),
             self.common.description.unwrap_or("".to_string()),
             self.common
@@ -304,6 +246,7 @@ impl SpellBuilder {
             self.on_play_action.ok_or(GameError::Incomplete(
                 "On play action is required for spells",
             ))?,
+            self.actions,
             self.common
                 .display_image_asset_string
                 .unwrap_or("missing".to_string()),
@@ -346,12 +289,7 @@ impl TrapBuilder {
     }
 
     pub fn reveal_action(mut self, action: GameAction) -> Self {
-        self.reveal_action = Some(action);
-        self
-    }
-
-    pub fn reveal_action_optional(mut self, action: Option<GameAction>) -> Self {
-        self.reveal_action = action;
+        self.on_reveal_action = Some(action);
         self
     }
 
@@ -366,11 +304,12 @@ impl TrapBuilder {
             self.common
                 .description
                 .ok_or(GameError::Incomplete("Description is required"))?,
-            self.on_play_action,
-            self.reveal_action,
             self.common
                 .display_image_asset_string
                 .unwrap_or("missing".to_string()),
+            self.actions,
+            self.on_reveal_action
+                .ok_or(GameError::Incomplete("Play action is required"))?,
         );
         Ok(Card::Trap(trap))
     }

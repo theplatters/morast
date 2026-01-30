@@ -151,11 +151,6 @@ pub fn read_creature(env: &Environment, name: &str) -> Result<Card, GameError> {
         .attack_strength(attack_strength)
         .attack_pattern(attack)
         .defense(defense)
-        .on_play_action_option(play_action)
-        .turn_begin_action_option(turn_begin_action)
-        .turn_end_action_option(turn_end_action)
-        .draw_action_option(draw_action)
-        .discard_action_option(discard_action)
         .abilities(abilities)
         .build()
 }
@@ -180,13 +175,13 @@ pub fn read_trap(env: &Environment, name: &str) -> Result<Card, GameError> {
     let common_data = read_common_data(&card_data, env, name)?;
 
     let place_action = CardDataRetriever::get_action_from_env(env, "on-play", name)?;
-    let reveal_action = CardDataRetriever::get_action_from_env(env, "on-reveal", name)?;
+    let reveal_action = CardDataRetriever::get_action_from_env(env, "on-reveal", name)?.unwrap();
 
     Card::builder()
         .common_data(common_data)
         .trap()
         .on_play_action(place_action)
-        .reveal_action_optional(reveal_action)
+        .reveal_action(reveal_action)
         .build()
 }
 

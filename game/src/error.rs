@@ -2,8 +2,6 @@ use std::fmt::Display;
 
 use janet_bindings::error::JanetError;
 
-use crate::actions::action_builder::ActionBuilderError;
-
 use super::board::place_error::BoardError;
 
 #[derive(Debug)]
@@ -22,7 +20,6 @@ pub enum GameError {
     InvalidCardType,
     WrongState,
     ActionError(&'static str),
-    ActionBuilderError(ActionBuilderError),
     InputCancelled,
     NoInputReceived,
 }
@@ -44,9 +41,6 @@ impl Display for GameError {
             GameError::InvalidCardType => write!(f, "InvalidCardType"),
             GameError::WrongState => write!(f, "Wrong State"),
             GameError::ActionError(s) => write!(f, "Error when performing action: {}", s),
-            GameError::ActionBuilderError(action_builder_error) => {
-                write!(f, "Error when building action: {}", action_builder_error)
-            }
             GameError::InputCancelled => write!(f, "Input cancelled"),
             GameError::NoInputReceived => write!(f, "No input recieved"),
         }

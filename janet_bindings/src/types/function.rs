@@ -19,19 +19,19 @@ impl JFunction {
         Self { janet_fun }
     }
 
-    pub fn eval(&self, argv: &mut [JanetEnum]) -> Result<JanetEnum, JanetError> {
+    pub fn eval(&self, argv: &[JanetEnum]) -> Result<JanetEnum, JanetError> {
         let signal: JanetSignal;
         let argv_as_janet: Vec<Janet> = argv.iter().map(|el| el.into()).collect();
         unsafe {
             let mut out: Janet = janet_wrap_nil();
+
             signal = janet_pcall(
-                self.janet_fun as *mut _,
+                self.janet_fun,
                 argv.len() as i32,
                 argv_as_janet.as_ptr(),
                 &mut out as *mut _,
                 std::ptr::null_mut(),
             );
-
             if signal != 0 {
                 return Err(JanetError::Signal(format!("Got signal {}", signal)));
             }

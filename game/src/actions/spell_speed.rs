@@ -1,5 +1,5 @@
 use bevy::ecs::component::Component;
-use janet_bindings::types::janetenum::JanetEnum;
+use janet_bindings::{error::JanetError, types::janetenum::JanetEnum};
 
 use crate::error::GameError;
 
@@ -12,14 +12,14 @@ pub enum SpellSpeed {
 }
 
 impl TryFrom<JanetEnum> for SpellSpeed {
-    type Error = GameError;
+    type Error = JanetError;
 
     fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
         match value {
             JanetEnum::Int(0) => Ok(SpellSpeed::Slow),
             JanetEnum::Int(1) => Ok(SpellSpeed::Fast),
             JanetEnum::Int(2) => Ok(SpellSpeed::Instant),
-            JanetEnum::Int(num) => Err(GameError::Cast(format!(
+            JanetEnum::Int(num) => Err(JanetError::Cast(format!(
                 "Invalid SpellSpeed number: {}",
                 num
             ))),
@@ -27,7 +27,7 @@ impl TryFrom<JanetEnum> for SpellSpeed {
             JanetEnum::UInt(0) => Ok(SpellSpeed::Slow),
             JanetEnum::UInt(1) => Ok(SpellSpeed::Fast),
             JanetEnum::UInt(2) => Ok(SpellSpeed::Instant),
-            JanetEnum::UInt(num) => Err(GameError::Cast(format!(
+            JanetEnum::UInt(num) => Err(JanetError::Cast(format!(
                 "Invalid SpellSpeed number: {}",
                 num
             ))),
@@ -36,9 +36,12 @@ impl TryFrom<JanetEnum> for SpellSpeed {
                 "slow " => Ok(SpellSpeed::Slow),
                 "fast" => Ok(SpellSpeed::Fast),
                 "instant" => Ok(SpellSpeed::Instant),
-                _ => Err(GameError::Cast(format!("Invalid SpellSpeed string: {}", s))),
+                _ => Err(JanetError::Cast(format!(
+                    "Invalid SpellSpeed string: {}",
+                    s
+                ))),
             },
-            _ => Err(GameError::Cast("Invalid SpellSpeed type ".to_string())),
+            _ => Err(JanetError::Cast("Invalid SpellSpeed type ".to_string())),
         }
     }
 }

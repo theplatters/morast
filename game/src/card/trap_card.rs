@@ -5,20 +5,17 @@ use bevy::{
 
 use crate::{
     actions::GameAction,
-    card::{
-        Card, CardBehavior, Cost, FromRegistry, Playable, card_id::CardID,
-        card_registry::CardRegistry,
-    },
+    card::{Card, CardBehavior, Cost, FromRegistry, card_id::CardID, card_registry::CardRegistry},
 };
 
 #[derive(Debug)]
 pub struct Trap {
     name: String,
     description: String,
-    on_play_action: Option<GameAction>,
-    reveal_action: Option<GameAction>,
     cost: u16,
     display_image_asset_string: String,
+    actions: Vec<GameAction>,
+    on_reveal_action: GameAction,
 }
 
 impl CardBehavior for Trap {
@@ -44,17 +41,17 @@ impl Trap {
         name: String,
         cost: u16,
         description: String,
-        place_action: Option<GameAction>,
-        reveal_action: Option<GameAction>,
         display_image_asset_string: String,
+        actions: Vec<GameAction>,
+        on_reveal_action: GameAction,
     ) -> Self {
         Self {
             name,
             description,
             cost,
-            on_play_action: place_action,
-            reveal_action,
             display_image_asset_string,
+            actions,
+            on_reveal_action,
         }
     }
 }
@@ -78,11 +75,5 @@ impl FromRegistry for TrapBundle {
             name: card.name().into(),
             cost: card.cost().into(),
         })
-    }
-}
-
-impl Playable for Trap {
-    fn on_play_action(&self) -> Option<&GameAction> {
-        self.on_play_action.as_ref()
     }
 }

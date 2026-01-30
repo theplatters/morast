@@ -14,10 +14,9 @@ use bevy::{
 
 use crate::{
     actions::{
-        NeedsFiltering, NeedsTargeting, RequiredForCompletion,
+        NeedsFiltering, NeedsTargeting,
         targeting::{
-            AnyTargetSelector, Constraint, CreatureTarget, HandTarget, IsTargetSelectMode,
-            MultiTarget, PlayerTarget, SingleTarget, TargetKind, TargetSelector, TileTarget,
+            AnyTargetSelector, IsTargetSelectMode,
             filters::{FilterParams, IsFilter},
         },
         value_source::ValueSource,
@@ -85,7 +84,6 @@ struct TargetSelectorQuery {
     pub entity: Entity,
     pub caster: &'static Caster,
     pub selector: &'static AnyTargetSelector,
-    pub required_for: Option<&'static RequiredForCompletion>,
 }
 
 fn apply_targeting(

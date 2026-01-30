@@ -106,20 +106,6 @@ impl From<u16> for Cost {
 // Card Traits
 // ============================================
 
-pub trait Playable {
-    fn on_play_action(&self) -> Option<&GameAction>;
-}
-
-impl Playable for Card {
-    fn on_play_action(&self) -> Option<&GameAction> {
-        match self {
-            Card::Creature(card) => card.on_play_action(),
-            Card::Spell(card) => card.on_play_action(),
-            Card::Trap(card) => card.on_play_action(),
-        }
-    }
-}
-
 pub trait CardBehavior {
     fn cost(&self) -> u16;
     fn description(&self) -> &str;

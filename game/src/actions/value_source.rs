@@ -1,16 +1,10 @@
-use bevy::{
-    ecs::{
-        component::Component,
-        entity::Entity,
-        system::{Query, ResMut, SystemParam},
-    },
-    ui::Val,
+use bevy::ecs::{
+    component::Component,
+    entity::Entity,
+    system::{Query, ResMut, SystemParam},
 };
 
-use crate::{
-    GameRng,
-    actions::{Requirement, targeting::systems::CreatureQuery},
-};
+use crate::{GameRng, actions::targeting::systems::CreatureQuery};
 
 use super::targeting::{CreatureTarget, MultiTargetSelector, SingleTarget, TargetSelector};
 

@@ -12,11 +12,16 @@ use crate::player::{Player, TurnPlayer};
 pub struct ScriptCtx {
     world: *mut World,
     caller: Entity,
+    caster: Entity,
 }
 
 impl ScriptCtx {
-    pub fn new(world: &mut bevy::prelude::World, caller: Entity) -> Self {
-        Self { world, caller }
+    pub fn new(world: &mut bevy::prelude::World, caller: Entity, caster: Entity) -> Self {
+        Self {
+            world,
+            caller,
+            caster,
+        }
     }
 
     pub fn trigger<'a, E>(&mut self, event: E)

@@ -2,7 +2,6 @@ use bevy::ecs::{entity::Entity, query::With, system::Query};
 
 use crate::{
     actions::{
-        Requirement,
         targeting::{
             CreatureTarget, HandTarget, PlayerTarget, TargetFilter, TileTarget,
             systems::{CreatureQuery, HandQuery, PlayerQuery, TileQuery},

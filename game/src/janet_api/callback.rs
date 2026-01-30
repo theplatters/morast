@@ -2,6 +2,7 @@ use bevy::ecs::{
     component::Component,
     entity::Entity,
     event::{EntityEvent, Event},
+    hierarchy::ChildOf,
     observer::On,
     system::Commands,
     world::World,
@@ -39,14 +40,15 @@ impl<T: Completable> Callback<T, ()> {
     {
         commands.entity(self.trigger.entity).observe(
             move |e: On<Completed<T>>, world: &mut World| {
-                let mut ctx = ScriptCtx::new(world, e.entity);
+                let caster = world.get::<ChildOf>(self.trigger.entity).unwrap();
+                let mut ctx = ScriptCtx::new(world, e.entity, caster.0);
                 match &self.then {
                     CallbackFunction::RustFun(f) => {
                         (f)(&mut ctx, &e.payload);
                     }
                     CallbackFunction::JanetFun(j) => {
-                        let mut argv = [ctx.into(), e.payload.clone().into()];
-                        j.eval(argv.as_mut_slice());
+                        let argv = [ctx.into(), e.payload.clone().into()];
+                        j.eval(argv.as_slice());
                     }
                 };
             },
