@@ -40,10 +40,20 @@ pub struct NeedsTargeting;
 #[derive(Component, Debug, Clone, Copy)]
 pub struct NeedsFiltering;
 
+#[derive(EntityEvent)]
+pub struct Execute(pub Entity);
+
+impl From<Entity> for Execute {
+    fn from(entity: Entity) -> Self {
+        Execute(entity)
+    }
+}
+
 #[derive(Component, Debug, Clone)]
 pub struct Condition {
     pub eval_function: JFunction,
 }
+
 impl Condition {
     fn new(eval_function: JFunction) -> Self {
         Self { eval_function }

@@ -3,9 +3,10 @@ use bevy::ecs::{
     entity::Entity,
     event::{EntityEvent, Event},
     hierarchy::ChildOf,
+    lifecycle::HookContext,
     observer::On,
     system::Commands,
-    world::World,
+    world::{DeferredWorld, World},
 };
 use janet_bindings::types::{function::JFunction, janetenum::JanetEnum};
 

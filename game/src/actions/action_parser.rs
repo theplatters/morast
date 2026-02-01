@@ -9,7 +9,9 @@ pub struct ActionParser;
 #[derive(Debug, Clone)]
 pub enum ParseError {
     JanetError(JanetError),
-    ValueNotFound(&'static str),
+    NotFound(String),
+    Cast(String),
+    EngineError,
 }
 
 impl From<JanetError> for ParseError {
@@ -26,12 +28,12 @@ impl Display for ParseError {
 impl Error for ParseError {}
 
 impl ActionParser {
-    pub fn parse_action(item: JanetEnum) -> Result<GameAction, ParseError> {
-        let action_table = item.expect_table()?;
+    pub fn parse_action(item: &JanetEnum) -> Result<GameAction, ParseError> {
+        let action_table = item.as_table().unwrap();
         let condition = super::Condition::new(
             action_table
                 .get_function("condition")
-                .ok_or(ParseError::ValueNotFound("Could not find condition"))?,
+                .ok_or(ParseError::NotFound("Could not find condition".into()))?,
         );
         let speed = action_table
             .get("speed")
@@ -41,7 +43,7 @@ impl ActionParser {
 
         let action = action_table
             .get_function("action")
-            .ok_or(ParseError::ValueNotFound("Could not find action"))?
+            .ok_or(ParseError::NotFound("Could not find action".into()))?
             .into();
 
         Ok(GameAction::new(condition, speed, action))

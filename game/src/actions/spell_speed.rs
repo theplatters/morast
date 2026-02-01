@@ -1,8 +1,6 @@
 use bevy::ecs::component::Component;
 use janet_bindings::{error::JanetError, types::janetenum::JanetEnum};
 
-use crate::error::GameError;
-
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub enum SpellSpeed {
     #[default]

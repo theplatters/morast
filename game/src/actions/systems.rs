@@ -2,7 +2,8 @@ use bevy::ecs::{
     component::Component,
     entity::Entity,
     error::Result,
-    hierarchy::ChildOf,
+    event::EntityEvent,
+    observer::On,
     query::{With, Without},
     system::{Commands, Query},
     world::World,
@@ -10,14 +11,14 @@ use bevy::ecs::{
 use janet_bindings::{error::JanetError, types::janetenum::JanetEnum};
 
 use crate::{
-    actions::{Action, Condition, GameAction},
+    actions::{Action, ActionEffect, Condition, Execute},
     janet_api::world_context::ScriptCtx,
 };
 
 #[derive(Debug, Clone, Copy, Component)]
 pub struct CanExecute;
 
-fn can_execute(
+fn check_executable(
     condition: &Condition,
     caller: Entity,
     caster: Entity,
@@ -33,28 +34,36 @@ fn can_execute(
     Ok(is_executable)
 }
 
-pub fn eval_inactive_condition(
-    q_actions: Query<(Entity, &Condition, &Action), Without<CanExecute>>,
+pub fn eval_conditions(
+    q_actions: Query<(Entity, &Condition, &Action, Option<&CanExecute>)>,
     world: &mut World,
     mut commands: Commands,
 ) -> Result {
-    for (caller, action, caster) in q_actions {
-        if can_execute(action, caller, caster.caster, world)? {
-            commands.entity(caller).insert(CanExecute);
+    for (caller, condition, action, can_execute) in q_actions {
+        let should_execute = check_executable(condition, caller, action.caster, world)?;
+
+        match (can_execute.is_some(), should_execute) {
+            (false, true) => {
+                commands.entity(caller).insert(CanExecute);
+            }
+            (true, false) => {
+                commands.entity(caller).remove::<CanExecute>();
+            }
+            _ => {}
         }
     }
     Ok(())
 }
 
-pub fn eval_active_condition(
-    q_actions: Query<(Entity, &Condition, &Action), With<CanExecute>>,
+pub fn execute_action(
+    m: On<Execute>,
+    q_actions: Query<(Entity, &ActionEffect, &Action)>,
     world: &mut World,
     mut commands: Commands,
 ) -> Result {
-    for (caller, action, caster) in q_actions {
-        if !can_execute(action, caller, caster.caster, world)? {
-            commands.entity(caller).remove::<CanExecute>();
-        }
-    }
+    let (caller, ActionEffect { action }, &Action { caster }) = q_actions.get(m.event_target())?;
+    let script_ctx = ScriptCtx::new(world, caller, caster);
+    let argv = [script_ctx.into()];
+    action.eval(&argv)?;
     Ok(())
 }

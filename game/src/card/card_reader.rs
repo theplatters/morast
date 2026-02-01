@@ -1,16 +1,17 @@
 use std::str::FromStr;
 
-use bevy::math::I16Vec2;
-
+use bevy::{ecs::error::BevyError, math::I16Vec2};
 use janet_bindings::{
     controller::Environment,
     types::{janetenum::JanetEnum, table::Table},
 };
 
 use crate::{
-    actions::GameAction,
+    actions::{
+        GameAction,
+        action_parser::{ActionParser, ParseError},
+    },
     card::{Card, abilities::Abilities},
-    error::GameError,
     janet_api::api::to_i16_vec,
 };
 
@@ -32,49 +33,56 @@ impl<'a> FieldExtractor<'a> {
         Self { table, context }
     }
 
-    fn get_string(&self, field: &str) -> Result<String, GameError> {
+    fn get_string(&self, field: &str) -> Result<String, ParseError> {
         match self.table.get(field) {
             Some(JanetEnum::String(value)) => Ok(value.clone()),
-            _ => Err(GameError::NotFound(format!("{}: {}", self.context, field))),
+            _ => Err(ParseError::NotFound(format!("{}: {}", self.context, field))),
         }
     }
 
-    fn get_int(&self, field: &str) -> Result<i32, GameError> {
+    fn get_int(&self, field: &str) -> Result<i32, ParseError> {
         match self.table.get(field) {
             Some(JanetEnum::Int(value)) => Ok(value),
-            _ => Err(GameError::NotFound(format!("{}: {}", self.context, field))),
+            _ => Err(ParseError::NotFound(format!("{}: {}", self.context, field))),
         }
     }
 
-    fn get_optional_actions(&self, _field: &str) -> Result<Option<GameAction>, GameError> {
-        Ok(None)
+    fn get_actions(&self) -> Vec<Result<GameAction, ParseError>> {
+        let actions = self
+            .table
+            .get_array("actions")
+            .unwrap_or_default()
+            .iter()
+            .map(ActionParser::parse_action)
+            .collect();
+        actions
     }
 
-    fn get_required_actions(&self, field: &str) -> Result<GameAction, GameError> {
+    fn get_required_actions(&self, field: &str) -> Result<GameAction, ParseError> {
         match self.table.get(field) {
             Some(_value) => todo!(),
-            None => Err(GameError::NotFound(format!("{}: {}", self.context, field))),
+            None => Err(ParseError::NotFound(format!("{}: {}", self.context, field))),
         }
     }
 
-    fn get_i16_vec(&self, field: &str) -> Result<Vec<I16Vec2>, GameError> {
+    fn get_i16_vec(&self, field: &str) -> Result<Vec<I16Vec2>, ParseError> {
         let value = self
             .table
             .get(field)
-            .ok_or_else(|| GameError::NotFound(format!("{}: {}", self.context, field)))?;
+            .ok_or_else(|| ParseError::NotFound(format!("{}: {}", self.context, field)))?;
 
         to_i16_vec(value)
-            .ok_or_else(|| GameError::Cast(format!("Failed to cast {} to i16 vector", field)))
+            .ok_or_else(|| ParseError::Cast(format!("Failed to cast {} to i16 vector", field)))
     }
 
-    fn get_abilities(&self) -> Result<Vec<Abilities>, GameError> {
+    fn get_abilities(&self) -> Result<Vec<Abilities>, ParseError> {
         match self.table.get("abilities") {
             Some(JanetEnum::Array(abilities)) => abilities
                 .iter()
                 .map(|el| {
-                    let s: String = el.try_into().map_err(GameError::EngineError)?;
+                    let s: String = el.try_into().map_err(ParseError::JanetError)?;
                     Abilities::from_str(&s)
-                        .map_err(|e| GameError::Cast(format!("Ability could not be casted {}", e)))
+                        .map_err(|e| ParseError::Cast(format!("Ability could not be casted {}", e)))
                 })
                 .collect(),
             _ => Ok(Vec::new()),
@@ -86,11 +94,11 @@ impl<'a> FieldExtractor<'a> {
 struct CardDataRetriever;
 
 impl CardDataRetriever {
-    fn get_card_table(env: &Environment, name: &str) -> Result<Table, GameError> {
+    fn get_card_table(env: &Environment, name: &str) -> Result<Table, ParseError> {
         match JanetEnum::get(env, name, Some(name)) {
             Some(JanetEnum::Table(card_data)) => Ok(card_data),
-            Some(_) => Err(GameError::Cast("Card data is not in table format".into())),
-            None => Err(GameError::NotFound(format!("Card: {}", name))),
+            Some(_) => Err(ParseError::Cast("Card data is not in table format".into())),
+            None => Err(ParseError::NotFound(format!("Card: {}", name))),
         }
     }
 
@@ -98,7 +106,7 @@ impl CardDataRetriever {
         _env: &Environment,
         _action_name: &str,
         _card_name: &str,
-    ) -> Result<Option<GameAction>, GameError> {
+    ) -> Result<Option<GameAction>, BevyError> {
         todo!()
     }
 }
@@ -107,7 +115,7 @@ pub fn read_common_data(
     card_data: &Table,
     _env: &Environment,
     name: &str,
-) -> Result<CommonData, GameError> {
+) -> Result<CommonData, ParseError> {
     let extractor = FieldExtractor::new(card_data, name);
 
     Ok(CommonData {
@@ -118,7 +126,7 @@ pub fn read_common_data(
     })
 }
 
-pub fn read_creature(env: &Environment, name: &str) -> Result<Card, GameError> {
+pub fn read_creature(env: &Environment, name: &str) -> Result<Card, BevyError> {
     println!("Reading card: {}", name);
 
     let card_data = CardDataRetriever::get_card_table(env, name)?;
@@ -127,11 +135,6 @@ pub fn read_creature(env: &Environment, name: &str) -> Result<Card, GameError> {
     let common_data = read_common_data(&card_data, env, name)?;
 
     // Parse all actions
-    let draw_action = extractor.get_optional_actions("on-draw")?;
-    let play_action = extractor.get_optional_actions("on-play")?;
-    let turn_begin_action = extractor.get_optional_actions("on-turn-begin")?;
-    let turn_end_action = extractor.get_optional_actions("on-turn-end")?;
-    let discard_action = extractor.get_optional_actions("on-discard")?;
 
     // Parse creature-specific fields
     let attack = extractor.get_i16_vec("attack")?;
@@ -141,9 +144,7 @@ pub fn read_creature(env: &Environment, name: &str) -> Result<Card, GameError> {
     let movement_points = extractor.get_int("movement-points")? as u16;
     let abilities = extractor.get_abilities()?;
 
-    println!("Card {} - Play action {:?}", name, play_action);
-
-    Card::builder()
+    Ok(Card::builder()
         .common_data(common_data)
         .creature()
         .movement(movement)
@@ -152,10 +153,10 @@ pub fn read_creature(env: &Environment, name: &str) -> Result<Card, GameError> {
         .attack_pattern(attack)
         .defense(defense)
         .abilities(abilities)
-        .build()
+        .build()?)
 }
 
-pub fn read_spell(env: &Environment, name: &str) -> Result<Card, GameError> {
+pub fn read_spell(env: &Environment, name: &str) -> Result<Card, BevyError> {
     println!("Reading card: {}", name);
     let card_data = CardDataRetriever::get_card_table(env, name)?;
     let extractor = FieldExtractor::new(&card_data, name);
@@ -163,26 +164,26 @@ pub fn read_spell(env: &Environment, name: &str) -> Result<Card, GameError> {
     let common_data = read_common_data(&card_data, env, name)?;
     let play_action = extractor.get_required_actions("on-play")?;
 
-    Card::builder()
+    Ok(Card::builder()
         .common_data(common_data)
         .spell()
         .on_play_action(play_action)
-        .build()
+        .build()?)
 }
 
-pub fn read_trap(env: &Environment, name: &str) -> Result<Card, GameError> {
+pub fn read_trap(env: &Environment, name: &str) -> Result<Card, BevyError> {
     let card_data = CardDataRetriever::get_card_table(env, name)?;
     let common_data = read_common_data(&card_data, env, name)?;
 
     let place_action = CardDataRetriever::get_action_from_env(env, "on-play", name)?;
     let reveal_action = CardDataRetriever::get_action_from_env(env, "on-reveal", name)?.unwrap();
 
-    Card::builder()
+    Ok(Card::builder()
         .common_data(common_data)
         .trap()
         .on_play_action(place_action)
         .reveal_action(reveal_action)
-        .build()
+        .build()?)
 }
 
 // Extract string list parsing to a helper

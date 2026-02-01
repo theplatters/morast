@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use bevy::ecs::{
+    error::BevyError,
     resource::Resource,
     system::{NonSendMut, ResMut},
 };
@@ -11,7 +12,6 @@ use super::{
     card_type::CardTypes,
     creature::Creature,
 };
-use crate::error::GameError;
 use janet_bindings::controller::Environment;
 
 use super::{
@@ -48,7 +48,7 @@ impl CardRegistry {
         env: &Environment,
         name: &str,
         card_type: CardTypes,
-    ) -> Result<CardID, GameError> {
+    ) -> Result<CardID, BevyError> {
         let card = match card_type {
             CardTypes::Creature => read_creature(env, name)?,
             CardTypes::Spell => read_spell(env, name)?,
