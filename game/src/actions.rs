@@ -1,11 +1,12 @@
 use bevy::{
+    app::Plugin,
     ecs::{bundle::Bundle, component::Component, entity::Entity, event::EntityEvent},
     math::I16Vec2,
 };
 use janet_bindings::types::function::JFunction;
 
 use crate::{
-    actions::{spell_speed::SpellSpeed, value_source::StatModifier},
+    actions::{spell_speed::SpellSpeed, systems::execute_action, value_source::StatModifier},
     board::effect::EffectType,
 };
 
@@ -153,4 +154,12 @@ pub struct ReturnToHand {
 pub struct Mill {
     amount: u16,
     entity: Entity,
+}
+
+pub struct ActionPlugin;
+
+impl Plugin for ActionPlugin {
+    fn build(&self, app: &mut bevy::app::App) {
+        app.add_observer(execute_action);
+    }
 }
