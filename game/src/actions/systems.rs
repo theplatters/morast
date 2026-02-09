@@ -22,9 +22,9 @@ fn check_executable(
     condition: &Condition,
     caller: Entity,
     caster: Entity,
-    world: &mut World,
+    commands: &mut Commands,
 ) -> Result<bool, JanetError> {
-    let mut script_ctx = ScriptCtx::new(world, caller, caster).into();
+    let mut script_ctx = ScriptCtx::new(commands, caller, caster).into();
     let JanetEnum::Bool(is_executable) = condition
         .eval_function
         .eval(std::slice::from_mut(&mut script_ctx))?
@@ -36,11 +36,10 @@ fn check_executable(
 
 pub fn eval_conditions(
     q_actions: Query<(Entity, &Condition, &Action, Option<&CanExecute>)>,
-    world: &mut World,
     mut commands: Commands,
 ) -> Result {
     for (caller, condition, action, can_execute) in q_actions {
-        let should_execute = check_executable(condition, caller, action.caster, world)?;
+        let should_execute = check_executable(condition, caller, action.caster, &mut commands)?;
 
         match (can_execute.is_some(), should_execute) {
             (false, true) => {
@@ -58,11 +57,10 @@ pub fn eval_conditions(
 pub fn execute_action(
     m: On<Execute>,
     q_actions: Query<(Entity, &ActionEffect, &Action)>,
-    world: &mut World,
     mut commands: Commands,
 ) -> Result {
     let (caller, ActionEffect { action }, &Action { caster }) = q_actions.get(m.event_target())?;
-    let script_ctx = ScriptCtx::new(world, caller, caster);
+    let script_ctx = ScriptCtx::new(&mut commands, caller, caster);
     let argv = [script_ctx.into()];
     action.eval(&argv)?;
     Ok(())

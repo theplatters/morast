@@ -1,6 +1,8 @@
 use bevy::{
-    app::Plugin,
-    ecs::{bundle::Bundle, component::Component, entity::Entity, event::EntityEvent},
+    app::{FixedUpdate, Plugin},
+    ecs::{
+        bundle::Bundle, component::Component, entity::Entity, event::EntityEvent, message::Message,
+    },
     math::I16Vec2,
 };
 use janet_bindings::types::function::JFunction;
@@ -29,7 +31,7 @@ pub struct Actions(Vec<Entity>);
 #[relationship(relationship_target = Actions)]
 pub struct Action {
     #[relationship]
-    caster: Entity,
+    pub caster: Entity,
 }
 
 #[derive(Component, Debug, Clone, Copy)]

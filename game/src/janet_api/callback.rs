@@ -5,12 +5,12 @@ use bevy::ecs::{
     hierarchy::ChildOf,
     lifecycle::HookContext,
     observer::On,
-    system::Commands,
+    system::{Commands, Query},
     world::{DeferredWorld, World},
 };
 use janet_bindings::types::{function::JFunction, janetenum::JanetEnum};
 
-use crate::janet_api::world_context::ScriptCtx;
+use crate::{actions::Action, janet_api::world_context::ScriptCtx};
 
 pub trait Completable {
     type Res: Sync + Send + 'static + Into<JanetEnum> + Clone;
@@ -40,9 +40,9 @@ impl<T: Completable> Callback<T, ()> {
         T::Res: Send + Sync + 'static,
     {
         commands.entity(self.trigger.entity).observe(
-            move |e: On<Completed<T>>, world: &mut World| {
-                let caster = world.get::<ChildOf>(self.trigger.entity).unwrap();
-                let mut ctx = ScriptCtx::new(world, e.entity, caster.0);
+            move |e: On<Completed<T>>, mut commands: Commands, q_childs: Query<&Action>| {
+                let &Action { caster } = q_childs.get(self.trigger.entity).unwrap();
+                let mut ctx = ScriptCtx::new(&mut commands, e.entity, caster);
                 match &self.then {
                     CallbackFunction::RustFun(f) => {
                         (f)(&mut ctx, &e.payload);

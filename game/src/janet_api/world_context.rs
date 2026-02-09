@@ -1,49 +1,49 @@
 use bevy::ecs::{
-    component::Component, entity::Entity, event::Event, query::With, system::Single, world::World,
+    entity::Entity,
+    event::Event,
+    query::With,
+    system::{Commands, Query, SystemParam},
+    world::EntityRef,
 };
-use janet_bindings::{
-    bindings::JanetAbstractType,
-    types::{function::JFunction, janetabstract::IsAbstract},
+use janet_bindings::{bindings::JanetAbstractType, types::janetabstract::IsAbstract};
+
+use crate::{
+    board::tile::Tile,
+    card::{CreatureCard, SpellCard, TrapCard},
+    player::{Player, TurnPlayer},
 };
 
-use crate::player::{Player, TurnPlayer};
+#[derive(SystemParam)]
+pub struct ScriptCache<'w, 's> {
+    pub creatures: Query<'w, 's, EntityRef<'static>, With<CreatureCard>>,
+    pub traps: Query<'w, 's, EntityRef<'static>, With<TrapCard>>,
+    pub spells: Query<'w, 's, EntityRef<'static>, With<SpellCard>>,
+    pub tiles: Query<'w, 's, EntityRef<'static>, With<Tile>>,
+    pub players: Query<'w, 's, EntityRef<'static>, With<Player>>,
+}
 
 #[repr(C)]
-pub struct ScriptCtx {
-    world: *mut World,
-    caller: Entity,
-    caster: Entity,
+pub struct ScriptCtx<'w, 's, 'c> {
+    cache: &'c ScriptCache<'w, 's>,
+    commands: &'c mut Commands<'w, 's>,
 }
 
-impl ScriptCtx {
-    pub fn new(world: &mut bevy::prelude::World, caller: Entity, caster: Entity) -> Self {
-        Self {
-            world,
-            caller,
-            caster,
-        }
+impl<'w, 's, 'c> ScriptCtx<'w, 's, 'c> {
+    pub fn new(commands: &'c mut Commands<'w, 's>, cache: &'c ScriptCache<'w, 's>) -> Self {
+        Self { cache, commands }
     }
 
-    pub fn trigger<'a, E>(&mut self, event: E)
+    pub fn trigger<'e, E>(&mut self, event: E)
     where
-        E: Event<Trigger<'a>: Default>,
+        E: Event<Trigger<'e>: Default>,
     {
-        unsafe {
-            (*self.world).trigger(event);
-        }
+        self.commands.trigger(event);
     }
 
-    pub fn turn_player(&mut self) -> Entity {
-        unsafe {
-            (*self.world)
-                .query_filtered::<Entity, With<TurnPlayer>>()
-                .single(self.world.as_ref().unwrap())
-                .unwrap()
-        }
-    }
+    pub(crate) fn turn_player(&self) -> Entity {}
 }
 
-impl IsAbstract for ScriptCtx {
+impl<'a, 'b, 'c> IsAbstract for ScriptCtx<'a, 'b, 'c> {
     fn type_info() -> &'static janet_bindings::bindings::JanetAbstractType {
         const CONDITION_ATYPE: JanetAbstractType =
             JanetAbstractType::new(c"main/script-cxt", ScriptCtx::gc);
