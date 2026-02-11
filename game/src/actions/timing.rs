@@ -54,9 +54,7 @@ impl Ord for ActionTiming {
     fn cmp(&self, other: &Self) -> Ordering {
         self.partial_cmp(other).unwrap_or_else(|| {
             // Handle the incomparable cases by defining an arbitrary but consistent ordering
-            match (self, other) {
-                _ => unreachable!("All other cases should be comparable"),
-            }
+            unreachable!("All other cases should be comparable")
         })
     }
 }

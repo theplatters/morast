@@ -111,7 +111,7 @@ pub fn damage(argv: &mut [JanetEnum]) -> Result<JanetEnum, JanetError> {
     ))? as u16;
 
     let entity = unwrap_entity(&argv[1])?;
-    let mut context = unwrap_context(&mut argv[0])?;
+    let context = unwrap_context(&mut argv[0])?;
 
     context.trigger(DealDamage { amount, entity });
 
@@ -130,7 +130,7 @@ pub fn heal(argv: &mut [JanetEnum]) -> Result<JanetEnum, JanetError> {
     ))? as u16;
 
     let entity = unwrap_entity(&argv[1])?;
-    let mut context = unwrap_context(&mut argv[0])?;
+    let context = unwrap_context(&mut argv[0])?;
 
     context.trigger(HealCreature { amount, entity });
 

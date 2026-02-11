@@ -8,13 +8,17 @@ use bevy::{
 use janet_bindings::types::function::JFunction;
 
 use crate::{
-    actions::{spell_speed::SpellSpeed, systems::execute_action, value_source::StatModifier},
+    actions::{
+        hooks::{Hook, HookEvent},
+        spell_speed::SpellSpeed,
+        systems::{eval_conditions, execute_action},
+        value_source::StatModifier,
+    },
     board::effect::EffectType,
 };
 
 pub mod action_builder;
 pub mod action_parser;
-pub mod action_systems;
 pub mod conditions;
 pub mod hooks;
 pub mod spell_speed;
@@ -102,8 +106,12 @@ pub struct MoveCreature {
     entity: Entity,
 }
 
+impl HookEvent for MoveCreature {}
+
 #[derive(EntityEvent)]
 pub struct EndTurn(Entity);
+
+impl HookEvent for EndTurn {}
 
 // Atomic effects
 #[derive(EntityEvent)]
@@ -112,21 +120,31 @@ pub struct DealDamage {
     pub entity: Entity,
 }
 
+impl HookEvent for DealDamage {}
+
 #[derive(EntityEvent)]
 pub struct HealCreature {
     pub amount: u16,
     pub entity: Entity,
 }
+
+impl HookEvent for HealCreature {}
+
 #[derive(EntityEvent)]
 pub struct DrawCards {
     amount: u16,
     entity: Entity,
 }
+
+impl HookEvent for DrawCards {}
+
 #[derive(EntityEvent)]
 pub struct AddGold {
     amount: u16,
     entity: Entity,
 }
+
+impl HookEvent for AddGold {}
 #[derive(EntityEvent)]
 pub struct ApplyEffect {
     effect: EffectType,
@@ -134,34 +152,50 @@ pub struct ApplyEffect {
     entity: Entity,
 }
 
+impl HookEvent for ApplyEffect {}
+
 #[derive(EntityEvent)]
 pub struct DestroyCreature {
     entity: Entity,
 }
+impl HookEvent for DestroyCreature {}
+
 #[derive(EntityEvent)]
 pub struct ModifyStats {
     entity: Entity,
     stat_modifier: StatModifier,
 }
+
+impl HookEvent for ModifyStats {}
+
 #[derive(EntityEvent)]
 pub struct DiscardCards {
     amount: u16,
     entity: Entity,
 }
+
+impl HookEvent for DiscardCards {}
+
 #[derive(EntityEvent)]
 pub struct ReturnToHand {
     entity: Entity,
 }
+
+impl HookEvent for ReturnToHand {}
+
 #[derive(EntityEvent)]
 pub struct Mill {
     amount: u16,
     entity: Entity,
 }
 
+impl HookEvent for Mill {}
+
 pub struct ActionPlugin;
 
 impl Plugin for ActionPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-        app.add_observer(execute_action);
+        app.add_observer(execute_action)
+            .add_systems(FixedUpdate, eval_conditions);
     }
 }

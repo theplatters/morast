@@ -7,10 +7,7 @@ use crate::{
     actions::targeting::{CreatureTarget, MultiTarget, Or, PlayerTarget},
     board::effect::EffectType,
 };
-use bevy::{
-    ecs::{component::Component, world::World},
-    reflect::Is,
-};
+use bevy::ecs::component::Component;
 use janet_bindings::{bindings::JanetAbstractType, types::janetabstract::IsAbstract};
 
 #[derive(Component, Debug, Clone)]

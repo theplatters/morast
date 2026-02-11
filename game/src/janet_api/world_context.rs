@@ -1,8 +1,8 @@
 use bevy::ecs::{
-    entity::Entity,
+    entity::{ContainsEntity, Entity},
     event::Event,
     query::With,
-    system::{Commands, Query, SystemParam},
+    system::{Commands, Query, Single, SystemParam},
     world::EntityRef,
 };
 use janet_bindings::{bindings::JanetAbstractType, types::janetabstract::IsAbstract};
@@ -20,17 +20,30 @@ pub struct ScriptCache<'w, 's> {
     pub spells: Query<'w, 's, EntityRef<'static>, With<SpellCard>>,
     pub tiles: Query<'w, 's, EntityRef<'static>, With<Tile>>,
     pub players: Query<'w, 's, EntityRef<'static>, With<Player>>,
+    pub turn_player: Single<'w, 's, Entity, With<TurnPlayer>>,
 }
 
 #[repr(C)]
-pub struct ScriptCtx<'w, 's, 'c> {
+pub struct ScriptCtx<'w, 's, 'w1, 's1, 'c> {
     cache: &'c ScriptCache<'w, 's>,
-    commands: &'c mut Commands<'w, 's>,
+    commands: &'c mut Commands<'w1, 's1>,
+    caster: Entity,
+    calling_action: Entity,
 }
 
-impl<'w, 's, 'c> ScriptCtx<'w, 's, 'c> {
-    pub fn new(commands: &'c mut Commands<'w, 's>, cache: &'c ScriptCache<'w, 's>) -> Self {
-        Self { cache, commands }
+impl<'w, 's, 'w1, 's1, 'c> ScriptCtx<'w, 's, 'w1, 's1, 'c> {
+    pub fn new(
+        commands: &'c mut Commands<'w1, 's1>,
+        cache: &'c ScriptCache<'w, 's>,
+        calling_action: Entity,
+        caster: Entity,
+    ) -> Self {
+        Self {
+            cache,
+            commands,
+            calling_action,
+            caster,
+        }
     }
 
     pub fn trigger<'e, E>(&mut self, event: E)
@@ -40,10 +53,12 @@ impl<'w, 's, 'c> ScriptCtx<'w, 's, 'c> {
         self.commands.trigger(event);
     }
 
-    pub(crate) fn turn_player(&self) -> Entity {}
+    pub(crate) fn turn_player(&self) -> Entity {
+        self.cache.turn_player.entity()
+    }
 }
 
-impl<'a, 'b, 'c> IsAbstract for ScriptCtx<'a, 'b, 'c> {
+impl<'w, 's, 'w1, 's1, 'c> IsAbstract for ScriptCtx<'w, 's, 'w1, 's1, 'c> {
     fn type_info() -> &'static janet_bindings::bindings::JanetAbstractType {
         const CONDITION_ATYPE: JanetAbstractType =
             JanetAbstractType::new(c"main/script-cxt", ScriptCtx::gc);
