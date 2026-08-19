@@ -4,7 +4,7 @@ use bevy::ecs::component::Component;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Component)]
 
-pub struct CardID(u32);
+pub struct CardID(pub(crate) u32);
 impl CardID {
     // Existing methods
     pub fn new(id: u32) -> Self {
@@ -12,6 +12,9 @@ impl CardID {
     }
     pub fn next(&self) -> Self {
         Self(self.0 + 1)
+    }
+    pub fn value(&self) -> u32 {
+        self.0
     }
 }
 

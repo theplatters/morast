@@ -1,0 +1,15 @@
+CardDef(
+    name: "tower",
+    cost: 1,
+    description: "Stands tall over the lands",
+    display_image: "missing",
+    kind: Creature((
+        attack: 3,
+        defense: 2,
+        movement_points: 0,
+        movement: Offsets([]),
+        attack_pattern: Union([Cross(1), Cross(2), Plus(2), Plus(1)]),
+        abilities: [Flying, Digging],
+    )),
+    abilities: [],
+)

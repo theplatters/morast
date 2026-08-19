@@ -1,0 +1,32 @@
+CardDef(
+    name: "zombie",
+    cost: 2,
+    description: "He has seen better days",
+    display_image: "missing",
+    kind: Creature((
+        attack: 2,
+        defense: 1,
+        movement_points: 1,
+        movement: Plus(1),
+        attack_pattern: Union([Cross(1), Plus(1)]),
+        abilities: [Digging],
+    )),
+    abilities: [
+        AbilityDef(
+            trigger: OnPlay,
+            condition: Always,
+            effects: [
+                ApplyEffect(
+                    selector: (
+                        kind: Tile,
+                        cardinality: Multi,
+                        selection: RadiusAroundCaster(radius: 1),
+                        filters: [],
+                    ),
+                    effect: Weakening,
+                    duration: 2,
+                ),
+            ],
+        ),
+    ],
+)

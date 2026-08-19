@@ -1,7 +1,5 @@
 use std::fmt::Display;
 
-use janet_bindings::error::JanetError;
-
 use super::board::place_error::BoardError;
 
 #[derive(Debug)]
@@ -14,7 +12,8 @@ pub enum GameError {
     NotFound(String),
     Cast(String),
     InsufficientGold,
-    EngineError(JanetError),
+    LoadError(String),
+    DefError(String),
     InvalidHandPosition(usize),
     Incomplete(&'static str),
     InvalidCardType,
@@ -35,7 +34,8 @@ impl Display for GameError {
             GameError::NotFound(s) => write!(f, "Not found: {}", s),
             GameError::Cast(s) => write!(f, "Cast error: {}", s),
             GameError::InsufficientGold => write!(f, "InsufficientGold"),
-            GameError::EngineError(engine_error) => write!(f, "EngineError: {}", engine_error),
+            GameError::LoadError(msg) => write!(f, "LoadError: {}", msg),
+            GameError::DefError(msg) => write!(f, "DefError: {}", msg),
             GameError::InvalidHandPosition(pos) => write!(f, "Invalud Hand position: {}", pos),
             GameError::Incomplete(s) => write!(f, "Inclomplete: {}", s),
             GameError::InvalidCardType => write!(f, "InvalidCardType"),

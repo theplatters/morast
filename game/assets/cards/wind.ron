@@ -1,0 +1,25 @@
+CardDef(
+    name: "wind",
+    cost: 2,
+    description: "Blows away a card",
+    display_image: "missing",
+    kind: Spell,
+    abilities: [
+        AbilityDef(
+            trigger: OnPlay,
+            condition: Always,
+            effects: [
+                MoveCreature(
+                    selector: (
+                        kind: Tile,
+                        cardinality: Single,
+                        selection: ChooseTiles(amount: Constant(1)),
+                        filters: [],
+                    ),
+                    direction: (1, 0),
+                    absolute: false,
+                ),
+            ],
+        ),
+    ],
+)

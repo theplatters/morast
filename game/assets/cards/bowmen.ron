@@ -1,0 +1,15 @@
+CardDef(
+    name: "bowmen",
+    cost: 1,
+    description: "A bowmen. He has a bow a few arrors and a mission",
+    display_image: "missing",
+    kind: Creature((
+        attack: 3,
+        defense: 1,
+        movement_points: 2,
+        movement: Plus(1),
+        attack_pattern: Union([Plus(1), Plus(2)]),
+        abilities: [],
+    )),
+    abilities: [],
+)

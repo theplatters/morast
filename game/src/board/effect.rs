@@ -2,10 +2,10 @@ use std::str::FromStr;
 
 use bevy::ecs::{bundle::Bundle, component::Component, entity::Entity};
 
-use crate::{board::tile::EffectsOnTile, error::GameError, player::Player};
-use janet_bindings::types::janetenum::JanetEnum;
+use crate::{board::tile::EffectsOnTile, player::Player};
+use serde::{Deserialize, Serialize};
 
-#[derive(Component, Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Serialize, Deserialize)]
 pub enum EffectType {
     Slow,
     Weakening,
@@ -15,7 +15,7 @@ pub enum EffectType {
 pub struct EffectDuration(pub u16);
 impl EffectDuration {
     pub(crate) fn decrease(&mut self) {
-        self.0.saturating_sub(1);
+        self.0 = self.0.saturating_sub(1);
     }
 
     pub(crate) fn over(&self) -> bool {
@@ -71,23 +71,4 @@ impl FromStr for EffectType {
     }
 }
 
-impl TryFrom<JanetEnum> for EffectType {
-    type Error = GameError;
 
-    fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
-        match &value {
-            JanetEnum::Int(0) | JanetEnum::UInt(0) => Ok(Self::Slow),
-            JanetEnum::Int(1) | JanetEnum::UInt(1) => Ok(Self::Weakening),
-
-            JanetEnum::String(s) if s == "slow" => Ok(Self::Slow),
-            JanetEnum::String(s) if s == "weakening" => Ok(Self::Weakening),
-
-            JanetEnum::Int(_) | JanetEnum::UInt(_) | JanetEnum::String(_) => {
-                Err(GameError::Cast("Effect type not impleneted".into()))
-            }
-            _ => Err(GameError::Cast(
-                "Unsupported janet type for effect type".into(),
-            )),
-        }
-    }
-}

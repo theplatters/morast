@@ -14,7 +14,7 @@ pub struct Player {
 }
 
 /// Player's resources
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct PlayerResources {
     pub health: u16,
     pub max_health: u16,

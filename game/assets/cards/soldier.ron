@@ -1,0 +1,15 @@
+CardDef(
+    name: "soldier",
+    cost: 1,
+    description: "A soldier drafted from the finest of peasents",
+    display_image: "missing",
+    kind: Creature((
+        attack: 3,
+        defense: 3,
+        movement_points: 3,
+        movement: Plus(1),
+        attack_pattern: Plus(1),
+        abilities: [Flying, Digging],
+    )),
+    abilities: [],
+)

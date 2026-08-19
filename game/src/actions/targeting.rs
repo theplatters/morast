@@ -2,21 +2,20 @@ use bevy::{
     ecs::{component::Component, entity::Entity, query::With, system::Query},
     log::warn,
 };
-use janet_bindings::types::janetabstract::IsAbstract;
 use rand::seq::SliceRandom;
 
 use crate::{
     actions::{
         targeting::{
-            filters::{FilterParams, IsFilter},
+            filters::IsFilter,
             systems::{CreatureQuery, TileQuery},
         },
-        value_source::ValueSource,
+        value_source::{ValueEvalParams, ValueSource},
     },
     board::tile::Tile,
 };
 
-mod filters;
+pub mod filters;
 pub mod systems;
 pub mod target_builder;
 
@@ -92,11 +91,11 @@ pub enum SelectionMethod<K: TargetKind<C>, C: Constraint> {
 }
 
 impl<K: TargetKind<C>, C: Constraint> IsTargetSelectMode for SelectionMethod<K, C> {
-    fn find_suitable(&self, query: &FilterParams, caster: Entity) -> Vec<Entity> {
+    fn find_suitable(&self, params: &mut ValueEvalParams, caster: Entity) -> Vec<Entity> {
         match self {
-            SelectionMethod::Auto(auto_selector) => auto_selector.find_suitable(query, caster),
+            SelectionMethod::Auto(auto_selector) => auto_selector.find_suitable(params, caster),
             SelectionMethod::Manual(manual_selector) => {
-                manual_selector.find_suitable(query, caster)
+                manual_selector.find_suitable(params, caster)
             }
         }
     }
@@ -115,8 +114,8 @@ pub struct AutoSelector<K: TargetKind<C>, C: Constraint> {
 }
 
 impl<K: TargetKind<C>, C: Constraint> IsTargetSelectMode for AutoSelector<K, C> {
-    fn find_suitable(&self, query: &FilterParams, caster: Entity) -> Vec<Entity> {
-        self.mode.find_suitable(query, caster)
+    fn find_suitable(&self, params: &mut ValueEvalParams, caster: Entity) -> Vec<Entity> {
+        self.mode.find_suitable(params, caster)
     }
     fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
         self.mode.finalize(candidates)
@@ -139,8 +138,8 @@ pub struct ManualSelector<K: TargetKind<C>, C: Constraint> {
 }
 
 impl<K: TargetKind<C>, C: Constraint> IsTargetSelectMode for ManualSelector<K, C> {
-    fn find_suitable(&self, query: &FilterParams, caster: Entity) -> Vec<Entity> {
-        self.mode.find_suitable(query, caster)
+    fn find_suitable(&self, params: &mut ValueEvalParams, caster: Entity) -> Vec<Entity> {
+        self.mode.find_suitable(params, caster)
     }
 
     fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
@@ -157,6 +156,7 @@ impl<K: TargetKind<C>, C: Constraint> ManualSelector<K, C> {
     }
 }
 
+#[derive(Clone, Debug)]
 pub enum AutoMultiTile {
     AllTiles,
     RadiusAroundCaster { radius: u8 },
@@ -180,6 +180,7 @@ pub enum ManualCreature {
 pub enum AutoSingleCreature {
     Strongest,
     Caster,
+    CurrentTarget,
 }
 
 #[derive(Clone, Debug)]
@@ -192,6 +193,7 @@ pub enum ManualTile {
 pub enum AutoPlayerSingle {
     TurnPlayer,
     NonTurnPlayer,
+    Owner,
 }
 
 #[derive(Clone, Debug)]
@@ -210,7 +212,7 @@ pub enum AutoHand {
 
 #[derive(Clone, Debug)]
 pub struct ManualHand {
-    count: ValueSource,
+    pub count: ValueSource,
 }
 
 impl TargetKind<SingleTarget> for CreatureTarget {
@@ -224,12 +226,12 @@ impl TargetKind<MultiTarget> for CreatureTarget {
 }
 
 impl TargetKind<SingleTarget> for TileTarget {
-    type Auto = ();
+    type Auto = AutoMultiTile;
     type Manual = ManualTile;
 }
 
 impl TargetKind<MultiTarget> for TileTarget {
-    type Auto = ();
+    type Auto = AutoMultiTile;
     type Manual = ManualTile;
 }
 
@@ -271,6 +273,92 @@ where
 pub enum Either<L, R> {
     Left(L),
     Right(R),
+}
+
+// Convenience conversions so callers can write `SelectionMethod::from(mode)`.
+
+impl From<AutoSingleCreature> for SelectionMethod<CreatureTarget, SingleTarget> {
+    fn from(mode: AutoSingleCreature) -> Self {
+        SelectionMethod::Auto(AutoSelector::new(mode))
+    }
+}
+
+impl From<AutoMultiCreature> for SelectionMethod<CreatureTarget, MultiTarget> {
+    fn from(mode: AutoMultiCreature) -> Self {
+        SelectionMethod::Auto(AutoSelector::new(mode))
+    }
+}
+
+impl From<ManualCreature> for SelectionMethod<CreatureTarget, SingleTarget> {
+    fn from(mode: ManualCreature) -> Self {
+        SelectionMethod::Manual(ManualSelector::new(mode))
+    }
+}
+
+impl From<ManualCreature> for SelectionMethod<CreatureTarget, MultiTarget> {
+    fn from(mode: ManualCreature) -> Self {
+        SelectionMethod::Manual(ManualSelector::new(mode))
+    }
+}
+
+impl From<AutoMultiTile> for SelectionMethod<TileTarget, MultiTarget> {
+    fn from(mode: AutoMultiTile) -> Self {
+        SelectionMethod::Auto(AutoSelector::new(mode))
+    }
+}
+
+impl From<ManualTile> for SelectionMethod<TileTarget, SingleTarget> {
+    fn from(mode: ManualTile) -> Self {
+        SelectionMethod::Manual(ManualSelector::new(mode))
+    }
+}
+
+impl From<ManualTile> for SelectionMethod<TileTarget, MultiTarget> {
+    fn from(mode: ManualTile) -> Self {
+        SelectionMethod::Manual(ManualSelector::new(mode))
+    }
+}
+
+impl From<AutoPlayerSingle> for SelectionMethod<PlayerTarget, SingleTarget> {
+    fn from(mode: AutoPlayerSingle) -> Self {
+        SelectionMethod::Auto(AutoSelector::new(mode))
+    }
+}
+
+impl From<AutoPlayerMulti> for SelectionMethod<PlayerTarget, MultiTarget> {
+    fn from(mode: AutoPlayerMulti) -> Self {
+        SelectionMethod::Auto(AutoSelector::new(mode))
+    }
+}
+
+impl From<ManualPlayer> for SelectionMethod<PlayerTarget, SingleTarget> {
+    fn from(mode: ManualPlayer) -> Self {
+        SelectionMethod::Manual(ManualSelector::new(mode))
+    }
+}
+
+impl From<AutoHand> for SelectionMethod<HandTarget, SingleTarget> {
+    fn from(mode: AutoHand) -> Self {
+        SelectionMethod::Auto(AutoSelector::new(mode))
+    }
+}
+
+impl From<AutoHand> for SelectionMethod<HandTarget, MultiTarget> {
+    fn from(mode: AutoHand) -> Self {
+        SelectionMethod::Auto(AutoSelector::new(mode))
+    }
+}
+
+impl From<ManualHand> for SelectionMethod<HandTarget, SingleTarget> {
+    fn from(mode: ManualHand) -> Self {
+        SelectionMethod::Manual(ManualSelector::new(mode))
+    }
+}
+
+impl From<ManualHand> for SelectionMethod<HandTarget, MultiTarget> {
+    fn from(mode: ManualHand) -> Self {
+        SelectionMethod::Manual(ManualSelector::new(mode))
+    }
 }
 
 pub type CreatureSel<C> = TargetSelector<CreatureTarget, C>;
@@ -351,18 +439,11 @@ where
     }
 }
 
-impl<K, C> IsAbstract for TargetSelector<K, C>
-where
-    K: TargetKind<C>,
-    C: Constraint,
-{
-    fn type_info() -> &'static janet_bindings::bindings::JanetAbstractType {
-        todo!()
-    }
-}
-
-fn select_friendly(q_creatures: Query<CreatureQuery>, caster: Entity) -> Vec<Entity> {
-    let owner_of_caster = q_creatures.get(caster).unwrap().owner;
+fn select_friendly(q_creatures: &Query<CreatureQuery>, caster: Entity) -> Vec<Entity> {
+    let Ok(caster_creature) = q_creatures.get(caster) else {
+        return Vec::new();
+    };
+    let owner_of_caster = caster_creature.owner;
     q_creatures
         .iter()
         .filter(|q| q.owner == owner_of_caster)
@@ -370,8 +451,11 @@ fn select_friendly(q_creatures: Query<CreatureQuery>, caster: Entity) -> Vec<Ent
         .collect()
 }
 
-fn select_enemy(q_creatures: Query<CreatureQuery>, caster: Entity) -> Vec<Entity> {
-    let owner_of_caster = q_creatures.get(caster).unwrap().owner;
+fn select_enemy(q_creatures: &Query<CreatureQuery>, caster: Entity) -> Vec<Entity> {
+    let Ok(caster_creature) = q_creatures.get(caster) else {
+        return Vec::new();
+    };
+    let owner_of_caster = caster_creature.owner;
     q_creatures
         .iter()
         .filter(|q| q.owner != owner_of_caster)
@@ -379,16 +463,16 @@ fn select_enemy(q_creatures: Query<CreatureQuery>, caster: Entity) -> Vec<Entity
         .collect()
 }
 
-fn select_all_creatures(q_creatures: Query<CreatureQuery>) -> Vec<Entity> {
+fn select_all_creatures(q_creatures: &Query<CreatureQuery>) -> Vec<Entity> {
     q_creatures.iter().map(|c| c.entity).collect()
 }
 
-fn select_all_tiles(q_tiles: Query<TileQuery, With<Tile>>) -> Vec<Entity> {
+fn select_all_tiles(q_tiles: &Query<TileQuery, With<Tile>>) -> Vec<Entity> {
     q_tiles.iter().map(|c| c.entity).collect()
 }
 
 pub trait IsTargetSelectMode: std::fmt::Debug + Send + Sync + 'static {
-    fn find_suitable(&self, query: &FilterParams, caster: Entity) -> Vec<Entity>;
+    fn find_suitable(&self, params: &mut ValueEvalParams, caster: Entity) -> Vec<Entity>;
     fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect;
 }
 
@@ -403,23 +487,22 @@ pub enum FinalizeEffect {
 }
 
 impl IsTargetSelectMode for AutoSingleCreature {
-    fn find_suitable(&self, query: &FilterParams, caster: Entity) -> Vec<Entity> {
+    fn find_suitable(&self, params: &mut ValueEvalParams, caster: Entity) -> Vec<Entity> {
         match self {
-            AutoSingleCreature::Strongest => vec![
-                query
-                    .creatures
-                    .iter()
-                    .reduce(|acc, curr| {
-                        if acc.current_atttack < curr.current_atttack {
-                            curr
-                        } else {
-                            acc
-                        }
-                    })
-                    .map(|el| el.entity)
-                    .expect("No strongest creature found"),
-            ],
+            AutoSingleCreature::Strongest => params
+                .creatures
+                .iter()
+                .reduce(|acc, curr| {
+                    if acc.current_atttack < curr.current_atttack {
+                        curr
+                    } else {
+                        acc
+                    }
+                })
+                .map(|el| vec![el.entity])
+                .unwrap_or_default(),
             AutoSingleCreature::Caster => vec![caster],
+            AutoSingleCreature::CurrentTarget => params.current_target.into_iter().collect(),
         }
     }
     fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
@@ -434,15 +517,49 @@ impl IsTargetSelectMode for AutoSingleCreature {
     }
 }
 
-impl IsTargetSelectMode for AutoMultiCreature {
-    fn find_suitable(&self, query: &FilterParams, caster: Entity) -> Vec<Entity> {
+impl IsTargetSelectMode for AutoMultiTile {
+    fn find_suitable(&self, params: &mut ValueEvalParams, _caster: Entity) -> Vec<Entity> {
         match self {
-            AutoMultiCreature::AllEnemy => select_enemy(query.creatures, caster),
-            AutoMultiCreature::AllFriendly => select_friendly(query.creatures, caster),
+            AutoMultiTile::AllTiles => select_all_tiles(params.tiles),
+            AutoMultiTile::RadiusAroundCaster { radius } => {
+                let Ok(caster_creature) = params.creatures.get(_caster) else {
+                    return Vec::new();
+                };
+                let Ok(caster_tile) = params.tiles.get(caster_creature.position.position) else {
+                    return Vec::new();
+                };
+                let caster_pos = caster_tile.position.0;
+                params
+                    .tiles
+                    .iter()
+                    .filter(|tile| {
+                        let dx = (tile.position.0.x as i32 - caster_pos.x as i32).abs();
+                        let dy = (tile.position.0.y as i32 - caster_pos.y as i32).abs();
+                        let dist = dx.max(dy);
+                        dist <= *radius as i32
+                    })
+                    .map(|tile| tile.entity)
+                    .collect()
+            }
+        }
+    }
+    fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
+        if candidates.is_empty() {
+            FinalizeEffect::None
+        } else {
+            FinalizeEffect::ExecuteAll
+        }
+    }
+}
+
+impl IsTargetSelectMode for AutoMultiCreature {
+    fn find_suitable(&self, params: &mut ValueEvalParams, caster: Entity) -> Vec<Entity> {
+        match self {
+            AutoMultiCreature::AllEnemy => select_enemy(params.creatures, caster),
+            AutoMultiCreature::AllFriendly => select_friendly(params.creatures, caster),
             AutoMultiCreature::Random { count: _ } => {
-                let mut rng = rand::rng();
-                let mut all_creatures = select_all_creatures(query.creatures);
-                all_creatures.shuffle(&mut rng);
+                let mut all_creatures = select_all_creatures(params.creatures);
+                all_creatures.shuffle(&mut params.rng.0);
                 all_creatures
             }
         }
@@ -470,49 +587,59 @@ impl IsTargetSelectMode for AutoMultiCreature {
 }
 
 impl IsTargetSelectMode for ManualCreature {
-    fn find_suitable(&self, query: &FilterParams, caster: Entity) -> Vec<Entity> {
+    fn find_suitable(&self, params: &mut ValueEvalParams, caster: Entity) -> Vec<Entity> {
         match self {
-            ManualCreature::Choose { .. } => select_all_creatures(query.creatures),
+            ManualCreature::Choose { .. } => select_all_creatures(params.creatures),
             ManualCreature::MaxNFriendly { .. } | ManualCreature::ExactlyNFriendly { .. } => {
-                select_friendly(query.creatures, caster)
+                select_friendly(params.creatures, caster)
             }
         }
     }
-    fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
-        match self {
-            ManualCreature::Choose { min, max } => todo!(),
-            ManualCreature::MaxNFriendly { count } => todo!(),
-            ManualCreature::ExactlyNFriendly { count } => todo!(),
-        }
+    fn finalize(&self, _candidates: &[Entity]) -> FinalizeEffect {
+        // Manual selections are forwarded to the UI/executor, which will enforce
+        // min/max bounds or exact counts based on the selector payload.
+        FinalizeEffect::AwaitInput
     }
 }
 
 impl IsTargetSelectMode for ManualTile {
-    fn find_suitable(&self, query: &FilterParams, caster: Entity) -> Vec<Entity> {
+    fn find_suitable(&self, params: &mut ValueEvalParams, _caster: Entity) -> Vec<Entity> {
         match self {
             ManualTile::ChooseTiles { .. } | ManualTile::ChooseArea { .. } => {
-                select_all_tiles(query.tiles)
+                select_all_tiles(params.tiles)
             }
         }
     }
-    fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
-        match self {
-            ManualTile::ChooseTiles { amount } => todo!(),
-            ManualTile::ChooseArea { radius } => todo!(),
-        }
+    fn finalize(&self, _candidates: &[Entity]) -> FinalizeEffect {
+        // Tile picking is deferred to the UI/executor.
+        FinalizeEffect::AwaitInput
     }
 }
 
 /// Auto selection for single-player target
 impl IsTargetSelectMode for AutoPlayerSingle {
-    fn find_suitable(&self, query: &FilterParams, caster: Entity) -> Vec<Entity> {
-        let want_turn = matches!(self, AutoPlayerSingle::TurnPlayer);
-
-        query
-            .player
-            .iter()
-            .filter_map(|p| (p.turn_player.is_some() == want_turn).then_some(p.entity))
-            .collect()
+    fn find_suitable(&self, params: &mut ValueEvalParams, caster: Entity) -> Vec<Entity> {
+        match self {
+            AutoPlayerSingle::TurnPlayer | AutoPlayerSingle::NonTurnPlayer => {
+                let want_turn = matches!(self, AutoPlayerSingle::TurnPlayer);
+                params
+                    .player
+                    .iter()
+                    .filter_map(|p| (p.turn_player.is_some() == want_turn).then_some(p.entity))
+                    .collect()
+            }
+            AutoPlayerSingle::Owner => {
+                let Ok(caster_creature) = params.creatures.get(caster) else {
+                    return Vec::new();
+                };
+                let owner = caster_creature.owner.0;
+                params
+                    .player
+                    .iter()
+                    .filter_map(|p| (p.entity == owner).then_some(p.entity))
+                    .collect()
+            }
+        }
     }
     fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
         match candidates {
@@ -528,39 +655,39 @@ impl IsTargetSelectMode for AutoPlayerSingle {
 
 /// Auto selection for multi-player target (currently: all players)
 impl IsTargetSelectMode for AutoPlayerMulti {
-    fn find_suitable(&self, query: &FilterParams, _caster: Entity) -> Vec<Entity> {
+    fn find_suitable(&self, params: &mut ValueEvalParams, _caster: Entity) -> Vec<Entity> {
         // only one mode right now
-        query.player.iter().map(|p| p.entity).collect()
+        params.player.iter().map(|p| p.entity).collect()
     }
-    fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
+    fn finalize(&self, _candidates: &[Entity]) -> FinalizeEffect {
         FinalizeEffect::ExecuteAll
     }
 }
 
 /// Manual player selection: return all players as "suitable" candidates for UI selection
 impl IsTargetSelectMode for ManualPlayer {
-    fn find_suitable(&self, query: &FilterParams, _caster: Entity) -> Vec<Entity> {
-        query.player.iter().map(|p| p.entity).collect()
+    fn find_suitable(&self, params: &mut ValueEvalParams, _caster: Entity) -> Vec<Entity> {
+        params.player.iter().map(|p| p.entity).collect()
     }
 
-    fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
-        todo!()
+    fn finalize(&self, _candidates: &[Entity]) -> FinalizeEffect {
+        FinalizeEffect::AwaitInput
     }
 }
 
 impl IsTargetSelectMode for ManualHand {
-    fn find_suitable(&self, query: &FilterParams, _caster: Entity) -> Vec<Entity> {
-        query.hand.iter().map(|p| p.entity).collect()
+    fn find_suitable(&self, params: &mut ValueEvalParams, _caster: Entity) -> Vec<Entity> {
+        params.hand.iter().map(|p| p.entity).collect()
     }
 
-    fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
-        todo!()
+    fn finalize(&self, _candidates: &[Entity]) -> FinalizeEffect {
+        FinalizeEffect::AwaitInput
     }
 }
 
 impl IsTargetSelectMode for AutoHand {
-    fn find_suitable(&self, query: &FilterParams, _caster: Entity) -> Vec<Entity> {
-        query
+    fn find_suitable(&self, params: &mut ValueEvalParams, _caster: Entity) -> Vec<Entity> {
+        params
             .hand
             .iter()
             .filter(|card| match self {
@@ -577,20 +704,11 @@ impl IsTargetSelectMode for AutoHand {
     }
 }
 
-impl IsTargetSelectMode for () {
-    fn find_suitable(&self, _query: &FilterParams, _caster: Entity) -> Vec<Entity> {
-        Vec::new()
-    }
-    fn finalize(&self, _candidates: &[Entity]) -> FinalizeEffect {
-        FinalizeEffect::None
-    }
-}
-
 impl<L: IsTargetSelectMode, R: IsTargetSelectMode> IsTargetSelectMode for Either<L, R> {
-    fn find_suitable(&self, query: &FilterParams, caster: Entity) -> Vec<Entity> {
+    fn find_suitable(&self, params: &mut ValueEvalParams, caster: Entity) -> Vec<Entity> {
         match self {
-            Either::Left(l) => l.find_suitable(query, caster),
-            Either::Right(r) => r.find_suitable(query, caster),
+            Either::Left(l) => l.find_suitable(params, caster),
+            Either::Right(r) => r.find_suitable(params, caster),
         }
     }
     fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {
@@ -602,8 +720,8 @@ impl<L: IsTargetSelectMode, R: IsTargetSelectMode> IsTargetSelectMode for Either
 }
 
 impl<K: TargetKind<C>, C: Constraint> IsTargetSelectMode for TargetSelector<K, C> {
-    fn find_suitable(&self, query: &FilterParams, caster: Entity) -> Vec<Entity> {
-        self.selection.find_suitable(query, caster)
+    fn find_suitable(&self, params: &mut ValueEvalParams, caster: Entity) -> Vec<Entity> {
+        self.selection.find_suitable(params, caster)
     }
 
     fn finalize(&self, candidates: &[Entity]) -> FinalizeEffect {

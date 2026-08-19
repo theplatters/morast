@@ -1,11 +1,13 @@
 use bevy::{math::U16Vec2, prelude::*};
 
 use crate::{
+    actions::execute::{AbilityCursor, AwaitingChoice, AwaitingChoiceKind},
     board::{
         movement::MoveRequest,
         tile::{Occupant, Position},
     },
     card::{InHand, OnBoard, Selected},
+    def::effect::EffectDef,
     player::{Hand, Player, TurnPlayer},
 };
 
@@ -57,6 +59,13 @@ pub struct FigureSelectedBoardClick {
 pub struct AwaitingInputsBoardClick {
     pub entity: Entity,
     pub position: U16Vec2,
+}
+
+#[derive(Message, Clone, Debug)]
+pub enum ChoiceMade {
+    Option(usize),
+    Entities(Vec<Entity>),
+    Cancelled,
 }
 
 // ============================================================================
@@ -117,6 +126,7 @@ impl Plugin for TurnControllerPlugin {
             .add_message::<CardSelectedIntent>()
             .add_message::<FigureSelectedBoardClick>()
             .add_message::<AwaitingInputsBoardClick>()
+            .add_message::<ChoiceMade>()
             // Commands
             .add_message::<CardPlayRequested>()
             .add_message::<TargetingComplete>()
@@ -131,6 +141,10 @@ impl Plugin for TurnControllerPlugin {
                     handle_idle_state.run_if(in_state(TurnState::Idle)),
                     handle_card_selected.run_if(in_state(TurnState::CardSelected)),
                     handle_figure_selected.run_if(in_state(TurnState::FigureSelected)),
+                    handle_awaiting_inputs
+                        .run_if(in_state(TurnState::AwaitingInputs)),
+                    handle_choice_made
+                        .run_if(in_state(TurnState::AwaitingInputs)),
                 ),
             )
             // Cleanup on state exit
@@ -349,6 +363,103 @@ fn handle_figure_selected(
 // ============================================================================
 // CLEANUP
 // ============================================================================
+
+fn handle_awaiting_inputs(
+    mut board_clicks: MessageReader<AwaitingInputsBoardClick>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut choice_made: MessageWriter<ChoiceMade>,
+) {
+    // Board click -> select the clicked entity.
+    for click in board_clicks.read() {
+        choice_made.write(ChoiceMade::Entities(vec![click.entity]));
+        return;
+    }
+
+    // Digit keys 1-9 -> option index.
+    for i in 1..=9 {
+        if keyboard.just_pressed(match i {
+            1 => KeyCode::Digit1,
+            2 => KeyCode::Digit2,
+            3 => KeyCode::Digit3,
+            4 => KeyCode::Digit4,
+            5 => KeyCode::Digit5,
+            6 => KeyCode::Digit6,
+            7 => KeyCode::Digit7,
+            8 => KeyCode::Digit8,
+            9 => KeyCode::Digit9,
+            _ => unreachable!(),
+        }) {
+            choice_made.write(ChoiceMade::Option(i - 1));
+            return;
+        }
+    }
+}
+
+fn handle_choice_made(
+    mut choices: MessageReader<ChoiceMade>,
+    awaiting: Query<(Entity, &AwaitingChoice)>,
+    mut cursors: Query<&mut AbilityCursor>,
+    mut commands: Commands,
+    mut next_state: ResMut<NextState<TurnState>>,
+) {
+    for choice in choices.read() {
+        let Some((awaiting_entity, awaiting)) = awaiting.iter().next() else {
+            continue;
+        };
+
+        match choice {
+            ChoiceMade::Cancelled => {
+                // Abort the ability to avoid leaking cursors.
+                if let Ok(mut cursor_entity) = commands.get_entity(awaiting.cursor) {
+                    cursor_entity.despawn();
+                }
+                commands.entity(awaiting_entity).remove::<AwaitingChoice>();
+                next_state.set(TurnState::Idle);
+                return;
+            }
+            ChoiceMade::Option(index) => {
+                let AwaitingChoiceKind::Options(options) = &awaiting.kind else {
+                    continue;
+                };
+                let Some(option) = options.get(*index) else {
+                    warn!("Choice option {} out of range", index);
+                    continue;
+                };
+                // Find the matching ChoiceOptionDef in the cursor's next effect.
+                let Ok(mut cursor) = cursors.get_mut(awaiting.cursor) else {
+                    continue;
+                };
+                let Some(EffectDef::Choose { options: defs }) = cursor.stack.first().cloned() else {
+                    continue;
+                };
+                let Some(def) = defs.iter().find(|o| &o.label == option) else {
+                    continue;
+                };
+                cursor.stack.remove(0);
+                cursor.stack.splice(0..0, def.effects.clone());
+                commands.entity(awaiting_entity).remove::<AwaitingChoice>();
+                next_state.set(TurnState::Idle);
+                return;
+            }
+            ChoiceMade::Entities(entities) => {
+                let AwaitingChoiceKind::Entities = &awaiting.kind else {
+                    continue;
+                };
+                let Ok(mut cursor) = cursors.get_mut(awaiting.cursor) else {
+                    continue;
+                };
+                cursor.context.chosen_entities.clone_from(entities);
+                cursor.context.pending_targets = Some(entities.clone());
+                if let Some(&first) = entities.first() {
+                    cursor.context.current_target = Some(first);
+                }
+                commands.entity(awaiting_entity).remove::<AwaitingChoice>();
+                next_state.set(TurnState::Idle);
+                return;
+            }
+        }
+    }
+}
 
 fn cleanup_selection(
     selected: Query<Entity, Or<(With<Selected>, With<Origin>)>>,

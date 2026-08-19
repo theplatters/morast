@@ -33,7 +33,7 @@ use crate::{
         Board, BoardRes,
         tile::{EffectsOnTile, Position, Tile},
     },
-    card::{Cost, InHand, OnBoard, add_cards, card_id::CardID},
+    card::{Cost, InHand, OnBoard, card_id::CardID},
     player::{Hand, TurnPlayer},
     renderer::render_config::RenderConfig,
     turn_controller::CardClicked,
@@ -50,7 +50,6 @@ impl Plugin for RendererPlugin {
                 Startup,
                 (
                     setup_camera,
-                    setup_creature_on_board_renderer.after(add_cards),
                     render_board.after(BoardRes::setup_board),
                     render_tiles.after(BoardRes::setup_board),
                 ),

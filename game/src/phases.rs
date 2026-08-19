@@ -1,8 +1,6 @@
-use janet_bindings::types::janetenum::JanetEnum;
+use serde::{Deserialize, Serialize};
 
-use crate::error::GameError;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Phase {
     Start, // Beginning of a turn
     Main,  // During the turn
@@ -17,19 +15,5 @@ impl From<i32> for Phase {
             2 => Phase::End,
             _ => Phase::End,
         }
-    }
-}
-
-impl TryFrom<JanetEnum> for Phase {
-    type Error = GameError;
-
-    fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
-        if !value.is_int() {
-            return Err(GameError::Cast(
-                "Phase is not given in the correct format (int)".into(),
-            ));
-        };
-
-        Ok(value.as_int().unwrap().into())
     }
 }

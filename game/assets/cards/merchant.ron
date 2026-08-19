@@ -1,0 +1,31 @@
+CardDef(
+    name: "merchant",
+    cost: 3,
+    description: "Get 4 gold at the start and end of a turn",
+    display_image: "missing",
+    kind: Creature((
+        attack: 1,
+        defense: 1,
+        movement_points: 2,
+        movement: Plus(1),
+        attack_pattern: Plus(1),
+        abilities: [Flying, Digging],
+    )),
+    abilities: [
+        AbilityDef(
+            trigger: OnTurnEnd,
+            condition: Always,
+            effects: [
+                AddGold(
+                    player: (
+                        kind: Player,
+                        cardinality: Single,
+                        selection: TurnPlayer,
+                        filters: [],
+                    ),
+                    amount: Constant(4),
+                ),
+            ],
+        ),
+    ],
+)

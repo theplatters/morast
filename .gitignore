@@ -1,7 +1,6 @@
-game/assets
+game/assets/*
+!game/assets/cards/
 game/target
 target
 Cargo.lock
-janet_bindings/target
-janet_bindings/lib
 

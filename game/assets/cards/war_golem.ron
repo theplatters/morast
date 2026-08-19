@@ -1,0 +1,94 @@
+CardDef(
+    name: "war_golem",
+    cost: 4,
+    description: "A hulking construct that rewards a crowded board and lets you choose its combat stance.",
+    display_image: "missing",
+    kind: Creature((
+        attack: 6,
+        defense: 6,
+        movement_points: 2,
+        movement: Plus(1),
+        attack_pattern: Plus(1),
+        abilities: [],
+    )),
+    abilities: [
+        AbilityDef(
+            trigger: OnPlay,
+            condition: Always,
+            effects: [
+                If(
+                    condition: Compare(
+                        left: Count((
+                            kind: Creature,
+                            cardinality: Multi,
+                            selection: AllFriendly,
+                            filters: [],
+                        )),
+                        op: GreaterOrEqual,
+                        right: Constant(3),
+                    ),
+                    then: [
+                        DealDamage(
+                            selector: (
+                                kind: Creature,
+                                cardinality: Multi,
+                                selection: AllEnemy,
+                                filters: [],
+                            ),
+                            amount: Constant(2),
+                        ),
+                    ],
+                    otherwise: [
+                        DrawCards(
+                            player: (
+                                kind: Player,
+                                cardinality: Single,
+                                selection: TurnPlayer,
+                                filters: [],
+                            ),
+                            amount: Constant(1),
+                        ),
+                    ],
+                ),
+            ],
+        ),
+        AbilityDef(
+            trigger: OnPlay,
+            condition: Always,
+            effects: [
+                Choose(
+                    options: [
+                        ChoiceOptionDef(
+                            label: "Enrage",
+                            effects: [
+                                ModifyStats(
+                                    selector: (
+                                        kind: Creature,
+                                        cardinality: Single,
+                                        selection: Caster,
+                                        filters: [],
+                                    ),
+                                    modifier: Attack(2),
+                                ),
+                            ],
+                        ),
+                        ChoiceOptionDef(
+                            label: "Fortify",
+                            effects: [
+                                Heal(
+                                    selector: (
+                                        kind: Creature,
+                                        cardinality: Single,
+                                        selection: Caster,
+                                        filters: [],
+                                    ),
+                                    amount: Constant(3),
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+            ],
+        ),
+    ],
+)

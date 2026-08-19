@@ -1,28 +1,29 @@
 use bevy::{
-    app::{FixedUpdate, Plugin},
-    ecs::{
-        bundle::Bundle, component::Component, entity::Entity, event::EntityEvent, message::Message,
-    },
+    app::Plugin,
+    ecs::{component::Component, entity::Entity, event::EntityEvent},
     math::I16Vec2,
+    state::state::OnEnter,
 };
-use janet_bindings::types::function::JFunction;
-
 use crate::{
     actions::{
-        hooks::{Hook, HookEvent},
-        spell_speed::SpellSpeed,
-        systems::{eval_conditions, execute_action},
+        appliers::{
+            apply_add_gold, apply_apply_effect, apply_deal_damage, apply_destroy_creature,
+            apply_discard_cards, apply_draw_cards, apply_heal, apply_mill, apply_modify_stats,
+            apply_move_creature, apply_return_to_hand,
+        },
+        execute::{drive_abilities, on_card_played, on_turn_end},
+        hooks::HookEvent,
         value_source::StatModifier,
     },
     board::effect::EffectType,
+    def::trigger::AbilityDef,
 };
 
-pub mod action_builder;
-pub mod action_parser;
+pub mod appliers;
 pub mod conditions;
+pub mod execute;
 pub mod hooks;
 pub mod spell_speed;
-pub mod systems;
 pub mod targeting;
 pub mod timing;
 pub mod value_source;
@@ -37,6 +38,10 @@ pub struct Action {
     #[relationship]
     pub caster: Entity,
 }
+
+/// Component storing a data-driven ability definition on an ability entity.
+#[derive(Component, Debug, Clone)]
+pub struct AbilityData(pub AbilityDef);
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct Pending;
@@ -56,60 +61,31 @@ impl From<Entity> for Execute {
     }
 }
 
-#[derive(Component, Debug, Clone)]
-pub struct Condition {
-    pub eval_function: JFunction,
-}
-
-impl Condition {
-    fn new(eval_function: JFunction) -> Self {
-        Self { eval_function }
-    }
-}
-
-#[derive(Component, Debug, Clone)]
-pub struct ActionEffect {
-    pub action: JFunction,
-}
-
-impl From<JFunction> for ActionEffect {
-    fn from(value: JFunction) -> Self {
-        ActionEffect { action: value }
-    }
-}
-
-#[derive(Bundle, Debug, Clone)]
-pub struct GameAction {
-    pub condition: Condition,
-    pub speed: SpellSpeed,
-    pub action: ActionEffect,
-}
-
-impl GameAction {
-    fn new(condition: Condition, speed: SpellSpeed, action: ActionEffect) -> Self {
-        Self {
-            condition,
-            speed,
-            action,
-        }
-    }
-}
-
 // ============================================================================
 // Core Action Types
 // ============================================================================
 
 #[derive(EntityEvent)]
 pub struct MoveCreature {
-    direction: I16Vec2,
-    absolute: bool,
-    entity: Entity,
+    pub direction: I16Vec2,
+    pub absolute: bool,
+    pub entity: Entity,
+}
+
+impl MoveCreature {
+    pub fn new(direction: I16Vec2, absolute: bool, entity: Entity) -> Self {
+        Self {
+            direction,
+            absolute,
+            entity,
+        }
+    }
 }
 
 impl HookEvent for MoveCreature {}
 
 #[derive(EntityEvent)]
-pub struct EndTurn(Entity);
+pub struct EndTurn(pub Entity);
 
 impl HookEvent for EndTurn {}
 
@@ -120,6 +96,12 @@ pub struct DealDamage {
     pub entity: Entity,
 }
 
+impl DealDamage {
+    pub fn new(amount: u16, entity: Entity) -> Self {
+        Self { amount, entity }
+    }
+}
+
 impl HookEvent for DealDamage {}
 
 #[derive(EntityEvent)]
@@ -128,65 +110,128 @@ pub struct HealCreature {
     pub entity: Entity,
 }
 
+impl HealCreature {
+    pub fn new(amount: u16, entity: Entity) -> Self {
+        Self { amount, entity }
+    }
+}
+
 impl HookEvent for HealCreature {}
 
 #[derive(EntityEvent)]
 pub struct DrawCards {
-    amount: u16,
-    entity: Entity,
+    pub amount: u16,
+    pub entity: Entity,
+}
+
+impl DrawCards {
+    pub fn new(amount: u16, entity: Entity) -> Self {
+        Self { amount, entity }
+    }
 }
 
 impl HookEvent for DrawCards {}
 
 #[derive(EntityEvent)]
 pub struct AddGold {
-    amount: u16,
-    entity: Entity,
+    pub amount: u16,
+    pub entity: Entity,
+}
+
+impl AddGold {
+    pub fn new(amount: u16, entity: Entity) -> Self {
+        Self { amount, entity }
+    }
 }
 
 impl HookEvent for AddGold {}
+
 #[derive(EntityEvent)]
 pub struct ApplyEffect {
-    effect: EffectType,
-    duration: u16,
-    entity: Entity,
+    pub effect: EffectType,
+    pub duration: u16,
+    pub entity: Entity,
+}
+
+impl ApplyEffect {
+    pub fn new(effect: EffectType, duration: u16, entity: Entity) -> Self {
+        Self {
+            effect,
+            duration,
+            entity,
+        }
+    }
 }
 
 impl HookEvent for ApplyEffect {}
 
 #[derive(EntityEvent)]
 pub struct DestroyCreature {
-    entity: Entity,
+    pub entity: Entity,
 }
+
+impl DestroyCreature {
+    pub fn new(entity: Entity) -> Self {
+        Self { entity }
+    }
+}
+
 impl HookEvent for DestroyCreature {}
 
 #[derive(EntityEvent)]
 pub struct ModifyStats {
-    entity: Entity,
-    stat_modifier: StatModifier,
+    pub entity: Entity,
+    pub stat_modifier: StatModifier,
+}
+
+impl ModifyStats {
+    pub fn new(entity: Entity, stat_modifier: StatModifier) -> Self {
+        Self {
+            entity,
+            stat_modifier,
+        }
+    }
 }
 
 impl HookEvent for ModifyStats {}
 
 #[derive(EntityEvent)]
 pub struct DiscardCards {
-    amount: u16,
-    entity: Entity,
+    pub amount: u16,
+    pub entity: Entity,
+}
+
+impl DiscardCards {
+    pub fn new(amount: u16, entity: Entity) -> Self {
+        Self { amount, entity }
+    }
 }
 
 impl HookEvent for DiscardCards {}
 
 #[derive(EntityEvent)]
 pub struct ReturnToHand {
-    entity: Entity,
+    pub entity: Entity,
+}
+
+impl ReturnToHand {
+    pub fn new(entity: Entity) -> Self {
+        Self { entity }
+    }
 }
 
 impl HookEvent for ReturnToHand {}
 
 #[derive(EntityEvent)]
 pub struct Mill {
-    amount: u16,
-    entity: Entity,
+    pub amount: u16,
+    pub entity: Entity,
+}
+
+impl Mill {
+    pub fn new(amount: u16, entity: Entity) -> Self {
+        Self { amount, entity }
+    }
 }
 
 impl HookEvent for Mill {}
@@ -195,7 +240,24 @@ pub struct ActionPlugin;
 
 impl Plugin for ActionPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-        app.add_observer(execute_action)
-            .add_systems(FixedUpdate, eval_conditions);
+        app.add_message::<crate::actions::execute::ChoiceRequested>()
+            .add_message::<crate::board::placement::CardPlayed>()
+            .add_observer(apply_deal_damage)
+            .add_observer(apply_heal)
+            .add_observer(apply_draw_cards)
+            .add_observer(apply_add_gold)
+            .add_observer(apply_apply_effect)
+            .add_observer(apply_destroy_creature)
+            .add_observer(apply_modify_stats)
+            .add_observer(apply_move_creature)
+            .add_observer(apply_discard_cards)
+            .add_observer(apply_mill)
+            .add_observer(apply_return_to_hand)
+            .add_systems(bevy::app::Update, drive_abilities)
+            .add_systems(bevy::app::Update, on_card_played)
+            .add_systems(
+                OnEnter(crate::turn_controller::TurnState::EndTurn),
+                on_turn_end,
+            );
     }
 }

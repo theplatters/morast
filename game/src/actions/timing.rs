@@ -1,11 +1,11 @@
 use std::{cmp::Ordering, ops::SubAssign};
 
 use bevy::ecs::component::Component;
-use janet_bindings::types::{janetenum::JanetEnum, tuple::Tuple};
+use serde::{Deserialize, Serialize};
 
-use crate::{error::GameError, phases::Phase};
+use crate::phases::Phase;
 
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum ActionTiming {
     #[default]
     Immediate, // Goes on stack immediately
@@ -56,60 +56,5 @@ impl Ord for ActionTiming {
             // Handle the incomparable cases by defining an arbitrary but consistent ordering
             unreachable!("All other cases should be comparable")
         })
-    }
-}
-
-impl TryFrom<JanetEnum> for ActionTiming {
-    type Error = GameError;
-
-    fn try_from(value: JanetEnum) -> Result<Self, Self::Error> {
-        if !(value.is_tuple() || value.is_string()) {
-            return Err(GameError::Cast("Timing is not a string or a tuple".into()));
-        }
-
-        if value.is_string() {
-            value.into_string().unwrap().try_into()
-        } else {
-            value.into_tuple().unwrap().try_into()
-        }
-    }
-}
-
-impl TryFrom<Tuple> for ActionTiming {
-    type Error = GameError;
-    fn try_from(value: Tuple) -> Result<Self, Self::Error> {
-        let JanetEnum::String(timing) = value.get(0).map_err(GameError::EngineError)? else {
-            return Err(GameError::Cast("Timing is not a string".into()));
-        };
-
-        match timing.as_str() {
-            "now" => Ok(ActionTiming::Immediate),
-            "delayed" => {
-                let phase = value.get(1).map_err(GameError::EngineError)?.try_into()?;
-
-                let JanetEnum::UInt(turns_ahead) = value.get(2).map_err(GameError::EngineError)?
-                else {
-                    return Err(GameError::Cast("Timing is not a string".into()));
-                };
-
-                Ok(ActionTiming::Delayed {
-                    phase,
-                    turns: turns_ahead as u32,
-                })
-            }
-            "trigger" => todo!(),
-            _ => Err(GameError::Cast("Timing string not supported".into())),
-        }
-    }
-}
-
-impl TryFrom<String> for ActionTiming {
-    type Error = GameError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        match value.as_str() {
-            "now" => Ok(ActionTiming::Immediate),
-            _ => Err(GameError::Cast("Timing string not supported".into())),
-        }
     }
 }

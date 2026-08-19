@@ -1,0 +1,15 @@
+CardDef(
+    name: "trebuchet",
+    cost: 5,
+    description: "A mighty siege weapon",
+    display_image: "missing",
+    kind: Creature((
+        attack: 5,
+        defense: 1,
+        movement_points: 1,
+        movement: Plus(1),
+        attack_pattern: Offsets([(5, 0)]),
+        abilities: [],
+    )),
+    abilities: [],
+)

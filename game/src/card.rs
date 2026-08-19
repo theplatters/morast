@@ -1,24 +1,31 @@
-use bevy::ecs::component::Component;
-use bevy::ecs::entity::Entity;
-use bevy::ecs::query::With;
-use bevy::ecs::system::{Commands, Query, Res};
+use bevy::{
+    ecs::{
+        component::Component,
+        entity::Entity,
+        hierarchy::ChildOf,
+        query::With,
+        system::{Commands, Query, Res},
+    },
+};
 use derive_more::From;
 
-use crate::actions::GameAction;
-use crate::board::tile::Occupant;
-use crate::card::card_id::CardID;
-use crate::card::card_registry::CardRegistry;
-use crate::card::creature::{Creature, CreatureBundle};
-use crate::card::deck_builder::DeckBuilder;
-use crate::card::spell_card::{Spell, SpellBundle};
-use crate::card::trap_card::{Trap, TrapBundle};
-use crate::components::Owner;
-use crate::player::{Deck, Graveyard, Hand, Player};
+use crate::{
+    actions::{AbilityData, Action},
+    board::tile::Occupant,
+    card::{
+        card_id::CardID,
+        card_registry::CardRegistry,
+        creature::{CreatureBundle},
+        deck_builder::DeckBuilder,
+        spell_card::{SpellBundle},
+        trap_card::{TrapBundle},
+    },
+    components::Owner,
+    player::{Deck, Hand, Player},
+};
 
 pub mod abilities;
-pub mod card_builder;
 pub mod card_id;
-pub mod card_reader;
 pub mod card_registry;
 pub mod card_type;
 pub mod creature;
@@ -26,13 +33,6 @@ pub mod deck_builder;
 pub mod in_play_id;
 pub mod spell_card;
 pub mod trap_card;
-
-#[derive(Debug)]
-pub enum Card {
-    Creature(Creature),
-    Spell(Spell),
-    Trap(Trap),
-}
 
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CreatureCard;
@@ -69,7 +69,7 @@ pub struct OnBoard {
 }
 
 #[derive(Component, Debug, Clone)]
-#[relationship(relationship_target = Graveyard)]
+#[relationship(relationship_target = crate::player::Graveyard)]
 pub struct InGraveyard {
     #[relationship]
     pub owner: Entity,
@@ -82,13 +82,13 @@ pub struct Selected;
 // MUTABLE INSTANCE STATE (what changes during play)
 // ============================================
 
-#[derive(Component, Clone, Copy, From, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Component, From, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CurrentAttack(pub u16);
 
-#[derive(Component, Clone, Copy, From, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Component, From, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CurrentDefense(pub u16);
-/// Current movement state
-#[derive(Component, Clone, Copy, From, Debug, PartialEq, Eq, PartialOrd, Ord)]
+
+#[derive(Component, From, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CurrentMovementPoints(pub u16);
 
 #[derive(Component, Clone, Debug)]
@@ -103,57 +103,6 @@ impl From<u16> for Cost {
 }
 
 // ============================================
-// Card Traits
-// ============================================
-
-pub trait CardBehavior {
-    fn cost(&self) -> u16;
-    fn description(&self) -> &str;
-    fn name(&self) -> &str;
-    fn display_image_asset_string(&self) -> &str;
-    // Add other common methods here
-}
-
-impl Card {
-    fn can_be_placed(&self) -> bool {
-        matches!(self, Card::Creature(_) | Card::Trap(_))
-    }
-}
-
-impl CardBehavior for Card {
-    fn cost(&self) -> u16 {
-        match self {
-            Card::Creature(c) => c.cost(),
-            Card::Spell(c) => c.cost(),
-            Card::Trap(c) => c.cost(),
-        }
-    }
-
-    fn description(&self) -> &str {
-        match self {
-            Card::Creature(c) => c.description(),
-            Card::Spell(c) => c.description(),
-            Card::Trap(c) => c.description(),
-        }
-    }
-    fn name(&self) -> &str {
-        match self {
-            Card::Creature(c) => c.name(),
-            Card::Spell(c) => c.name(),
-            Card::Trap(c) => c.name(),
-        }
-    }
-
-    fn display_image_asset_string(&self) -> &str {
-        match self {
-            Card::Creature(c) => c.display_image_asset_string(),
-            Card::Spell(c) => c.display_image_asset_string(),
-            Card::Trap(c) => c.display_image_asset_string(),
-        }
-    }
-}
-
-// ============================================
 // Bundles
 // ============================================
 
@@ -164,20 +113,30 @@ pub enum CardBundle {
     Trap { bundle: TrapBundle },
 }
 
+impl CardBundle {
+    pub fn card_id(&self) -> CardID {
+        match self {
+            CardBundle::Creature { bundle } => bundle.card_id,
+            CardBundle::Spell { bundle } => bundle.card_id,
+            CardBundle::Trap { bundle } => bundle.card_id,
+        }
+    }
+}
+
 pub trait FromRegistry: Sized {
     fn from_registry(card_registry: &CardRegistry, card_id: CardID) -> Option<Self>;
 }
 
 impl FromRegistry for CardBundle {
     fn from_registry(card_registry: &CardRegistry, card_id: CardID) -> Option<Self> {
-        let bundle = match card_registry.get_type(&card_id)? {
-            card_type::CardTypes::Creature => CardBundle::Creature {
+        let bundle = match card_registry.get(&card_id)?.kind {
+            crate::def::card::CardKindDef::Creature { .. } => CardBundle::Creature {
                 bundle: CreatureBundle::from_registry(card_registry, card_id)?,
             },
-            card_type::CardTypes::Spell => CardBundle::Spell {
+            crate::def::card::CardKindDef::Spell => CardBundle::Spell {
                 bundle: SpellBundle::from_registry(card_registry, card_id)?,
             },
-            card_type::CardTypes::Trap => CardBundle::Trap {
+            crate::def::card::CardKindDef::Trap => CardBundle::Trap {
                 bundle: TrapBundle::from_registry(card_registry, card_id)?,
             },
         };
@@ -192,16 +151,23 @@ pub fn add_cards(
 ) {
     for player in players {
         for bundle in DeckBuilder::standard_deck(&card_registry) {
-            match bundle {
-                CardBundle::Creature { bundle } => {
-                    commands.spawn((bundle, Owner(player), InDeck { parent: player }));
-                }
-                CardBundle::Spell { bundle } => {
-                    commands.spawn((bundle, Owner(player), InDeck { parent: player }));
-                }
-                CardBundle::Trap { bundle } => {
-                    commands.spawn((bundle, Owner(player), InDeck { parent: player }));
-                }
+            let card_id = bundle.card_id();
+            let card_entity = match bundle {
+                CardBundle::Creature { bundle } => commands.spawn((bundle, Owner(player), InDeck { parent: player })).id(),
+                CardBundle::Spell { bundle } => commands.spawn((bundle, Owner(player), InDeck { parent: player })).id(),
+                CardBundle::Trap { bundle } => commands.spawn((bundle, Owner(player), InDeck { parent: player })).id(),
+            };
+
+            let Some(def) = card_registry.get(&card_id) else {
+                continue;
+            };
+            // Spawn ability child entities for every triggered ability on the card.
+            for ability in &def.abilities {
+                commands.spawn((
+                    AbilityData(ability.clone()),
+                    Action { caster: card_entity },
+                    ChildOf(card_entity),
+                ));
             }
         }
     }

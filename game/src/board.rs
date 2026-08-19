@@ -166,8 +166,8 @@ pub fn update_attack_values(
 
 #[derive(Message)]
 pub struct EffectRequested {
-    effect: Effect,
-    indices: Vec<U16Vec2>,
+    pub effect: Effect,
+    pub indices: Vec<U16Vec2>,
 }
 
 fn add_effect_to_tile(

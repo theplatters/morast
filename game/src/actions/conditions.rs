@@ -1,14 +1,16 @@
+use bevy::ecs::{component::Component, entity::Entity};
+use bevy::log::warn;
+use serde::{Deserialize, Serialize};
+
 use super::{
-    targeting::{SingleTarget, TargetSelector, TileTarget},
-    value_source::ValueSource,
+    targeting::{
+        CreatureTarget, IsTargetSelectMode, MultiTarget, Or, PlayerTarget, SingleTarget,
+        TargetSelector, TileTarget,
+    },
+    value_source::ValueEvalParams,
 };
 
-use crate::{
-    actions::targeting::{CreatureTarget, MultiTarget, Or, PlayerTarget},
-    board::effect::EffectType,
-};
-use bevy::ecs::component::Component;
-use janet_bindings::{bindings::JanetAbstractType, types::janetabstract::IsAbstract};
+use crate::{actions::value_source::ValueSource, board::effect::EffectType};
 
 #[derive(Component, Debug, Clone)]
 pub enum Condition {
@@ -40,11 +42,44 @@ pub enum Condition {
     Not(Box<Condition>),
 }
 
-impl IsAbstract for Condition {
-    fn type_info() -> &'static janet_bindings::bindings::JanetAbstractType {
-        const CONDITION_ATYPE: JanetAbstractType =
-            JanetAbstractType::new(c"taget/condition", Condition::gc);
-        &CONDITION_ATYPE
+impl Condition {
+    pub fn eval(&self, params: &mut ValueEvalParams, caster: Entity) -> bool {
+        match self {
+            Condition::Always => true,
+            Condition::Never => false,
+            Condition::Compare { left, op, right } => {
+                let l = left.eval(params, caster);
+                let r = right.eval(params, caster);
+                match op {
+                    CompareOp::Equal => l == r,
+                    CompareOp::NotEqual => l != r,
+                    CompareOp::Greater => l > r,
+                    CompareOp::GreaterOrEqual => l >= r,
+                    CompareOp::Less => l < r,
+                    CompareOp::LessOrEqual => l <= r,
+                }
+            }
+            Condition::HasEffect { selector, effect } => {
+                let tiles = selector.selection.find_suitable(params, caster);
+                let Some(&tile_entity) = tiles.first() else {
+                    return false;
+                };
+                let Ok(tile) = params.tiles.get(tile_entity) else {
+                    return false;
+                };
+                tile.children.iter().any(|&child| {
+                    params
+                        .effects
+                        .get(child)
+                        .is_ok_and(|tile_effect| *tile_effect == *effect)
+                })
+            }
+            Condition::PlayerCondition(pc) => eval_player_condition(pc, params, caster),
+            Condition::CreatureCondition(cc) => eval_creature_condition(cc, params, caster),
+            Condition::And(a, b) => a.eval(params, caster) && b.eval(params, caster),
+            Condition::Or(a, b) => a.eval(params, caster) || b.eval(params, caster),
+            Condition::Not(c) => !c.eval(params, caster),
+        }
     }
 }
 
@@ -80,13 +115,69 @@ pub enum PlayerCondition {
     },
 }
 
+fn eval_player_condition(
+    condition: &PlayerCondition,
+    params: &mut ValueEvalParams,
+    caster: Entity,
+) -> bool {
+    match condition {
+        PlayerCondition::HasMinGold { player, amount } => {
+            let players = player.selection.find_suitable(params, caster);
+            let Some(&p) = players.first() else {
+                return false;
+            };
+            let Ok(player) = params.player.get(p) else {
+                return false;
+            };
+            player.resources.gold >= *amount
+        }
+        PlayerCondition::HasMaxGold { player, amount } => {
+            let players = player.selection.find_suitable(params, caster);
+            let Some(&p) = players.first() else {
+                return false;
+            };
+            let Ok(player) = params.player.get(p) else {
+                return false;
+            };
+            player.resources.gold <= *amount
+        }
+        PlayerCondition::HasMinHealt { player, amount } => {
+            let players = player.selection.find_suitable(params, caster);
+            let Some(&p) = players.first() else {
+                return false;
+            };
+            let Ok(player) = params.player.get(p) else {
+                return false;
+            };
+            player.resources.health >= *amount
+        }
+        PlayerCondition::HasMaxHealth { player, amount } => {
+            let players = player.selection.find_suitable(params, caster);
+            let Some(&p) = players.first() else {
+                return false;
+            };
+            let Ok(player) = params.player.get(p) else {
+                return false;
+            };
+            player.resources.health <= *amount
+        }
+        PlayerCondition::DeckHasCards { .. } => {
+            warn!("DeckHasCards condition not yet implemented; treating as false");
+            false
+        }
+        PlayerCondition::SelectorHasCount { selector, count } => {
+            selector.selection.find_suitable(params, caster).len() as u16 >= *count
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum CreatureCondition {
     NotMoved {
-        creature: TargetSelector<PlayerTarget, Or<SingleTarget, MultiTarget>>,
+        creature: TargetSelector<CreatureTarget, Or<SingleTarget, MultiTarget>>,
     },
     FullHealth {
-        creature: TargetSelector<PlayerTarget, Or<SingleTarget, MultiTarget>>,
+        creature: TargetSelector<CreatureTarget, Or<SingleTarget, MultiTarget>>,
     },
     SelectorHasCount {
         selector: TargetSelector<CreatureTarget, Or<SingleTarget, MultiTarget>>,
@@ -94,7 +185,34 @@ pub enum CreatureCondition {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+fn eval_creature_condition(
+    condition: &CreatureCondition,
+    params: &mut ValueEvalParams,
+    caster: Entity,
+) -> bool {
+    match condition {
+        CreatureCondition::NotMoved { .. } => {
+            warn!("CreatureCondition::NotMoved not yet implemented; treating as false");
+            false
+        }
+        CreatureCondition::FullHealth { creature } => {
+            let creatures = creature.selection.find_suitable(params, caster);
+            let Some(&c) = creatures.first() else {
+                return false;
+            };
+            let Ok(creature) = params.creatures.get(c) else {
+                return false;
+            };
+            // Health is the max-HP component; full health means current HP has not dropped.
+            creature.current_defense.0 >= creature.health.value()
+        }
+        CreatureCondition::SelectorHasCount { selector, count } => {
+            selector.selection.find_suitable(params, caster).len() as u16 >= *count
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CompareOp {
     Equal,
     NotEqual,

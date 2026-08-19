@@ -1,12 +1,13 @@
 use bevy::prelude::*;
+use rand::SeedableRng;
 
 mod actions;
 mod board;
 mod card;
 mod components;
+mod def;
 mod error;
 mod events;
-mod janet_api;
 mod phases;
 mod player;
 mod renderer;
@@ -15,37 +16,30 @@ mod turn_controller;
 use crate::{
     actions::{ActionPlugin, targeting::systems::TargetPlugin},
     board::BoardPlugin,
-    card::{
-        add_cards,
-        card_registry::{CardRegistry, init_card_registry},
-    },
+    card::{add_cards, card_registry::CardRegistry},
+    def::loader::{CardPlugin, LoadState},
     events::GameMessagesPlugin,
-    janet_api::janet_systems::{JanetSystem, read_card_list},
     player::{add_player, draw_starting_cards},
-    renderer::RendererPlugin,
+    renderer::{RendererPlugin, setup_creature_on_board_renderer},
     turn_controller::TurnControllerPlugin,
 };
 
-#[derive(Resource, Default)]
-pub struct GameRng(pub rand::rngs::OsRng);
+#[derive(Resource)]
+pub struct GameRng(pub rand::rngs::StdRng);
+
+impl Default for GameRng {
+    fn default() -> Self {
+        Self(rand::rngs::StdRng::from_os_rng())
+    }
+}
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(CardRegistry::new())
-        .add_plugins(JanetSystem)
+        .init_resource::<CardRegistry>()
         .init_resource::<GameRng>()
-        .add_systems(
-            Startup,
-            (
-                init_card_registry.after(read_card_list),
-                add_player,
-                add_cards,
-                draw_starting_cards,
-            )
-                .chain(),
-        )
         .add_plugins((
+            CardPlugin,
             GameMessagesPlugin,
             BoardPlugin,
             TurnControllerPlugin,
@@ -53,5 +47,10 @@ fn main() {
             ActionPlugin,
             TargetPlugin,
         ))
+        .add_systems(Startup, add_player)
+        .add_systems(
+            OnEnter(LoadState::Ready),
+            (add_cards, draw_starting_cards, setup_creature_on_board_renderer).chain(),
+        )
         .run();
 }

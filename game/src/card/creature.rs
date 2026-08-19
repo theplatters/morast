@@ -8,88 +8,14 @@ use bevy::{
 use derive_more::From;
 
 use crate::{
-    actions::GameAction,
     board::tile::Position,
     card::{
-        Card, CardBehavior, Cost, CreatureCard, CurrentAttack, CurrentDefense,
-        CurrentMovementPoints, FromRegistry, abilities::Abilities, card_id::CardID,
-        card_registry::CardRegistry,
+        Cost, CreatureCard, CurrentAttack, CurrentDefense, CurrentMovementPoints, FromRegistry,
+        abilities::CardAbilities, card_id::CardID, card_registry::CardRegistry,
     },
+    components::Health,
+    def::card::CardKindDef,
 };
-
-#[derive(Debug)]
-pub struct Creature {
-    pub name: String,
-    pub movement: Vec<I16Vec2>,
-    pub movement_points: u16,
-    pub attack: Vec<I16Vec2>,
-    pub attack_strength: u16,
-    pub defense: u16,
-    pub cost: u16,
-    pub actions: Vec<GameAction>,
-    pub abilities: Vec<Abilities>,
-    pub description: String,
-    pub display_image_asset_string: String,
-}
-
-impl CardBehavior for Creature {
-    fn name(&self) -> &str {
-        &self.name
-    }
-
-    fn cost(&self) -> u16 {
-        self.cost
-    }
-
-    fn description(&self) -> &str {
-        &self.description
-    }
-
-    fn display_image_asset_string(&self) -> &str {
-        &self.display_image_asset_string
-    }
-}
-
-impl Creature {
-    pub fn new(
-        name: String,
-        movement: Vec<I16Vec2>,
-        movement_points: u16,
-        attack: Vec<I16Vec2>,
-        attack_strength: u16,
-        defense: u16,
-        cost: u16,
-        actions: Vec<GameAction>,
-        abilities: Vec<Abilities>,
-        description: String,
-        display_image_asset_string: String,
-    ) -> Self {
-        Self {
-            name,
-            movement,
-            movement_points,
-            attack,
-            attack_strength,
-            defense,
-            cost,
-            actions,
-            abilities,
-            description,
-            display_image_asset_string,
-        }
-    }
-
-    // Helper method to reduce code duplication
-
-    // Only keep getters for computed properties or when you need different return types
-    pub fn total_stats(&self) -> u16 {
-        self.attack_strength + self.defense
-    }
-
-    pub fn is_powerful(&self) -> bool {
-        self.attack_strength > 5 || self.defense > 5
-    }
-}
 
 #[derive(Component, From, Clone, Copy, Debug)]
 pub struct BaseAttack(pub u16);
@@ -149,33 +75,41 @@ pub struct CreatureBundle {
     pub base_defense: BaseDefense,
     pub current_attack: CurrentAttack,
     pub current_defense: CurrentDefense,
+    pub health: Health,
     pub base_movement_points: BaseMovementPoints,
     pub current_movement_points: CurrentMovementPoints,
     pub attack_pattern: AttackPattern,
     pub movement_pattern: MovementPattern,
     pub type_identifier: CreatureCard,
+    pub abilities: CardAbilities,
 }
 
 impl FromRegistry for CreatureBundle {
     fn from_registry(card_registry: &CardRegistry, card_id: CardID) -> Option<Self> {
-        let Some(Card::Creature(card)) = card_registry.get(&card_id) else {
+        let Some(def) = card_registry.get(&card_id) else {
             warn!("Card Id {} not found", card_id);
+            return None;
+        };
+        let CardKindDef::Creature(stats) = &def.kind else {
+            warn!("Card Id {} is not a creature", card_id);
             return None;
         };
 
         Some(Self {
             card_id,
-            name: card.name().into(),
-            cost: card.cost().into(),
-            base_attack: card.attack_strength.into(),
-            base_defense: card.defense.into(),
-            current_attack: card.attack_strength.into(),
-            current_defense: card.defense.into(),
-            base_movement_points: card.movement_points.into(),
-            current_movement_points: card.movement_points.into(),
-            attack_pattern: card.attack.clone().into(),
-            movement_pattern: card.movement.clone().into(),
+            name: def.name.as_str().into(),
+            cost: def.cost.into(),
+            base_attack: stats.attack.into(),
+            base_defense: stats.defense.into(),
+            current_attack: stats.attack.into(),
+            current_defense: stats.defense.into(),
+            health: Health(stats.defense),
+            base_movement_points: stats.movement_points.into(),
+            current_movement_points: stats.movement_points.into(),
+            attack_pattern: Vec::<I16Vec2>::from(&stats.attack_pattern).into(),
+            movement_pattern: Vec::<I16Vec2>::from(&stats.movement).into(),
             type_identifier: CreatureCard,
+            abilities: CardAbilities(stats.abilities.clone()),
         })
     }
 }
