@@ -34,15 +34,22 @@ use bevy::{
 use crate::{
     board::{
         Board, BoardRes,
-        tile::{EffectsOnTile, Position, Tile},
+        effect::EffectType,
+        movement::reachable_tiles,
+        tile::{EffectsOnTile, Occupant, Position, Tile},
     },
-    card::{Cost, InHand, OnBoard, card_id::CardID},
+    card::{
+        Cost, CreatureCard, CurrentAttack, CurrentDefense, CurrentMovementPoints, InHand, OnBoard,
+        card_id::CardID,
+        creature::{BaseMovementPoints, MovementPattern},
+    },
+    components::Health,
     player::{Hand, TurnPlayer},
     renderer::layout::{
         LayoutConfig, ScreenLayout, compute_screen_layout_on_resize,
         compute_screen_layout_startup,
     },
-    turn_controller::{CardClicked, EndTurnPressed},
+    turn_controller::{CardClicked, EndTurnPressed, Origin},
 };
 
 pub mod layout;
@@ -97,6 +104,18 @@ pub fn setup_creature_on_board_renderer(
 ) {
     for creature in creatures {
         commands.entity(creature).observe(render_creature_on_board);
+    }
+}
+
+pub fn setup_selection_visuals(
+    mut commands: Commands,
+    creatures: Query<Entity, With<CreatureCard>>,
+) {
+    for creature in &creatures {
+        commands
+            .entity(creature)
+            .observe(on_figure_selected)
+            .observe(on_figure_deselected);
     }
 }
 
@@ -208,6 +227,15 @@ pub fn render_creature_on_board(
 /// Marker for cards that already have their hand visual spawned.
 #[derive(Component)]
 struct HandCardVisual;
+
+/// Marker for the movement-highlight overlay spawned on reachable tiles
+/// while a creature is selected.
+#[derive(Component)]
+struct MovementHighlight;
+
+/// Marker for the stats text spawned next to the currently selected creature.
+#[derive(Component)]
+struct SelectedCreatureStats;
 
 /// Marker for the text labels spawned as part of a hand card's visual.
 #[derive(Component)]
@@ -449,5 +477,115 @@ fn on_card_removed_from_hand(
                 commands.entity(child).despawn();
             }
         }
+    }
+}
+
+fn on_figure_selected(
+    event: On<Insert, Origin>,
+    creatures: Query<
+        (
+            &OnBoard,
+            &Name,
+            &MovementPattern,
+            &CurrentMovementPoints,
+            &CurrentAttack,
+            &CurrentDefense,
+            &Health,
+            &BaseMovementPoints,
+        ),
+        With<CreatureCard>,
+    >,
+    tiles: Query<&Position>,
+    occupied: Query<(&Position, &Occupant)>,
+    effects: Query<(&EffectType, &ChildOf)>,
+    board: Res<BoardRes>,
+    layout: Res<ScreenLayout>,
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
+) {
+    // Guard: only creatures (not e.g. player bases) get selection visuals.
+    let Ok((
+        on_board,
+        name,
+        pattern,
+        movement_points,
+        attack,
+        defense,
+        health,
+        base_movement,
+    )) = creatures.get(event.entity)
+    else {
+        return;
+    };
+
+    let Ok(&Position(current_pos)) = tiles.get(on_board.position) else {
+        warn!("Could not resolve position for selected creature");
+        return;
+    };
+
+    let occupied_positions: Vec<U16Vec2> = occupied.iter().map(|(pos, _)| pos.0).collect();
+
+    let tile_has_slow = effects
+        .iter()
+        .any(|(effect, co)| co.0 == on_board.position && *effect == EffectType::Slow);
+
+    let reachable = reachable_tiles(
+        &board,
+        current_pos,
+        movement_points.0,
+        pattern,
+        &occupied_positions,
+        tile_has_slow,
+    );
+
+    // Overlay a highlight on every reachable tile.
+    for pos in reachable {
+        let Some(tile_entity) = board.get_tile(&pos) else {
+            continue;
+        };
+        commands.spawn((
+            Sprite {
+                color: Color::srgba(0.3, 0.8, 0.4, 0.45),
+                custom_size: Some(layout.tile_size * Vec2::ONE),
+                ..Default::default()
+            },
+            Transform::from_xyz(layout.tile_size / 2.0, -layout.tile_size / 2.0, 1.0),
+            ChildOf(tile_entity),
+            MovementHighlight,
+        ));
+    }
+
+    // Display the creature's stats above its tile.
+    commands.spawn((
+        Text2d::new(format!(
+            "{}\nAtk {}\nDef {}/{}\nMov {}/{}",
+            name,
+            attack.0,
+            defense.0,
+            health.value(),
+            movement_points.0,
+            base_movement.0,
+        )),
+        TextFont {
+            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font_size: 14.0,
+            ..Default::default()
+        },
+        TextColor(Color::WHITE),
+        Anchor::BOTTOM_CENTER,
+        Transform::from_xyz(layout.tile_size / 2.0, 8.0, 3.0),
+        ChildOf(on_board.position),
+        SelectedCreatureStats,
+    ));
+}
+
+fn on_figure_deselected(
+    _event: On<Remove, Origin>,
+    highlights: Query<Entity, With<MovementHighlight>>,
+    stats: Query<Entity, With<SelectedCreatureStats>>,
+    mut commands: Commands,
+) {
+    for entity in highlights.iter().chain(stats.iter()) {
+        commands.entity(entity).despawn();
     }
 }

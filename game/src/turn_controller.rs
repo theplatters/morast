@@ -202,7 +202,7 @@ fn handle_cancel_input(
 // ============================================================================
 
 #[derive(Component)]
-struct Origin;
+pub struct Origin;
 
 pub fn board_click_system(
     mut board_clicks: MessageReader<BoardClicked>,

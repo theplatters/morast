@@ -22,7 +22,9 @@ use crate::{
     def::loader::{CardPlugin, LoadState},
     events::GameMessagesPlugin,
     player::{add_player, draw_starting_cards},
-    renderer::{RendererPlugin, setup_creature_on_board_renderer},
+    renderer::{
+        RendererPlugin, setup_creature_on_board_renderer, setup_selection_visuals,
+    },
     stats::StatsPlugin,
     turn_controller::TurnControllerPlugin,
 };
@@ -61,7 +63,8 @@ fn main() {
         .add_systems(Startup, add_player)
         .add_systems(
             OnEnter(LoadState::Ready),
-            (add_cards, draw_starting_cards, setup_creature_on_board_renderer).chain(),
+            (add_cards, draw_starting_cards, setup_creature_on_board_renderer, setup_selection_visuals)
+                .chain(),
         )
         .run();
 }
