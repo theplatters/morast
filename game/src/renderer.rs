@@ -36,7 +36,7 @@ use crate::{
     card::{Cost, InHand, OnBoard, card_id::CardID},
     player::{Hand, TurnPlayer},
     renderer::render_config::RenderConfig,
-    turn_controller::CardClicked,
+    turn_controller::{CardClicked, EndTurnPressed},
 };
 
 pub mod render_config;
@@ -52,6 +52,7 @@ impl Plugin for RendererPlugin {
                     setup_camera,
                     render_board.after(BoardRes::setup_board),
                     render_tiles.after(BoardRes::setup_board),
+                    spawn_end_turn_button,
                 ),
             )
             .add_systems(Update, (render_card_in_hand, render_effects_on_tile));
@@ -231,6 +232,51 @@ pub fn render_card_in_hand(
 }
 
 // ============================================================================
+// End Turn Button
+// ============================================================================
+
+fn spawn_end_turn_button(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    window: Single<&Window>,
+) {
+    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+
+    commands
+        .spawn((
+            Sprite {
+                color: Color::srgb(0.15, 0.35, 0.15),
+                custom_size: Some(Vec2::new(160.0, 56.0)),
+                ..Default::default()
+            },
+            Transform::from_xyz(
+                window.width() / 2.0 - 20.0,
+                -window.height() / 2.0 + 20.0,
+                3.0,
+            ),
+            Pickable::default(),
+            Anchor::BOTTOM_RIGHT,
+            Name::new("EndTurnButton"),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                Text2d::new("End Turn"),
+                TextFont {
+                    font,
+                    font_size: 24.0,
+                    ..Default::default()
+                },
+                TextColor(Color::WHITE),
+                // The parent sprite is anchored BOTTOM_RIGHT, so its transform
+                // is the sprite's bottom-right corner. Center the text on the
+                // 160x56 sprite: (-160/2, +56/2).
+                Transform::from_xyz(-80.0, 28.0, 0.1),
+            ));
+        })
+        .observe(on_end_turn_clicked);
+}
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 
@@ -303,6 +349,14 @@ fn on_card_clicked(
         info!("Card at position {} clicked", pos);
         event_writer.write(CardClicked(pos));
     }
+}
+
+fn on_end_turn_clicked(
+    _click: On<Pointer<Release>>,
+    mut writer: MessageWriter<EndTurnPressed>,
+) {
+    info!("End turn button clicked");
+    writer.write(EndTurnPressed);
 }
 
 fn on_card_removed_from_hand(

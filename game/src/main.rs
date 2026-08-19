@@ -11,6 +11,7 @@ mod events;
 mod phases;
 mod player;
 mod renderer;
+mod stats;
 mod turn_controller;
 
 use crate::{
@@ -21,6 +22,7 @@ use crate::{
     events::GameMessagesPlugin,
     player::{add_player, draw_starting_cards},
     renderer::{RendererPlugin, setup_creature_on_board_renderer},
+    stats::StatsPlugin,
     turn_controller::TurnControllerPlugin,
 };
 
@@ -44,6 +46,7 @@ fn main() {
             BoardPlugin,
             TurnControllerPlugin,
             RendererPlugin,
+            StatsPlugin,
             ActionPlugin,
             TargetPlugin,
         ))

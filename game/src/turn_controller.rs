@@ -135,6 +135,7 @@ impl Plugin for TurnControllerPlugin {
                 Update,
                 (
                     handle_end_turn_input,
+                    handle_end_turn_pressed,
                     handle_cancel_input,
                     // Routers MUST run before state handlers
                     (card_click_system, board_click_system),
@@ -161,6 +162,16 @@ fn handle_end_turn_input(
 ) {
     if keyboard.just_pressed(KeyCode::Enter) {
         info!("Enter pressed - ending turn");
+        next_state.set(TurnState::EndTurn);
+    }
+}
+
+fn handle_end_turn_pressed(
+    mut pressed: MessageReader<EndTurnPressed>,
+    mut next_state: ResMut<NextState<TurnState>>,
+) {
+    for _ in pressed.read() {
+        info!("End turn pressed - ending turn");
         next_state.set(TurnState::EndTurn);
     }
 }
