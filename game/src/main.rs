@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::window::{Window, WindowPlugin, WindowResolution};
 use rand::SeedableRng;
 
 mod actions;
@@ -37,7 +38,14 @@ impl Default for GameRng {
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                resolution: WindowResolution::new(1600, 900),
+                title: "Morast".to_string(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }))
         .init_resource::<CardRegistry>()
         .init_resource::<GameRng>()
         .add_plugins((

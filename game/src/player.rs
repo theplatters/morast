@@ -35,43 +35,30 @@ impl Default for PlayerResources {
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TurnPlayer;
 
-#[derive(Component, Debug, Clone, PartialEq, Eq)]
+#[derive(Component, Debug, Clone, PartialEq, Eq, Default)]
 #[relationship_target(relationship = InDeck)]
 pub struct Deck(Vec<Entity>);
 
-impl Deck {
-    fn empty() -> Deck {
-        Self(Vec::new())
-    }
-}
-
-#[derive(Component, Debug, Clone, PartialEq, Eq)]
+#[derive(Component, Debug, Clone, PartialEq, Eq, Default)]
 #[relationship_target(relationship = InHand)]
 pub struct Hand(Vec<Entity>);
 
 impl Hand {
-    fn empty() -> Hand {
-        Self(Vec::new())
-    }
-
     pub(crate) fn get_card(&self, card_index: usize) -> Option<Entity> {
         self.0.get(card_index).cloned()
     }
 }
 
-#[derive(Component, Debug, Clone, PartialEq, Eq)]
+#[derive(Component, Debug, Clone, PartialEq, Eq, Default)]
 #[relationship_target(relationship = InGraveyard)]
 pub struct Graveyard(Vec<Entity>);
-
-impl Graveyard {
-    fn empty() -> Graveyard {
-        Self(Vec::new())
-    }
-}
 
 #[derive(Bundle, Default)]
 pub struct PlayerBundle {
     resources: PlayerResources,
+    deck: Deck,
+    hand: Hand,
+    graveyard: Graveyard,
 }
 
 pub fn add_player(mut commands: Commands) {

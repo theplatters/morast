@@ -4,6 +4,7 @@ use bevy::{
     camera::Camera2d,
     color::{Color, Srgba},
     ecs::{
+        component::Component,
         entity::{ContainsEntity, Entity},
         error::Result,
         hierarchy::{ChildOf, Children},
@@ -11,9 +12,12 @@ use bevy::{
         message::MessageWriter,
         name::Name,
         observer::On,
-        query::{Added, Changed, With},
+        query::{Added, Changed, With, Without},
         relationship::{RelatedSpawnerCommands, RelationshipTarget},
-        schedule::IntoScheduleConfigs,
+        schedule::{
+            common_conditions::resource_changed,
+            IntoScheduleConfigs,
+        },
         system::{Commands, Query, Res, Single},
     },
     log::{info, warn},
@@ -25,7 +29,6 @@ use bevy::{
     sprite::{Anchor, Sprite, Text2d},
     text::{TextColor, TextFont},
     transform::components::{GlobalTransform, Transform},
-    window::Window,
 };
 
 use crate::{
@@ -35,27 +38,48 @@ use crate::{
     },
     card::{Cost, InHand, OnBoard, card_id::CardID},
     player::{Hand, TurnPlayer},
-    renderer::render_config::RenderConfig,
+    renderer::layout::{
+        LayoutConfig, ScreenLayout, compute_screen_layout_on_resize,
+        compute_screen_layout_startup,
+    },
     turn_controller::{CardClicked, EndTurnPressed},
 };
 
-pub mod render_config;
+pub mod layout;
 
 pub struct RendererPlugin;
 
 impl Plugin for RendererPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-        app.init_resource::<RenderConfig>()
+        app.init_resource::<LayoutConfig>()
+            .init_resource::<ScreenLayout>()
             .add_systems(
                 Startup,
                 (
                     setup_camera,
-                    render_board.after(BoardRes::setup_board),
-                    render_tiles.after(BoardRes::setup_board),
-                    spawn_end_turn_button,
+                    compute_screen_layout_startup,
+                    render_board
+                        .after(compute_screen_layout_startup)
+                        .after(BoardRes::setup_board),
+                    render_tiles
+                        .after(compute_screen_layout_startup)
+                        .after(BoardRes::setup_board),
+                    spawn_end_turn_button.after(compute_screen_layout_startup),
                 ),
             )
-            .add_systems(Update, (render_card_in_hand, render_effects_on_tile));
+            .add_systems(
+                Update,
+                (
+                    compute_screen_layout_on_resize,
+                    apply_board_layout.run_if(resource_changed::<ScreenLayout>),
+                    apply_tiles_layout.run_if(resource_changed::<ScreenLayout>),
+                    apply_end_turn_layout.run_if(resource_changed::<ScreenLayout>),
+                    apply_creature_layout.run_if(resource_changed::<ScreenLayout>),
+                    spawn_hand_card_visuals,
+                    position_hand_cards,
+                    render_effects_on_tile,
+                ),
+            );
     }
 }
 
@@ -83,21 +107,18 @@ pub fn setup_creature_on_board_renderer(
 pub fn render_board(
     board: Single<Entity, With<Board>>,
     mut commands: Commands,
-    render_config: Res<RenderConfig>,
-    window: Single<&Window>,
+    layout: Res<ScreenLayout>,
 ) {
     let board_color = Color::Srgba(Srgba::rgba_u8(10, 20, 30, 255));
+    let board_top_left = layout.board_top_left_world();
 
     commands.entity(board.entity()).insert((
         Sprite {
             color: board_color,
-            custom_size: Some(Vec2::new(
-                render_config.board_width,
-                render_config.board_height,
-            )),
+            custom_size: Some(layout.board_size),
             ..Default::default()
         },
-        Transform::from_xyz(-window.width() / 2.0, render_config.board_height / 2.0, 0.0),
+        Transform::from_xyz(board_top_left.x, board_top_left.y, 0.0),
         Anchor::TOP_LEFT,
     ));
 }
@@ -109,21 +130,17 @@ pub fn render_board(
 pub fn render_tiles(
     mut commands: Commands,
     tiles: Query<(&Position, Entity), Added<Tile>>,
-    render_config: Res<RenderConfig>,
+    layout: Res<ScreenLayout>,
     asset_server: Res<AssetServer>,
 ) {
     for (&Position(U16Vec2 { x, y }), entity) in tiles.iter() {
-        let tile_pos = render_config
-            .to_absolute_position(U16Vec2::new(x, y))
-            .with_z(1.0);
-
         commands.entity(entity).insert((
             Sprite {
                 image: asset_server.load("tile.png"),
-                custom_size: Some(render_config.tile_size * Vec2::ONE),
+                custom_size: Some(layout.tile_size * Vec2::ONE),
                 ..Default::default()
             },
-            Transform::from_translation(tile_pos),
+            Transform::from_translation(layout.tile_local_position(U16Vec2::new(x, y))),
             Anchor::TOP_LEFT,
             Pickable::default(),
         ));
@@ -133,7 +150,7 @@ pub fn render_tiles(
 pub fn render_effects_on_tile(
     tiles_with_effect: Query<&EffectsOnTile, With<Tile>>,
     mut commands: Commands,
-    render_config: Res<RenderConfig>,
+    layout: Res<ScreenLayout>,
     asset_server: Res<AssetServer>,
 ) {
     for tile_effects in tiles_with_effect {
@@ -141,7 +158,7 @@ pub fn render_effects_on_tile(
             commands.entity(effect).insert((
                 Sprite {
                     image: asset_server.load("effect.png"),
-                    custom_size: Some(render_config.tile_size * Vec2::ONE),
+                    custom_size: Some(layout.tile_size * Vec2::ONE),
                     ..Default::default()
                 },
                 Transform::from_xyz(0.0, 0.0, 1.0),
@@ -160,7 +177,7 @@ pub fn render_creature_on_board(
     tiles: Query<(Entity, &Position, &GlobalTransform), With<Tile>>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    render_config: Res<RenderConfig>,
+    layout: Res<ScreenLayout>,
 ) -> Result {
     let on_board = creatures.get(event.entity)?;
     let (tile_entity, &Position(pos), _global_transform) = tiles.get(on_board.position)?;
@@ -170,12 +187,12 @@ pub fn render_creature_on_board(
     commands.entity(event.entity).insert((
         Sprite {
             image: asset_server.load("knight.png"),
-            custom_size: Some(render_config.tile_size * Vec2::ONE),
+            custom_size: Some(layout.tile_size * Vec2::ONE),
             ..Default::default()
         },
         Transform::from_xyz(
-            render_config.tile_size / 2.0,
-            -render_config.tile_size / 2.0,
+            layout.tile_size / 2.0,
+            -layout.tile_size / 2.0,
             2.0,
         ),
         ChildOf(tile_entity),
@@ -188,16 +205,24 @@ pub fn render_creature_on_board(
 // Card Rendering
 // ============================================================================
 
-pub fn render_card_in_hand(
+/// Marker for cards that already have their hand visual spawned.
+#[derive(Component)]
+struct HandCardVisual;
+
+/// Marker for the text labels spawned as part of a hand card's visual.
+#[derive(Component)]
+struct HandCardLabel;
+
+fn spawn_hand_card_visuals(
     hand: Single<&Hand, (With<TurnPlayer>, Changed<Hand>)>,
-    cards: Query<(&Name, &Cost), With<InHand>>,
+    cards: Query<(&Name, &Cost), (With<InHand>, Without<HandCardVisual>)>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    render_config: Res<RenderConfig>,
+    layout: Res<ScreenLayout>,
 ) {
-    for (pos, card_entity) in hand.iter().enumerate() {
-        // Skip if already rendered
+    let count = hand.iter().len();
 
+    for (pos, card_entity) in hand.iter().enumerate() {
         // Get the card's name and cost
         let Ok((name, cost)) = cards.get(card_entity) else {
             warn!("Card {} not found in query", card_entity);
@@ -206,25 +231,21 @@ pub fn render_card_in_hand(
 
         info!("Rendering card '{}' in hand at position {}", name, pos);
 
-        let card_transform = calculate_card_position(pos, &render_config);
-
         commands
             .entity(card_entity)
             .insert((
                 Sprite {
                     image: asset_server.load("card_frame.png"),
-                    custom_size: Some(Vec2::new(
-                        render_config.card_width,
-                        render_config.card_height,
-                    )),
+                    custom_size: Some(layout.card_size),
                     ..Default::default()
                 },
-                card_transform,
+                Transform::from_translation(layout.hand_card_position(pos, count).extend(2.0)),
                 Pickable::default(),
                 Anchor::TOP_CENTER,
+                HandCardVisual,
             ))
             .with_children(|parent| {
-                spawn_card_ui(parent, name, cost.value, &render_config, &asset_server);
+                spawn_card_ui(parent, name, cost.value, &layout, &asset_server);
             })
             .observe(on_card_clicked)
             .observe(on_card_removed_from_hand);
@@ -235,28 +256,28 @@ pub fn render_card_in_hand(
 // End Turn Button
 // ============================================================================
 
+#[derive(Component)]
+struct EndTurnButton;
+
 fn spawn_end_turn_button(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    window: Single<&Window>,
+    layout: Res<ScreenLayout>,
 ) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let button_center = layout.end_turn_center_world();
 
     commands
         .spawn((
             Sprite {
                 color: Color::srgb(0.15, 0.35, 0.15),
-                custom_size: Some(Vec2::new(160.0, 56.0)),
+                custom_size: Some(layout.end_turn_size),
                 ..Default::default()
             },
-            Transform::from_xyz(
-                window.width() / 2.0 - 20.0,
-                -window.height() / 2.0 + 20.0,
-                3.0,
-            ),
+            Transform::from_xyz(button_center.x, button_center.y, 3.0),
             Pickable::default(),
-            Anchor::BOTTOM_RIGHT,
             Name::new("EndTurnButton"),
+            EndTurnButton,
         ))
         .with_children(|parent| {
             parent.spawn((
@@ -267,39 +288,82 @@ fn spawn_end_turn_button(
                     ..Default::default()
                 },
                 TextColor(Color::WHITE),
-                // The parent sprite is anchored BOTTOM_RIGHT, so its transform
-                // is the sprite's bottom-right corner. Center the text on the
-                // 160x56 sprite: (-160/2, +56/2).
-                Transform::from_xyz(-80.0, 28.0, 0.1),
+                // The sprite uses the default CENTER anchor, so the text centers
+                // on the button.
+                Transform::from_xyz(0.0, 0.0, 0.1),
             ));
         })
         .observe(on_end_turn_clicked);
 }
 
 // ============================================================================
-// Helper Functions
+// Layout Apply Systems (run when the ScreenLayout resource changes)
 // ============================================================================
 
-fn calculate_card_position(position: usize, render_config: &RenderConfig) -> Transform {
-    let offset = render_config.board_height / 2.0 + render_config.hand_from_board_margin;
-    let card_width = render_config.card_width;
-
-    Transform::from_xyz(
-        position as f32 * (card_width + render_config.card_padding)
-            - render_config.board_width / 2.0,
-        -offset,
-        2.0,
-    )
+fn apply_board_layout(
+    board: Single<(&mut Sprite, &mut Transform), With<Board>>,
+    layout: Res<ScreenLayout>,
+) {
+    let (mut sprite, mut transform) = board.into_inner();
+    let board_top_left = layout.board_top_left_world();
+    sprite.custom_size = Some(layout.board_size);
+    transform.translation = board_top_left.extend(0.0);
 }
+
+fn apply_tiles_layout(
+    mut tiles: Query<(&mut Sprite, &mut Transform, &Position), With<Tile>>,
+    layout: Res<ScreenLayout>,
+) {
+    for (mut sprite, mut transform, &Position(pos)) in &mut tiles {
+        sprite.custom_size = Some(layout.tile_size * Vec2::ONE);
+        transform.translation = layout.tile_local_position(pos);
+    }
+}
+
+fn apply_end_turn_layout(
+    mut button: Single<&mut Transform, With<EndTurnButton>>,
+    layout: Res<ScreenLayout>,
+) {
+    button.translation = layout.end_turn_center_world().extend(3.0);
+}
+
+fn apply_creature_layout(
+    mut creatures: Query<(&mut Sprite, &mut Transform), With<OnBoard>>,
+    layout: Res<ScreenLayout>,
+) {
+    let offset = Vec2::new(layout.tile_size / 2.0, -layout.tile_size / 2.0);
+    for (mut sprite, mut transform) in &mut creatures {
+        sprite.custom_size = Some(layout.tile_size * Vec2::ONE);
+        transform.translation = offset.extend(2.0);
+    }
+}
+
+fn position_hand_cards(
+    hand: Single<&Hand, With<TurnPlayer>>,
+    layout: Res<ScreenLayout>,
+    mut transforms: Query<&mut Transform>,
+) {
+    let count = hand.iter().len();
+
+    for (i, card) in hand.iter().enumerate() {
+        if let Ok(mut tf) = transforms.get_mut(card) {
+            tf.translation = layout.hand_card_position(i, count).extend(2.0);
+        }
+    }
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
 
 fn spawn_card_ui(
     parent: &mut RelatedSpawnerCommands<'_, bevy::prelude::ChildOf>,
     name: &str,
     cost: u16,
-    render_config: &RenderConfig,
+    layout: &ScreenLayout,
     asset_server: &AssetServer,
 ) {
-    let card_height = render_config.card_height;
+    let card_height = layout.card_size.y;
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
 
     // Card name
@@ -313,6 +377,7 @@ fn spawn_card_ui(
         TextColor(Color::BLACK),
         Anchor::TOP_CENTER,
         Transform::from_xyz(0.0, -card_height * 0.4, 0.1),
+        HandCardLabel,
     ));
 
     // Cost badge
@@ -326,6 +391,7 @@ fn spawn_card_ui(
         TextColor(Color::srgb(1.0, 0.8, 0.0)), // Gold color
         Anchor::TOP_CENTER,
         Transform::from_xyz(0.0, -card_height * 0.15, 0.1),
+        HandCardLabel,
     ));
 }
 
@@ -363,6 +429,7 @@ fn on_card_removed_from_hand(
     trigger: On<Remove, InHand>,
     mut commands: Commands,
     children_query: Query<&Children>,
+    labels: Query<(), With<HandCardLabel>>,
 ) {
     let entity = trigger.entity;
     info!(
@@ -372,12 +439,13 @@ fn on_card_removed_from_hand(
 
     if let Ok(mut entity_commands) = commands.get_entity(entity) {
         // Remove the rendering components
-        info!("Removing rendering components for card in hand");
-        entity_commands.remove::<(Sprite, Transform, Anchor, Pickable)>();
+        entity_commands.remove::<(Sprite, Transform, Anchor, Pickable, HandCardVisual)>();
+    }
 
-        // Despawn all children (text entities)
-        if let Ok(children) = children_query.get(entity) {
-            for child in children.iter() {
+    // Despawn only the visual labels (name/cost); keep ability children alive.
+    if let Ok(children) = children_query.get(entity) {
+        for child in children.iter() {
+            if labels.get(child).is_ok() {
                 commands.entity(child).despawn();
             }
         }
